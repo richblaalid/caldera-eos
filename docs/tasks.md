@@ -84,23 +84,23 @@ Executable task list for building Ember MVP. Each task includes acceptance crite
 
 ### Day 3: V/TO Management
 
-- [ ] **2.1.1** Finalize V/TO JSONB data structure
+- [x] **2.1.1** Finalize V/TO JSONB data structure
   - Define complete V/TO schema with all sections
   - Create TypeScript types
   - **Acceptance:** VTO type matches EOS standard
 
-- [ ] **2.1.2** Build V/TO API routes (CRUD)
+- [x] **2.1.2** Build V/TO API routes (CRUD)
   - GET /api/eos/vto - retrieve current V/TO
   - PUT /api/eos/vto - update V/TO
   - Version history tracking
   - **Acceptance:** API endpoints working with validation
 
-- [ ] **2.1.3** Create V/TO display page
+- [x] **2.1.3** Create V/TO display page
   - Read-only view of all V/TO sections
   - Organized by EOS component
   - **Acceptance:** Full V/TO visible on dashboard
 
-- [ ] **2.1.4** Implement V/TO edit mode
+- [x] **2.1.4** Implement V/TO edit mode
   - Inline editing for each section
   - Auto-save with debounce
   - Optimistic updates
@@ -110,27 +110,27 @@ Executable task list for building Ember MVP. Each task includes acceptance crite
 
 ### Day 4: Rocks Tracking
 
-- [ ] **2.2.1** Build Rocks API routes (CRUD, status updates)
+- [x] **2.2.1** Build Rocks API routes (CRUD, status updates)
   - Full CRUD for Rocks
   - Status transition validation
   - **Acceptance:** Rocks API complete
 
-- [ ] **2.2.2** Create Rocks list view
+- [x] **2.2.2** Create Rocks list view
   - Current quarter Rocks with status badges
   - Filter by owner, status
   - **Acceptance:** Rocks list renders with filtering
 
-- [ ] **2.2.3** Build Rock detail view
+- [x] **2.2.3** Build Rock detail view
   - Milestones, notes, history
   - Progress updates
   - **Acceptance:** Rock details fully visible
 
-- [ ] **2.2.4** Implement status workflow
+- [x] **2.2.4** Implement status workflow
   - On-track, Off-track, Complete states
   - Visual status indicators
   - **Acceptance:** Status changes work with UI feedback
 
-- [ ] **2.2.5** Add owner assignment
+- [x] **2.2.5** Add owner assignment
   - Link Rocks to partners
   - Owner dropdown in forms
   - **Acceptance:** Rocks assigned to owners
@@ -428,6 +428,15 @@ Executable task list for building Ember MVP. Each task includes acceptance crite
 | 2026-01-31 | 1.2.2 | Configure Supabase client for frontend and API | Complete |
 | 2026-01-31 | 1.2.3 | Build dashboard layout with navigation and sidebar | Complete |
 | 2026-01-31 | 1.2.4 | Create Button, Card, Input, Modal component primitives | Complete |
+| 2026-01-31 | 2.1.1 | Finalize V/TO JSONB data structure | Complete |
+| 2026-01-31 | 2.1.2 | Build V/TO API routes (CRUD) | Complete |
+| 2026-01-31 | 2.1.3 | Create V/TO display page | Complete |
+| 2026-01-31 | 2.1.4 | Implement V/TO edit mode | Complete |
+| 2026-01-31 | 2.2.1 | Build Rocks API routes (CRUD, status updates) | Complete |
+| 2026-01-31 | 2.2.2 | Create Rocks list view | Complete |
+| 2026-01-31 | 2.2.3 | Build Rock detail view | Complete |
+| 2026-01-31 | 2.2.4 | Implement status workflow | Complete |
+| 2026-01-31 | 2.2.5 | Add owner assignment | Complete |
 
 ---
 
