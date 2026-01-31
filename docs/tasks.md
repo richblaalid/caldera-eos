@@ -95,7 +95,7 @@ Executable task list for building Ember MVP. Each task includes acceptance crite
   - Version history tracking
   - **Acceptance:** API endpoints working with validation
 
-- [ ] **2.1.3** Create V/TO display page
+- [x] **2.1.3** Create V/TO display page
   - Read-only view of all V/TO sections
   - Organized by EOS component
   - **Acceptance:** Full V/TO visible on dashboard
