@@ -150,7 +150,7 @@ Executable task list for building Ember MVP. Each task includes acceptance crite
   - Weekly entry submission
   - **Acceptance:** Metrics API complete
 
-- [ ] **3.1.2** Create Scorecard weekly grid view
+- [x] **3.1.2** Create Scorecard weekly grid view
   - Weeks as columns, metrics as rows
   - Show targets and actuals
   - **Acceptance:** Scorecard grid renders
