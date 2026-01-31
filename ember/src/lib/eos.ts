@@ -16,6 +16,7 @@ import type {
   ScorecardEntry,
   ScorecardEntryInsert,
   Meeting,
+  MeetingInsert,
   Insight,
   InsightInsert,
   Profile,
@@ -466,6 +467,49 @@ export async function getUpcomingMeeting() {
 
   if (error && error.code !== 'PGRST116') throw error
   return data as Meeting | null
+}
+
+export async function getMeeting(id: string) {
+  const supabase = await createClient()
+  const { data, error } = await supabase
+    .from('meetings')
+    .select('*')
+    .eq('id', id)
+    .single()
+
+  if (error) throw error
+  return data as Meeting
+}
+
+export async function createMeeting(meeting: MeetingInsert) {
+  const supabase = await createClient()
+  const { data, error } = await supabase
+    .from('meetings')
+    .insert(meeting)
+    .select()
+    .single()
+
+  if (error) throw error
+  return data as Meeting
+}
+
+export async function updateMeeting(id: string, updates: Partial<MeetingInsert>) {
+  const supabase = await createClient()
+  const { data, error } = await supabase
+    .from('meetings')
+    .update(updates)
+    .eq('id', id)
+    .select()
+    .single()
+
+  if (error) throw error
+  return data as Meeting
+}
+
+export async function deleteMeeting(id: string) {
+  const supabase = await createClient()
+  const { error } = await supabase.from('meetings').delete().eq('id', id)
+  if (error) throw error
 }
 
 // =============================================
