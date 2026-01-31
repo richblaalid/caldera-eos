@@ -155,7 +155,7 @@ Executable task list for building Ember MVP. Each task includes acceptance crite
   - Show targets and actuals
   - **Acceptance:** Scorecard grid renders
 
-- [ ] **3.1.3** Implement data entry interface
+- [x] **3.1.3** Implement data entry interface
   - Quick entry for weekly values
   - Batch entry mode
   - **Acceptance:** Data entry works smoothly
