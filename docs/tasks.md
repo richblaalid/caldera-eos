@@ -160,7 +160,7 @@ Executable task list for building Ember MVP. Each task includes acceptance crite
   - Batch entry mode
   - **Acceptance:** Data entry works smoothly
 
-- [ ] **3.1.4** Add target indicators
+- [x] **3.1.4** Add target indicators
   - Green/yellow/red visual status
   - Trend arrows
   - **Acceptance:** Visual status clear

@@ -70,14 +70,44 @@ function getCellStatus(
   }
 }
 
+// Trend arrow component
+function TrendArrow({
+  current,
+  previous,
+  direction
+}: {
+  current: number | null | undefined
+  previous: number | null | undefined
+  direction: string
+}) {
+  if (current === null || current === undefined || previous === null || previous === undefined) {
+    return null
+  }
+
+  const diff = current - previous
+  if (Math.abs(diff) < 0.001) return null // No significant change
+
+  // Determine if the trend is good or bad based on goal direction
+  const isUp = diff > 0
+  const isGoodTrend = (direction === 'above' && isUp) || (direction === 'below' && !isUp)
+
+  return (
+    <span className={`ml-1 text-xs ${isGoodTrend ? 'text-success' : 'text-danger'}`}>
+      {isUp ? '↑' : '↓'}
+    </span>
+  )
+}
+
 // Cell component
 function MetricCell({
   value,
+  prevValue,
   target,
   direction,
   unit
 }: {
   value: number | null | undefined
+  prevValue: number | null | undefined
   target: number | null
   direction: string
   unit: string | null
@@ -97,7 +127,10 @@ function MetricCell({
 
   return (
     <td className={`px-3 py-2 text-center text-sm font-medium ${statusColors[status]}`}>
-      {displayValue}
+      <span className="inline-flex items-center">
+        {displayValue}
+        <TrendArrow current={value} previous={prevValue} direction={direction} />
+      </span>
     </td>
   )
 }
@@ -255,12 +288,16 @@ export default async function ScorecardPage({ searchParams }: PageProps) {
                   <td className="px-3 py-3 text-center text-sm text-muted-foreground">
                     {metric.owner?.name?.split(' ')[0] || '-'}
                   </td>
-                  {weeks.map((week) => {
+                  {weeks.map((week, index) => {
                     const entry = entryMap.get(`${metric.id}-${week}`)
+                    // Get previous week's value for trend arrow
+                    const prevWeek = weeks[index + 1]
+                    const prevEntry = prevWeek ? entryMap.get(`${metric.id}-${prevWeek}`) : undefined
                     return (
                       <MetricCell
                         key={week}
                         value={entry?.value}
+                        prevValue={prevEntry?.value}
                         target={metric.target}
                         direction={metric.goal_direction}
                         unit={metric.unit}
