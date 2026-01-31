@@ -199,7 +199,7 @@ Executable task list for building Ember MVP. Each task includes acceptance crite
 
 ### Day 7: To-dos
 
-- [ ] **4.1.1** Build To-dos API (CRUD, completion)
+- [x] **4.1.1** Build To-dos API (CRUD, completion)
   - Full CRUD for To-dos
   - Completion toggle
   - **Acceptance:** To-dos API complete
