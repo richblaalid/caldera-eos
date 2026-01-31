@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { Card, CardContent, Badge } from '@/components/ui'
@@ -163,6 +163,11 @@ export function TodoListClient({ todos: initialTodos }: TodoListClientProps) {
   const router = useRouter()
   const [todos, setTodos] = useState(initialTodos)
   const [error, setError] = useState<string | null>(null)
+
+  // Sync local state when props change (e.g., after router.refresh())
+  useEffect(() => {
+    setTodos(initialTodos)
+  }, [initialTodos])
 
   const handleToggle = async (id: string) => {
     setError(null)
