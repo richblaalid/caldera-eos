@@ -50,25 +50,25 @@ Executable task list for building Ember MVP. Each task includes acceptance crite
 
 ### Day 2: Database & Basic Layout
 
-- [ ] **1.2.1** Run migrations for core database tables
+- [x] **1.2.1** Run migrations for core database tables
   - Create all tables from ADR-005 schema
   - Enable pgvector extension
   - Set up Row Level Security policies
   - **Acceptance:** All tables exist with RLS enabled
 
-- [ ] **1.2.2** Configure Supabase client for frontend and API
+- [x] **1.2.2** Configure Supabase client for frontend and API
   - Create typed Supabase client with database types
   - Generate TypeScript types from schema
   - Set up client for Server Components and API routes
   - **Acceptance:** Type-safe database queries work
 
-- [ ] **1.2.3** Build dashboard layout with navigation and sidebar
+- [x] **1.2.3** Build dashboard layout with navigation and sidebar
   - Create app shell with header, sidebar, main content
   - Add navigation links for all EOS sections
   - Mobile-responsive layout
   - **Acceptance:** Dashboard shell renders with navigation
 
-- [ ] **1.2.4** Create Button, Card, Input, Modal component primitives
+- [x] **1.2.4** Create Button, Card, Input, Modal component primitives
   - Build reusable UI components
   - Apply Ember design tokens
   - Add loading and disabled states
@@ -424,6 +424,10 @@ Executable task list for building Ember MVP. Each task includes acceptance crite
 | 2026-01-31 | 1.1.4 | Basic profile storage and display | Complete |
 | 2026-01-31 | 1.1.5 | Configure Tailwind styling and design tokens | Complete |
 | 2026-01-31 | 1.1.6 | Initial Vercel deployment | Complete |
+| 2026-01-31 | 1.2.1 | Run migrations for core database tables | Complete |
+| 2026-01-31 | 1.2.2 | Configure Supabase client for frontend and API | Complete |
+| 2026-01-31 | 1.2.3 | Build dashboard layout with navigation and sidebar | Complete |
+| 2026-01-31 | 1.2.4 | Create Button, Card, Input, Modal component primitives | Complete |
 
 ---
 
