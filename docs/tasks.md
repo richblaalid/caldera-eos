@@ -169,7 +169,7 @@ Executable task list for building Ember MVP. Each task includes acceptance crite
 
 ### Day 6: Issues Management
 
-- [ ] **3.2.1** Build Issues API (CRUD, prioritization)
+- [x] **3.2.1** Build Issues API (CRUD, prioritization)
   - Full CRUD for Issues
   - Priority ordering
   - **Acceptance:** Issues API complete
