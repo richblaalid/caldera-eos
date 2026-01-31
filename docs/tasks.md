@@ -89,7 +89,7 @@ Executable task list for building Ember MVP. Each task includes acceptance crite
   - Create TypeScript types
   - **Acceptance:** VTO type matches EOS standard
 
-- [ ] **2.1.2** Build V/TO API routes (CRUD)
+- [x] **2.1.2** Build V/TO API routes (CRUD)
   - GET /api/eos/vto - retrieve current V/TO
   - PUT /api/eos/vto - update V/TO
   - Version history tracking
