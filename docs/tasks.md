@@ -204,22 +204,22 @@ Executable task list for building Ember MVP. Each task includes acceptance crite
   - Completion toggle
   - **Acceptance:** To-dos API complete
 
-- [ ] **4.1.2** Create To-dos list view
+- [x] **4.1.2** Create To-dos list view
   - By owner, by due date views
   - Completion status
   - **Acceptance:** To-dos list renders
 
-- [ ] **4.1.3** Implement quick add interface
+- [x] **4.1.3** Implement quick add interface
   - Fast to-do creation
   - Inline add
   - **Acceptance:** Quick add works
 
-- [ ] **4.1.4** Add completion tracking
+- [x] **4.1.4** Add completion tracking
   - Check off items
   - Rollover detection for overdue
   - **Acceptance:** Completion tracking works
 
-- [ ] **4.1.5** Link to-dos to meetings
+- [x] **4.1.5** Link to-dos to meetings
   - Associate to-dos with L10 outcomes
   - Meeting context visible
   - **Acceptance:** Meeting links work
@@ -228,22 +228,22 @@ Executable task list for building Ember MVP. Each task includes acceptance crite
 
 ### Day 8: L10 Meeting Prep
 
-- [ ] **4.2.1** Create meeting data model
+- [x] **4.2.1** Create meeting data model
   - Store meeting metadata
   - Link to prep content
   - **Acceptance:** Meeting table created
 
-- [ ] **4.2.2** Build AI prep generation
+- [x] **4.2.2** Build AI prep generation
   - AI generates prep based on current EOS data
   - Personalized per partner
   - **Acceptance:** Prep generation works
 
-- [ ] **4.2.3** Create prep display page
+- [x] **4.2.3** Create prep display page
   - Meeting prep page with all sections
   - Per-partner view
   - **Acceptance:** Prep page renders
 
-- [ ] **4.2.4** Set up scheduled job
+- [x] **4.2.4** Set up scheduled job
   - Generate prep 2 days before L10
   - Vercel Cron job
   - **Acceptance:** Scheduled generation works
@@ -445,6 +445,15 @@ Executable task list for building Ember MVP. Each task includes acceptance crite
 | 2026-01-31 | 3.2.2 | Create Issues list view | Complete |
 | 2026-01-31 | 3.2.3 | Implement IDS workflow | Complete |
 | 2026-01-31 | 3.2.4 | Build Issue detail view | Complete |
+| 2026-01-31 | 4.1.1 | Build To-dos API (CRUD, completion) | Complete |
+| 2026-01-31 | 4.1.2 | Create To-dos list view | Complete |
+| 2026-01-31 | 4.1.3 | Implement quick add interface | Complete |
+| 2026-01-31 | 4.1.4 | Add completion tracking | Complete |
+| 2026-01-31 | 4.1.5 | Link to-dos to meetings | Complete |
+| 2026-01-31 | 4.2.1 | Create meeting data model | Complete |
+| 2026-01-31 | 4.2.2 | Build AI prep generation | Complete |
+| 2026-01-31 | 4.2.3 | Create prep display page | Complete |
+| 2026-01-31 | 4.2.4 | Set up scheduled job | Complete |
 
 ---
 
