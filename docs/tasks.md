@@ -174,7 +174,7 @@ Executable task list for building Ember MVP. Each task includes acceptance crite
   - Priority ordering
   - **Acceptance:** Issues API complete
 
-- [ ] **3.2.2** Create Issues list view
+- [x] **3.2.2** Create Issues list view
   - Sortable, filterable list
   - Priority indicators
   - **Acceptance:** Issues list with sorting
