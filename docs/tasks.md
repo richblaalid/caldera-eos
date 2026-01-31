@@ -145,22 +145,22 @@ Executable task list for building Ember MVP. Each task includes acceptance crite
 
 ### Day 5: Scorecard
 
-- [ ] **3.1.1** Build Metrics API (CRUD for metrics and entries)
+- [x] **3.1.1** Build Metrics API (CRUD for metrics and entries)
   - Create/edit metrics with targets
   - Weekly entry submission
   - **Acceptance:** Metrics API complete
 
-- [ ] **3.1.2** Create Scorecard weekly grid view
+- [x] **3.1.2** Create Scorecard weekly grid view
   - Weeks as columns, metrics as rows
   - Show targets and actuals
   - **Acceptance:** Scorecard grid renders
 
-- [ ] **3.1.3** Implement data entry interface
+- [x] **3.1.3** Implement data entry interface
   - Quick entry for weekly values
   - Batch entry mode
   - **Acceptance:** Data entry works smoothly
 
-- [ ] **3.1.4** Add target indicators
+- [x] **3.1.4** Add target indicators
   - Green/yellow/red visual status
   - Trend arrows
   - **Acceptance:** Visual status clear
@@ -169,22 +169,22 @@ Executable task list for building Ember MVP. Each task includes acceptance crite
 
 ### Day 6: Issues Management
 
-- [ ] **3.2.1** Build Issues API (CRUD, prioritization)
+- [x] **3.2.1** Build Issues API (CRUD, prioritization)
   - Full CRUD for Issues
   - Priority ordering
   - **Acceptance:** Issues API complete
 
-- [ ] **3.2.2** Create Issues list view
+- [x] **3.2.2** Create Issues list view
   - Sortable, filterable list
   - Priority indicators
   - **Acceptance:** Issues list with sorting
 
-- [ ] **3.2.3** Implement IDS workflow
+- [x] **3.2.3** Implement IDS workflow
   - Identify, Discuss, Solve states
   - State transition UI
   - **Acceptance:** IDS workflow functional
 
-- [ ] **3.2.4** Build Issue detail view
+- [x] **3.2.4** Build Issue detail view
   - Full view with discussion notes
   - Resolution tracking
   - **Acceptance:** Issue details complete
@@ -437,6 +437,14 @@ Executable task list for building Ember MVP. Each task includes acceptance crite
 | 2026-01-31 | 2.2.3 | Build Rock detail view | Complete |
 | 2026-01-31 | 2.2.4 | Implement status workflow | Complete |
 | 2026-01-31 | 2.2.5 | Add owner assignment | Complete |
+| 2026-01-31 | 3.1.1 | Build Metrics API (CRUD for metrics and entries) | Complete |
+| 2026-01-31 | 3.1.2 | Create Scorecard weekly grid view | Complete |
+| 2026-01-31 | 3.1.3 | Implement data entry interface | Complete |
+| 2026-01-31 | 3.1.4 | Add target indicators | Complete |
+| 2026-01-31 | 3.2.1 | Build Issues API (CRUD, prioritization) | Complete |
+| 2026-01-31 | 3.2.2 | Create Issues list view | Complete |
+| 2026-01-31 | 3.2.3 | Implement IDS workflow | Complete |
+| 2026-01-31 | 3.2.4 | Build Issue detail view | Complete |
 
 ---
 
