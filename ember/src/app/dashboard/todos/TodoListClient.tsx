@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { Card, CardContent, Badge } from '@/components/ui'
@@ -66,8 +66,17 @@ function DueDateBadge({ dueDate, completed }: { dueDate: string | null; complete
 }
 
 // Todo item component
-function TodoItem({ todo, onToggle }: { todo: TodoWithOwner; onToggle: (id: string) => void }) {
+function TodoItem({
+  todo,
+  onToggle,
+  onDelete
+}: {
+  todo: TodoWithOwner
+  onToggle: (id: string) => void
+  onDelete: (id: string) => void
+}) {
   const [isToggling, setIsToggling] = useState(false)
+  const [isDeleting, setIsDeleting] = useState(false)
 
   const handleToggle = async (e: React.MouseEvent) => {
     e.preventDefault()
@@ -77,15 +86,23 @@ function TodoItem({ todo, onToggle }: { todo: TodoWithOwner; onToggle: (id: stri
     setIsToggling(false)
   }
 
+  const handleDelete = async (e: React.MouseEvent) => {
+    e.preventDefault()
+    e.stopPropagation()
+    if (!confirm('Delete this to-do?')) return
+    setIsDeleting(true)
+    await onDelete(todo.id)
+  }
+
   return (
     <Link href={`/dashboard/todos/${todo.id}`}>
-      <Card className={`hover:shadow-md transition-shadow cursor-pointer ${todo.completed ? 'opacity-60' : ''}`}>
+      <Card className={`hover:shadow-md transition-shadow cursor-pointer ${todo.completed ? 'opacity-60' : ''} ${isDeleting ? 'opacity-50' : ''}`}>
         <CardContent className="py-4">
           <div className="flex items-start gap-4">
             {/* Checkbox */}
             <button
               onClick={handleToggle}
-              disabled={isToggling}
+              disabled={isToggling || isDeleting}
               className={`
                 mt-0.5 w-5 h-5 rounded border-2 flex-shrink-0
                 flex items-center justify-center
@@ -142,12 +159,27 @@ function TodoItem({ todo, onToggle }: { todo: TodoWithOwner; onToggle: (id: stri
               </div>
             </div>
 
-            {/* Completed indicator */}
-            {todo.completed && todo.completed_at && (
-              <div className="text-xs text-muted-foreground">
-                Completed {new Date(todo.completed_at).toLocaleDateString()}
-              </div>
-            )}
+            {/* Right side actions */}
+            <div className="flex items-center gap-2">
+              {/* Completed indicator */}
+              {todo.completed && todo.completed_at && (
+                <div className="text-xs text-muted-foreground">
+                  Completed {new Date(todo.completed_at).toLocaleDateString()}
+                </div>
+              )}
+
+              {/* Delete button */}
+              <button
+                onClick={handleDelete}
+                disabled={isDeleting}
+                className="p-1.5 rounded-lg text-muted-foreground hover:text-danger hover:bg-danger/10 transition-colors"
+                title="Delete to-do"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                </svg>
+              </button>
+            </div>
           </div>
         </CardContent>
       </Card>
@@ -163,6 +195,11 @@ export function TodoListClient({ todos: initialTodos }: TodoListClientProps) {
   const router = useRouter()
   const [todos, setTodos] = useState(initialTodos)
   const [error, setError] = useState<string | null>(null)
+
+  // Sync local state when props change (e.g., after router.refresh())
+  useEffect(() => {
+    setTodos(initialTodos)
+  }, [initialTodos])
 
   const handleToggle = async (id: string) => {
     setError(null)
@@ -204,6 +241,30 @@ export function TodoListClient({ todos: initialTodos }: TodoListClientProps) {
     }
   }
 
+  const handleDelete = async (id: string) => {
+    setError(null)
+
+    // Optimistic update - remove from list
+    setTodos(prev => prev.filter(t => t.id !== id))
+
+    try {
+      const res = await fetch(`/api/eos/todos/${id}`, {
+        method: 'DELETE',
+      })
+
+      if (!res.ok) {
+        throw new Error('Failed to delete todo')
+      }
+
+      // Refresh the page data
+      router.refresh()
+    } catch (err) {
+      // Revert by refreshing (simpler than storing the deleted item)
+      router.refresh()
+      setError(err instanceof Error ? err.message : 'Failed to delete todo')
+    }
+  }
+
   return (
     <div className="space-y-4">
       {error && (
@@ -212,7 +273,7 @@ export function TodoListClient({ todos: initialTodos }: TodoListClientProps) {
         </div>
       )}
       {todos.map((todo) => (
-        <TodoItem key={todo.id} todo={todo} onToggle={handleToggle} />
+        <TodoItem key={todo.id} todo={todo} onToggle={handleToggle} onDelete={handleDelete} />
       ))}
     </div>
   )

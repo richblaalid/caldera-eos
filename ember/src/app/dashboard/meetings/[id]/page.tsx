@@ -291,15 +291,13 @@ export default function MeetingDetailPage({ params }: PageProps) {
         <div className="flex items-center gap-2">
           {!isEditing ? (
             <>
-              {!isPast && !meeting.prep_generated_at && (
-                <Button
-                  variant="outline"
-                  onClick={handleGeneratePrep}
-                  isLoading={isGeneratingPrep}
-                >
-                  Generate Prep
-                </Button>
-              )}
+              <Button
+                variant="outline"
+                onClick={handleGeneratePrep}
+                isLoading={isGeneratingPrep}
+              >
+                {meeting.prep_generated_at ? 'Regenerate Prep' : 'Generate Prep'}
+              </Button>
               <Button variant="outline" onClick={() => setIsEditing(true)}>
                 Edit
               </Button>

@@ -117,9 +117,25 @@ Only output valid JSON, no other text.`
     throw new Error('No text response from Claude')
   }
 
-  // Parse JSON response
+  // Parse JSON response - strip markdown code blocks if present
+  let jsonText = textContent.text.trim()
+
+  // Remove markdown code blocks (```json ... ``` or ``` ... ```)
+  if (jsonText.startsWith('```')) {
+    // Find the end of the first line (which might be ```json or just ```)
+    const firstNewline = jsonText.indexOf('\n')
+    if (firstNewline !== -1) {
+      jsonText = jsonText.slice(firstNewline + 1)
+    }
+    // Remove trailing ```
+    if (jsonText.endsWith('```')) {
+      jsonText = jsonText.slice(0, -3)
+    }
+    jsonText = jsonText.trim()
+  }
+
   try {
-    const parsed = JSON.parse(textContent.text)
+    const parsed = JSON.parse(jsonText)
     return {
       ...parsed,
       generated_at: new Date().toISOString(),
