@@ -100,7 +100,7 @@ Executable task list for building Ember MVP. Each task includes acceptance crite
   - Organized by EOS component
   - **Acceptance:** Full V/TO visible on dashboard
 
-- [ ] **2.1.4** Implement V/TO edit mode
+- [x] **2.1.4** Implement V/TO edit mode
   - Inline editing for each section
   - Auto-save with debounce
   - Optimistic updates
@@ -428,6 +428,10 @@ Executable task list for building Ember MVP. Each task includes acceptance crite
 | 2026-01-31 | 1.2.2 | Configure Supabase client for frontend and API | Complete |
 | 2026-01-31 | 1.2.3 | Build dashboard layout with navigation and sidebar | Complete |
 | 2026-01-31 | 1.2.4 | Create Button, Card, Input, Modal component primitives | Complete |
+| 2026-01-31 | 2.1.1 | Finalize V/TO JSONB data structure | Complete |
+| 2026-01-31 | 2.1.2 | Build V/TO API routes (CRUD) | Complete |
+| 2026-01-31 | 2.1.3 | Create V/TO display page | Complete |
+| 2026-01-31 | 2.1.4 | Implement V/TO edit mode | Complete |
 
 ---
 

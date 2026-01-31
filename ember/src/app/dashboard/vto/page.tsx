@@ -1,3 +1,4 @@
+import Link from 'next/link'
 import { getOrCreateVTO } from '@/lib/eos'
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui'
 import type { VTO, CoreValue, AccountabilityRole } from '@/types/database'
@@ -325,8 +326,16 @@ export default async function VTOPage() {
             Your company&apos;s strategic vision and execution plan
           </p>
         </div>
-        <div className="text-sm text-muted-foreground">
-          Version {vto.version}
+        <div className="flex items-center gap-4">
+          <span className="text-sm text-muted-foreground">
+            Version {vto.version}
+          </span>
+          <Link
+            href="/dashboard/vto/edit"
+            className="inline-flex items-center justify-center h-10 px-4 text-sm font-medium rounded-lg bg-ember-600 text-white hover:bg-ember-700 transition-colors"
+          >
+            Edit V/TO
+          </Link>
         </div>
       </div>
 
