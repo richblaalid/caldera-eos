@@ -17,52 +17,105 @@ export interface Profile {
 // =============================================
 
 export interface CoreValue {
+  id: string
   name: string
-  description?: string
+  definition: string
+  hire_fire: boolean // "We hire/fire for this"
+  order: number
 }
 
 export interface CoreFocus {
-  purpose?: string
-  niche?: string
+  purpose: string // Purpose / Cause / Passion
+  niche: string   // What we do better than anyone
 }
 
 export interface TenYearTarget {
-  target?: string
-  date?: string
+  goal: string           // The Big Goal (BHAG)
+  target_date: string    // Target year (e.g., "2035")
+  revenue?: string       // e.g., "$20M"
+  team_size?: number     // e.g., 50
+  structure?: string     // e.g., "employee-owned"
+  reputation?: string    // e.g., "premier AI product team"
+  revenue_per_person?: string // e.g., "$400K"
+  description?: string   // What this looks like narrative
+}
+
+export interface TargetMarket {
+  geographic?: string
+  demographic?: string
+  psychographic?: string
+  industry?: string
+  company_size?: string
+  decision_maker?: string
 }
 
 export interface MarketingStrategy {
-  target_market?: string
-  three_uniques?: string[]
+  target_market: TargetMarket
+  three_uniques: string[]
   proven_process?: string
   guarantee?: string
 }
 
 export interface ThreeYearPicture {
-  revenue?: string
+  target_date: string      // e.g., "February 2028"
+  revenue?: string         // e.g., "$8M"
   profit?: string
-  measurables?: string[]
-  what_does_it_look_like?: string
+  team_size?: number       // e.g., 25
+  measurables: string[]
+  what_does_it_look_like: string[] // Bullet points
+}
+
+export interface OneYearGoal {
+  id: string
+  description: string
+  completed: boolean
+  order: number
 }
 
 export interface OneYearPlan {
-  revenue?: string
-  profit?: string
-  measurables?: string[]
-  goals?: string[]
+  target_date: string      // e.g., "December 2025"
+  revenue?: string         // e.g., "$4M"
+  profit?: string          // e.g., "Return to profitability"
+  team_size?: number       // e.g., 18
+  measurables: string[]
+  goals: OneYearGoal[]
+}
+
+export type AccountabilitySeat = 'visionary' | 'integrator' | 'sales' | 'operations' | 'finance' | 'other'
+
+export interface AccountabilityRole {
+  seat: AccountabilitySeat
+  title: string
+  owner_id?: string        // Reference to profile
+  owner_name?: string      // Display name
+  lma: string[]            // Lead, Manage, Accountability items
+}
+
+export interface VTOIssue {
+  id: string
+  description: string
+  created_at: string
+  resolved: boolean
 }
 
 export interface VTO {
   id: string
   version: number
+  // Vision
   core_values: CoreValue[]
   core_focus: CoreFocus
   ten_year_target: TenYearTarget
   marketing_strategy: MarketingStrategy
+  // Traction
   three_year_picture: ThreeYearPicture
   one_year_plan: OneYearPlan
+  // Quarterly Rocks - references to rocks table by ID
   quarterly_rocks: string[]
-  issues_list: string[]
+  // Long-term V/TO Issues (separate from weekly issues)
+  issues_list: VTOIssue[]
+  // Accountability Chart
+  accountability_chart: AccountabilityRole[]
+  // Metadata
   created_at: string
   updated_at: string
 }
@@ -313,13 +366,14 @@ export interface VTOInsert {
   id?: string
   version?: number
   core_values?: CoreValue[]
-  core_focus?: CoreFocus
-  ten_year_target?: TenYearTarget
-  marketing_strategy?: MarketingStrategy
-  three_year_picture?: ThreeYearPicture
-  one_year_plan?: OneYearPlan
+  core_focus?: Partial<CoreFocus>
+  ten_year_target?: Partial<TenYearTarget>
+  marketing_strategy?: Partial<MarketingStrategy>
+  three_year_picture?: Partial<ThreeYearPicture>
+  one_year_plan?: Partial<OneYearPlan>
   quarterly_rocks?: string[]
-  issues_list?: string[]
+  issues_list?: VTOIssue[]
+  accountability_chart?: AccountabilityRole[]
 }
 
 export interface RockInsert {

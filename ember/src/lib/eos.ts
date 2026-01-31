@@ -61,6 +61,45 @@ export async function upsertVTO(vto: VTOInsert) {
   }
 }
 
+// Create a default empty V/TO structure
+export function createEmptyVTO(): VTOInsert {
+  return {
+    core_values: [],
+    core_focus: {
+      purpose: '',
+      niche: '',
+    },
+    ten_year_target: {
+      goal: '',
+      target_date: '',
+    },
+    marketing_strategy: {
+      target_market: {},
+      three_uniques: [],
+    },
+    three_year_picture: {
+      target_date: '',
+      measurables: [],
+      what_does_it_look_like: [],
+    },
+    one_year_plan: {
+      target_date: '',
+      measurables: [],
+      goals: [],
+    },
+    quarterly_rocks: [],
+    issues_list: [],
+    accountability_chart: [],
+  }
+}
+
+// Get or create the V/TO (returns existing or creates empty)
+export async function getOrCreateVTO(): Promise<VTO> {
+  const existing = await getVTO()
+  if (existing) return existing
+  return await upsertVTO(createEmptyVTO())
+}
+
 // =============================================
 // Rocks Operations
 // =============================================
