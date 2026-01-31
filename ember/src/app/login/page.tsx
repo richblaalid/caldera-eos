@@ -15,12 +15,12 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-orange-50 to-amber-100">
+    <div className="min-h-screen flex items-center justify-center ember-gradient-light">
       <div className="max-w-md w-full mx-4">
         <div className="bg-white rounded-2xl shadow-xl p-8">
           {/* Logo/Brand */}
           <div className="text-center mb-8">
-            <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-gradient-to-br from-orange-500 to-amber-600 mb-4">
+            <div className="inline-flex items-center justify-center w-16 h-16 rounded-full ember-gradient mb-4">
               <span className="text-2xl text-white font-bold">E</span>
             </div>
             <h1 className="text-2xl font-bold text-gray-900">Welcome to Ember</h1>

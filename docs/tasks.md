@@ -34,7 +34,7 @@ Executable task list for building Ember MVP. Each task includes acceptance crite
   - Display user info in header after login
   - **Acceptance:** Logged-in user sees their name/email
 
-- [ ] **1.1.5** Configure Tailwind styling and design tokens
+- [x] **1.1.5** Configure Tailwind styling and design tokens
   - Set up color palette (Caldera/Ember theme)
   - Configure typography scale
   - Add custom utility classes
@@ -422,6 +422,7 @@ Executable task list for building Ember MVP. Each task includes acceptance crite
 | 2026-01-31 | 1.1.2 | Configure Supabase project and auth | Complete |
 | 2026-01-31 | 1.1.3 | Implement Google OAuth flow and protected routes | Complete |
 | 2026-01-31 | 1.1.4 | Basic profile storage and display | Complete |
+| 2026-01-31 | 1.1.5 | Configure Tailwind styling and design tokens | Complete |
 
 ---
 

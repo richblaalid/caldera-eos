@@ -26,12 +26,12 @@ export default async function DashboardPage() {
   const avatarUrl = profile?.avatar_url || user.user_metadata?.avatar_url
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      <header className="bg-white border-b border-gray-200">
+    <div className="min-h-screen bg-muted">
+      <header className="bg-white border-b border-border">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-16">
             <div className="flex items-center gap-3">
-              <div className="w-8 h-8 rounded-full bg-gradient-to-br from-orange-500 to-amber-600 flex items-center justify-center">
+              <div className="w-8 h-8 rounded-full ember-gradient flex items-center justify-center">
                 <span className="text-sm text-white font-bold">E</span>
               </div>
               <span className="font-semibold text-gray-900">Ember</span>
