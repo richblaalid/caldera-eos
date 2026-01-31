@@ -1,5 +1,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
+import Image from 'next/image'
+import type { Profile } from '@/types/database'
 
 export default async function DashboardPage() {
   const supabase = await createClient()
@@ -11,6 +13,17 @@ export default async function DashboardPage() {
   if (!user) {
     redirect('/login')
   }
+
+  // Fetch user profile
+  const { data: profile } = await supabase
+    .from('profiles')
+    .select('*')
+    .eq('id', user.id)
+    .single<Profile>()
+
+  // Display name priority: profile name > user metadata > email prefix
+  const displayName = profile?.name || user.user_metadata?.full_name || user.email?.split('@')[0]
+  const avatarUrl = profile?.avatar_url || user.user_metadata?.avatar_url
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -24,9 +37,26 @@ export default async function DashboardPage() {
               <span className="font-semibold text-gray-900">Ember</span>
             </div>
             <div className="flex items-center gap-4">
-              <span className="text-sm text-gray-600">
-                {user.email}
-              </span>
+              <div className="flex items-center gap-3">
+                {avatarUrl ? (
+                  <Image
+                    src={avatarUrl}
+                    alt={displayName || 'User avatar'}
+                    width={32}
+                    height={32}
+                    className="rounded-full"
+                  />
+                ) : (
+                  <div className="w-8 h-8 rounded-full bg-gray-300 flex items-center justify-center">
+                    <span className="text-sm text-gray-600 font-medium">
+                      {displayName?.[0]?.toUpperCase() || '?'}
+                    </span>
+                  </div>
+                )}
+                <span className="text-sm text-gray-600">
+                  {displayName}
+                </span>
+              </div>
               <form action="/auth/signout" method="post">
                 <button
                   type="submit"
@@ -42,7 +72,7 @@ export default async function DashboardPage() {
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <h1 className="text-2xl font-bold text-gray-900 mb-6">
-          Welcome back, {user.user_metadata?.full_name || user.email?.split('@')[0]}
+          Welcome back, {displayName}
         </h1>
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">

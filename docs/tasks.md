@@ -29,7 +29,7 @@ Executable task list for building Ember MVP. Each task includes acceptance crite
   - Add middleware for route protection
   - **Acceptance:** Users can log in with Google, protected routes redirect to login
 
-- [ ] **1.1.4** Basic profile storage and display
+- [x] **1.1.4** Basic profile storage and display
   - Create profiles table trigger for new users
   - Display user info in header after login
   - **Acceptance:** Logged-in user sees their name/email
@@ -421,6 +421,7 @@ Executable task list for building Ember MVP. Each task includes acceptance crite
 | 2026-01-31 | 1.1.1 | Create Next.js project with TypeScript | Complete |
 | 2026-01-31 | 1.1.2 | Configure Supabase project and auth | Complete |
 | 2026-01-31 | 1.1.3 | Implement Google OAuth flow and protected routes | Complete |
+| 2026-01-31 | 1.1.4 | Basic profile storage and display | Complete |
 
 ---
 
