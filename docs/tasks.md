@@ -40,7 +40,7 @@ Executable task list for building Ember MVP. Each task includes acceptance crite
   - Add custom utility classes
   - **Acceptance:** Design tokens documented in tailwind.config.ts
 
-- [ ] **1.1.6** Initial Vercel deployment
+- [x] **1.1.6** Initial Vercel deployment
   - Connect repository to Vercel
   - Configure environment variables
   - Deploy to production
@@ -423,6 +423,7 @@ Executable task list for building Ember MVP. Each task includes acceptance crite
 | 2026-01-31 | 1.1.3 | Implement Google OAuth flow and protected routes | Complete |
 | 2026-01-31 | 1.1.4 | Basic profile storage and display | Complete |
 | 2026-01-31 | 1.1.5 | Configure Tailwind styling and design tokens | Complete |
+| 2026-01-31 | 1.1.6 | Initial Vercel deployment | Complete |
 
 ---
 
