@@ -145,7 +145,7 @@ Executable task list for building Ember MVP. Each task includes acceptance crite
 
 ### Day 5: Scorecard
 
-- [ ] **3.1.1** Build Metrics API (CRUD for metrics and entries)
+- [x] **3.1.1** Build Metrics API (CRUD for metrics and entries)
   - Create/edit metrics with targets
   - Weekly entry submission
   - **Acceptance:** Metrics API complete

@@ -12,6 +12,7 @@ import type {
   VTO,
   VTOInsert,
   ScorecardMetric,
+  ScorecardMetricInsert,
   ScorecardEntry,
   ScorecardEntryInsert,
   Meeting,
@@ -357,6 +358,80 @@ export async function upsertMetricEntry(entry: ScorecardEntryInsert) {
 
   if (error) throw error
   return data as ScorecardEntry
+}
+
+export async function getMetric(id: string) {
+  const supabase = await createClient()
+  const { data, error } = await supabase
+    .from('scorecard_metrics')
+    .select('*, owner:profiles(*)')
+    .eq('id', id)
+    .single()
+
+  if (error) throw error
+  return data as ScorecardMetric & { owner: Profile | null }
+}
+
+export async function createMetric(metric: ScorecardMetricInsert) {
+  const supabase = await createClient()
+
+  // Get current max display_order
+  const { data: existing } = await supabase
+    .from('scorecard_metrics')
+    .select('display_order')
+    .order('display_order', { ascending: false })
+    .limit(1)
+
+  const maxOrder = existing?.[0]?.display_order ?? 0
+
+  const { data, error } = await supabase
+    .from('scorecard_metrics')
+    .insert({
+      ...metric,
+      display_order: metric.display_order ?? maxOrder + 1,
+    })
+    .select()
+    .single()
+
+  if (error) throw error
+  return data as ScorecardMetric
+}
+
+export async function updateMetric(id: string, updates: Partial<ScorecardMetricInsert>) {
+  const supabase = await createClient()
+  const { data, error } = await supabase
+    .from('scorecard_metrics')
+    .update(updates)
+    .eq('id', id)
+    .select()
+    .single()
+
+  if (error) throw error
+  return data as ScorecardMetric
+}
+
+export async function deleteMetric(id: string) {
+  const supabase = await createClient()
+  // Soft delete by setting is_active to false
+  const { error } = await supabase
+    .from('scorecard_metrics')
+    .update({ is_active: false })
+    .eq('id', id)
+
+  if (error) throw error
+}
+
+export async function getAllMetricEntries(weekStart: string, weekEnd: string) {
+  const supabase = await createClient()
+  const { data, error } = await supabase
+    .from('scorecard_entries')
+    .select('*')
+    .gte('week_of', weekStart)
+    .lte('week_of', weekEnd)
+    .order('week_of', { ascending: false })
+
+  if (error) throw error
+  return data as ScorecardEntry[]
 }
 
 // =============================================
