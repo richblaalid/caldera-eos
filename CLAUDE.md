@@ -21,12 +21,19 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## Commands
 
 ```bash
-npm run dev        # Start development server
+npm run dev        # Start development server (port 5000)
 npm run build      # Build for production
 npm run test       # Run test suite
 npm run typecheck  # TypeScript validation
 npm run lint       # Code linting
 ```
+
+## Port Configuration
+
+**IMPORTANT:** This project uses ports in the 5000s range only.
+- Development server: `http://localhost:5000`
+- Always use port 5000-5999 for local development
+- Update Supabase redirect URLs to use `http://localhost:5000`
 
 ## Project Structure
 

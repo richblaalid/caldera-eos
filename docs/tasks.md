@@ -16,13 +16,13 @@ Executable task list for building Ember MVP. Each task includes acceptance crite
   - Configure project structure per ADR-005
   - **Acceptance:** `npm run dev` starts successfully
 
-- [ ] **1.1.2** Configure Supabase project and auth
+- [x] **1.1.2** Configure Supabase project and auth
   - Create Supabase project (or use existing)
   - Enable Google OAuth provider
   - Configure redirect URLs
   - **Acceptance:** Supabase dashboard shows project configured
 
-- [ ] **1.1.3** Implement Google OAuth flow and protected routes
+- [x] **1.1.3** Implement Google OAuth flow and protected routes
   - Install @supabase/ssr package
   - Create Supabase server/client utilities
   - Build login page with Google OAuth button
@@ -419,6 +419,8 @@ Executable task list for building Ember MVP. Each task includes acceptance crite
 | Date | Task ID | Description | Status |
 |------|---------|-------------|--------|
 | 2026-01-31 | 1.1.1 | Create Next.js project with TypeScript | Complete |
+| 2026-01-31 | 1.1.2 | Configure Supabase project and auth | Complete |
+| 2026-01-31 | 1.1.3 | Implement Google OAuth flow and protected routes | Complete |
 
 ---
 
