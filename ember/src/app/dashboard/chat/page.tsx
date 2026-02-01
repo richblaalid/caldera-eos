@@ -190,7 +190,7 @@ export default function ChatPage() {
         <CardContent className="flex-1 overflow-y-auto p-4 space-y-4">
           {messages.length === 0 ? (
             <div className="h-full flex flex-col items-center justify-center text-center">
-              <div className="w-16 h-16 rounded-full bg-ember-100 flex items-center justify-center mb-4">
+              <div className="w-16 h-16 rounded-full bg-ember-500/10 flex items-center justify-center mb-4">
                 <svg
                   className="w-8 h-8 text-ember-600"
                   fill="none"
@@ -454,7 +454,7 @@ export default function ChatPage() {
               onKeyDown={handleKeyDown}
               placeholder="Ask Ember about your EOS data..."
               rows={1}
-              className="flex-1 min-h-[42px] max-h-[300px] resize-none rounded-lg border border-border bg-white px-4 py-2.5 text-sm leading-relaxed focus:outline-none focus:ring-2 focus:ring-ember-500 disabled:opacity-50"
+              className="flex-1 min-h-[42px] max-h-[300px] resize-none rounded-lg border border-border bg-background px-4 py-2.5 text-sm leading-relaxed focus:outline-none focus:ring-2 focus:ring-ember-500 disabled:opacity-50"
               disabled={isLoading}
             />
             <Button

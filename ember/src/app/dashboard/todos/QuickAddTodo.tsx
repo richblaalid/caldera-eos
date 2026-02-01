@@ -119,7 +119,7 @@ export function QuickAddTodo({ profiles }: QuickAddTodoProps) {
               onChange={(e) => setTitle(e.target.value)}
               placeholder="What needs to be done?"
               autoFocus
-              className="w-full h-10 px-3 text-sm rounded-lg border border-border bg-white focus:outline-none focus:ring-2 focus:ring-ember-500"
+              className="w-full h-10 px-3 text-sm rounded-lg border border-border bg-background focus:outline-none focus:ring-2 focus:ring-ember-500"
             />
 
             {/* Options row */}
@@ -127,7 +127,7 @@ export function QuickAddTodo({ profiles }: QuickAddTodoProps) {
               <select
                 value={ownerId || ''}
                 onChange={(e) => setOwnerId(e.target.value || null)}
-                className="h-9 px-2 text-sm rounded-lg border border-border bg-white"
+                className="h-9 px-2 text-sm rounded-lg border border-border bg-background"
               >
                 <option value="">Unassigned</option>
                 {profiles.map(profile => (
@@ -141,7 +141,7 @@ export function QuickAddTodo({ profiles }: QuickAddTodoProps) {
                 type="date"
                 value={dueDate}
                 onChange={(e) => setDueDate(e.target.value)}
-                className="h-9 px-2 text-sm rounded-lg border border-border bg-white"
+                className="h-9 px-2 text-sm rounded-lg border border-border bg-background"
               />
 
               <div className="flex-1" />

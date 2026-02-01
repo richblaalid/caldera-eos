@@ -143,7 +143,7 @@ export default function NewMeetingPage() {
                 <select
                   value={meetingType}
                   onChange={(e) => setMeetingType(e.target.value as MeetingType)}
-                  className="w-full h-10 px-3 text-sm rounded-lg border border-border bg-white"
+                  className="w-full h-10 px-3 text-sm rounded-lg border border-border bg-background"
                 >
                   <option value="l10">L10 (Weekly)</option>
                   <option value="quarterly">Quarterly</option>
@@ -159,7 +159,7 @@ export default function NewMeetingPage() {
                 <select
                   value={durationMinutes}
                   onChange={(e) => setDurationMinutes(e.target.value)}
-                  className="w-full h-10 px-3 text-sm rounded-lg border border-border bg-white"
+                  className="w-full h-10 px-3 text-sm rounded-lg border border-border bg-background"
                 >
                   <option value="60">60 min</option>
                   <option value="90">90 min (L10 standard)</option>
@@ -179,7 +179,7 @@ export default function NewMeetingPage() {
                 type="datetime-local"
                 value={meetingDate}
                 onChange={(e) => setMeetingDate(e.target.value)}
-                className="w-full h-10 px-3 text-sm rounded-lg border border-border bg-white"
+                className="w-full h-10 px-3 text-sm rounded-lg border border-border bg-background"
                 required
               />
             </div>

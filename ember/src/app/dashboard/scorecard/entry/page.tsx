@@ -332,7 +332,7 @@ export default function ScorecardEntryPage() {
                             value={entry.value}
                             onChange={(e) => handleValueChange(metric.id, e.target.value)}
                             placeholder="Enter value"
-                            className="w-full h-10 px-3 text-sm rounded-lg border border-border bg-white focus:outline-none focus:ring-2 focus:ring-ember-500"
+                            className="w-full h-10 px-3 text-sm rounded-lg border border-border bg-background focus:outline-none focus:ring-2 focus:ring-ember-500"
                           />
                         </div>
                         <div>
@@ -344,7 +344,7 @@ export default function ScorecardEntryPage() {
                             value={entry.notes}
                             onChange={(e) => handleNotesChange(metric.id, e.target.value)}
                             placeholder="Add notes"
-                            className="w-full h-10 px-3 text-sm rounded-lg border border-border bg-white focus:outline-none focus:ring-2 focus:ring-ember-500"
+                            className="w-full h-10 px-3 text-sm rounded-lg border border-border bg-background focus:outline-none focus:ring-2 focus:ring-ember-500"
                           />
                         </div>
                       </div>

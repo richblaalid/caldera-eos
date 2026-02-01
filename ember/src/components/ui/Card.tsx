@@ -11,8 +11,8 @@ export function Card({
   ...props
 }: CardProps) {
   const variantStyles = {
-    default: 'bg-white border border-border shadow-sm',
-    outline: 'bg-white border border-border',
+    default: 'bg-background border border-border shadow-sm',
+    outline: 'bg-background border border-border',
     ghost: 'bg-transparent',
   }
 

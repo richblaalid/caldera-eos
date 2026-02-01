@@ -229,7 +229,7 @@ export function TranscriptUpload({ meetings }: TranscriptUploadProps) {
                 <select
                   value={meetingId}
                   onChange={(e) => setMeetingId(e.target.value)}
-                  className="w-full h-10 px-3 text-sm rounded-lg border border-border bg-white"
+                  className="w-full h-10 px-3 text-sm rounded-lg border border-border bg-background"
                 >
                   <option value="">None</option>
                   {meetings.map((meeting) => (
@@ -249,7 +249,7 @@ export function TranscriptUpload({ meetings }: TranscriptUploadProps) {
                   type="datetime-local"
                   value={meetingDate}
                   onChange={(e) => setMeetingDate(e.target.value)}
-                  className="w-full h-10 px-3 text-sm rounded-lg border border-border bg-white"
+                  className="w-full h-10 px-3 text-sm rounded-lg border border-border bg-background"
                 />
               </div>
             </div>

@@ -255,7 +255,7 @@ export default function TodoDetailPage({ params }: PageProps) {
               <select
                 value={ownerId || ''}
                 onChange={(e) => setOwnerId(e.target.value || null)}
-                className="w-full h-10 px-3 text-sm rounded-lg border border-border bg-white"
+                className="w-full h-10 px-3 text-sm rounded-lg border border-border bg-background"
               >
                 <option value="">Unassigned</option>
                 {profiles.map(profile => (
@@ -281,7 +281,7 @@ export default function TodoDetailPage({ params }: PageProps) {
                 type="date"
                 value={dueDate}
                 onChange={(e) => setDueDate(e.target.value)}
-                className="w-full h-10 px-3 text-sm rounded-lg border border-border bg-white"
+                className="w-full h-10 px-3 text-sm rounded-lg border border-border bg-background"
               />
             ) : (
               <p className={`text-foreground ${isOverdue ? 'text-danger' : ''}`}>

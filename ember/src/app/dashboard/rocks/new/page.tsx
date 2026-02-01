@@ -216,7 +216,7 @@ export default function NewRockPage() {
                 <select
                   value={quarter}
                   onChange={(e) => setQuarter(e.target.value)}
-                  className="w-full h-10 px-3 text-sm rounded-lg border border-border bg-white"
+                  className="w-full h-10 px-3 text-sm rounded-lg border border-border bg-background"
                 >
                   {quarterOptions.map(q => (
                     <option key={q} value={q}>{q}</option>
@@ -231,7 +231,7 @@ export default function NewRockPage() {
                 <select
                   value={status}
                   onChange={(e) => setStatus(e.target.value as RockStatus)}
-                  className="w-full h-10 px-3 text-sm rounded-lg border border-border bg-white"
+                  className="w-full h-10 px-3 text-sm rounded-lg border border-border bg-background"
                 >
                   <option value="on_track">On Track</option>
                   <option value="at_risk">At Risk</option>
@@ -248,7 +248,7 @@ export default function NewRockPage() {
                 <select
                   value={ownerId || ''}
                   onChange={(e) => setOwnerId(e.target.value || null)}
-                  className="w-full h-10 px-3 text-sm rounded-lg border border-border bg-white"
+                  className="w-full h-10 px-3 text-sm rounded-lg border border-border bg-background"
                 >
                   <option value="">Unassigned</option>
                   {profiles.map(profile => (
@@ -267,7 +267,7 @@ export default function NewRockPage() {
                   type="date"
                   value={dueDate}
                   onChange={(e) => setDueDate(e.target.value)}
-                  className="w-full h-10 px-3 text-sm rounded-lg border border-border bg-white"
+                  className="w-full h-10 px-3 text-sm rounded-lg border border-border bg-background"
                 />
               </div>
             </div>

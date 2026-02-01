@@ -17,14 +17,14 @@ export default function LoginPage() {
   return (
     <div className="min-h-screen flex items-center justify-center ember-gradient-light">
       <div className="max-w-md w-full mx-4">
-        <div className="bg-white rounded-2xl shadow-xl p-8">
+        <div className="bg-background rounded-2xl shadow-xl p-8 border border-border">
           {/* Logo/Brand */}
           <div className="text-center mb-8">
             <div className="inline-flex items-center justify-center w-16 h-16 rounded-full ember-gradient mb-4">
               <span className="text-2xl text-white font-bold">E</span>
             </div>
-            <h1 className="text-2xl font-bold text-gray-900">Welcome to Ember</h1>
-            <p className="text-gray-600 mt-2">
+            <h1 className="text-2xl font-bold text-foreground">Welcome to Ember</h1>
+            <p className="text-muted-foreground mt-2">
               Your AI-powered EOS Integrator
             </p>
           </div>
@@ -32,7 +32,7 @@ export default function LoginPage() {
           {/* Login Button */}
           <button
             onClick={handleGoogleLogin}
-            className="w-full flex items-center justify-center gap-3 bg-white border border-gray-300 rounded-lg px-4 py-3 text-gray-700 font-medium hover:bg-gray-50 hover:border-gray-400 transition-colors"
+            className="w-full flex items-center justify-center gap-3 bg-background border border-border rounded-lg px-4 py-3 text-foreground font-medium hover:bg-muted transition-colors"
           >
             <svg className="w-5 h-5" viewBox="0 0 24 24">
               <path
@@ -56,7 +56,7 @@ export default function LoginPage() {
           </button>
 
           {/* Info */}
-          <p className="text-center text-sm text-gray-500 mt-6">
+          <p className="text-center text-sm text-muted-foreground mt-6">
             Caldera Leadership Team Only
           </p>
         </div>

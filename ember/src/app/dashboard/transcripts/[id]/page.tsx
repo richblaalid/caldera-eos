@@ -419,7 +419,7 @@ export default function TranscriptDetailPage({ params }: PageProps) {
                 <select
                   value={meetingId || ''}
                   onChange={(e) => setMeetingId(e.target.value || null)}
-                  className="w-full h-10 px-3 text-sm rounded-lg border border-border bg-white"
+                  className="w-full h-10 px-3 text-sm rounded-lg border border-border bg-background"
                 >
                   <option value="">None</option>
                   {meetings.map((m) => (
@@ -450,7 +450,7 @@ export default function TranscriptDetailPage({ params }: PageProps) {
                   type="datetime-local"
                   value={meetingDate}
                   onChange={(e) => setMeetingDate(e.target.value)}
-                  className="w-full h-10 px-3 text-sm rounded-lg border border-border bg-white"
+                  className="w-full h-10 px-3 text-sm rounded-lg border border-border bg-background"
                 />
               ) : (
                 <p className="text-foreground">
@@ -506,7 +506,7 @@ export default function TranscriptDetailPage({ params }: PageProps) {
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                   placeholder="Search transcript..."
-                  className="w-64 h-9 pl-9 pr-3 text-sm rounded-lg border border-border bg-white focus:outline-none focus:ring-2 focus:ring-ember-500"
+                  className="w-64 h-9 pl-9 pr-3 text-sm rounded-lg border border-border bg-background focus:outline-none focus:ring-2 focus:ring-ember-500"
                 />
                 <svg
                   className="w-4 h-4 absolute left-3 top-2.5 text-muted-foreground"

@@ -3,6 +3,7 @@
 import Image from 'next/image'
 import { useState } from 'react'
 import { MobileNav } from './MobileNav'
+import { ThemeToggle } from '@/components/ThemeToggle'
 import type { Profile } from '@/types/database'
 
 interface HeaderProps {
@@ -24,7 +25,7 @@ export function Header({ user, profile }: HeaderProps) {
 
   return (
     <>
-      <header className="sticky top-0 z-40 flex h-16 items-center gap-4 border-b border-border bg-white px-4 lg:px-6">
+      <header className="sticky top-0 z-40 flex h-16 items-center gap-4 border-b border-border bg-background px-4 lg:px-6">
         {/* Mobile menu button */}
         <button
           type="button"
@@ -62,8 +63,9 @@ export function Header({ user, profile }: HeaderProps) {
           </div>
         </div>
 
-        {/* User menu */}
-        <div className="flex items-center gap-4">
+        {/* Theme toggle and user menu */}
+        <div className="flex items-center gap-2">
+          <ThemeToggle />
           <div className="flex items-center gap-3">
             {avatarUrl ? (
               <Image

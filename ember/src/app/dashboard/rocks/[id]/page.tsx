@@ -301,7 +301,7 @@ export default function RockDetailPage({ params }: PageProps) {
               <select
                 value={status}
                 onChange={(e) => handleStatusChange(e.target.value as RockStatus)}
-                className="h-10 px-3 text-sm rounded-lg border border-border bg-white"
+                className="h-10 px-3 text-sm rounded-lg border border-border bg-background"
               >
                 {statusOptions.map(opt => (
                   <option key={opt.value} value={opt.value}>{opt.label}</option>
@@ -365,7 +365,7 @@ export default function RockDetailPage({ params }: PageProps) {
               <select
                 value={ownerId || ''}
                 onChange={(e) => setOwnerId(e.target.value || null)}
-                className="w-full h-10 px-3 text-sm rounded-lg border border-border bg-white"
+                className="w-full h-10 px-3 text-sm rounded-lg border border-border bg-background"
               >
                 <option value="">Unassigned</option>
                 {profiles.map(profile => (
@@ -410,7 +410,7 @@ export default function RockDetailPage({ params }: PageProps) {
                 type="date"
                 value={dueDate}
                 onChange={(e) => setDueDate(e.target.value)}
-                className="h-10 px-3 text-sm rounded-lg border border-border bg-white"
+                className="h-10 px-3 text-sm rounded-lg border border-border bg-background"
               />
             ) : (
               <p className="text-foreground">

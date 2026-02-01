@@ -148,7 +148,7 @@ export default function NewMetricPage() {
                 <select
                   value={goalDirection}
                   onChange={(e) => setGoalDirection(e.target.value as GoalDirection)}
-                  className="w-full h-10 px-3 text-sm rounded-lg border border-border bg-white"
+                  className="w-full h-10 px-3 text-sm rounded-lg border border-border bg-background"
                 >
                   <option value="above">Above target is good (≥)</option>
                   <option value="below">Below target is good (≤)</option>
@@ -163,7 +163,7 @@ export default function NewMetricPage() {
                 <select
                   value={frequency}
                   onChange={(e) => setFrequency(e.target.value as MetricFrequency)}
-                  className="w-full h-10 px-3 text-sm rounded-lg border border-border bg-white"
+                  className="w-full h-10 px-3 text-sm rounded-lg border border-border bg-background"
                 >
                   <option value="weekly">Weekly</option>
                   <option value="monthly">Monthly</option>
@@ -178,7 +178,7 @@ export default function NewMetricPage() {
               <select
                 value={ownerId || ''}
                 onChange={(e) => setOwnerId(e.target.value || null)}
-                className="w-full h-10 px-3 text-sm rounded-lg border border-border bg-white"
+                className="w-full h-10 px-3 text-sm rounded-lg border border-border bg-background"
               >
                 <option value="">Unassigned</option>
                 {profiles.map(profile => (
