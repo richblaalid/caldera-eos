@@ -3,7 +3,7 @@
 import Link from 'next/link'
 import Image from 'next/image'
 import { usePathname } from 'next/navigation'
-import { useEffect } from 'react'
+import { useEffect, useState, useRef } from 'react'
 import { navigation } from './Sidebar'
 import type { Profile } from '@/types/database'
 
@@ -22,14 +22,38 @@ interface MobileNavProps {
 
 export function MobileNav({ isOpen, onClose, user, profile }: MobileNavProps) {
   const pathname = usePathname()
+  const [isVisible, setIsVisible] = useState(false)
+  const [isAnimating, setIsAnimating] = useState(false)
+  const prevPathnameRef = useRef(pathname)
 
   const displayName = profile?.name || user.user_metadata?.full_name || user.email?.split('@')[0]
   const avatarUrl = profile?.avatar_url || user.user_metadata?.avatar_url
 
-  // Close menu when route changes
+  // Close menu when route changes (but not on initial mount)
   useEffect(() => {
-    onClose()
+    if (prevPathnameRef.current !== pathname) {
+      onClose()
+    }
+    prevPathnameRef.current = pathname
   }, [pathname, onClose])
+
+  // Handle open/close animations
+  useEffect(() => {
+    if (isOpen) {
+      setIsVisible(true)
+      // Small delay to trigger animation
+      requestAnimationFrame(() => {
+        requestAnimationFrame(() => {
+          setIsAnimating(true)
+        })
+      })
+    } else {
+      setIsAnimating(false)
+      // Wait for animation to complete before hiding
+      const timer = setTimeout(() => setIsVisible(false), 200)
+      return () => clearTimeout(timer)
+    }
+  }, [isOpen])
 
   // Prevent body scroll when menu is open
   useEffect(() => {
@@ -43,18 +67,22 @@ export function MobileNav({ isOpen, onClose, user, profile }: MobileNavProps) {
     }
   }, [isOpen])
 
-  if (!isOpen) return null
+  if (!isVisible) return null
 
   return (
     <div className="fixed inset-0 z-50 lg:hidden">
       {/* Backdrop */}
       <div
-        className="fixed inset-0 bg-foreground/20 backdrop-blur-sm"
+        className={`fixed inset-0 bg-foreground/20 backdrop-blur-sm transition-opacity duration-200 ${
+          isAnimating ? 'opacity-100' : 'opacity-0'
+        }`}
         onClick={onClose}
       />
 
       {/* Drawer */}
-      <div className="fixed inset-y-0 left-0 w-full max-w-xs bg-background shadow-xl">
+      <div className={`fixed inset-y-0 left-0 w-full max-w-xs bg-background shadow-xl transition-transform duration-200 ease-out ${
+        isAnimating ? 'translate-x-0' : '-translate-x-full'
+      }`}>
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-5 border-b border-border">
           <div className="flex items-center gap-3">
