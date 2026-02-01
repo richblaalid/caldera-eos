@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
-import { exchangeCodeForToken, testConnection } from '@/lib/slack'
+import { exchangeCodeForToken, testConnection, getSlackUsers } from '@/lib/slack'
 
 // GET /api/integrations/slack/callback - Handle Slack OAuth callback
 export async function GET(request: Request) {
@@ -95,6 +95,41 @@ export async function GET(request: Request) {
       return NextResponse.redirect(
         new URL('/dashboard/settings/slack?error=save_failed', request.url)
       )
+    }
+
+    // Auto-match Slack users to profiles by email
+    try {
+      const slackUsers = await getSlackUsers(tokenResponse.access_token)
+
+      // Get org members with their profiles
+      const { data: members } = await supabase
+        .from('organization_members')
+        .select('user_id')
+        .eq('organization_id', membership.organization_id)
+
+      if (members && members.length > 0) {
+        const memberIds = members.map(m => m.user_id)
+        const { data: profiles } = await supabase
+          .from('profiles')
+          .select('id, email')
+          .in('id', memberIds)
+
+        // Match by email and update slack_user_id
+        for (const profile of profiles || []) {
+          const slackUser = slackUsers.find(
+            su => su.profile.email?.toLowerCase() === profile.email?.toLowerCase()
+          )
+          if (slackUser) {
+            await supabase
+              .from('profiles')
+              .update({ slack_user_id: slackUser.id })
+              .eq('id', profile.id)
+          }
+        }
+      }
+    } catch (matchError) {
+      // Non-fatal: log but don't fail the connection
+      console.error('Failed to auto-match Slack users:', matchError)
     }
 
     // Clear state cookie and redirect to settings
