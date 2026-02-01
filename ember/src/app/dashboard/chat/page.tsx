@@ -24,11 +24,18 @@ export default function ChatPage() {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages])
 
-  // Auto-resize textarea
+  // Auto-resize textarea when input changes (including programmatic changes)
+  useEffect(() => {
+    const textarea = inputRef.current
+    if (textarea) {
+      textarea.style.height = 'auto'
+      textarea.style.height = Math.min(textarea.scrollHeight, 300) + 'px'
+    }
+  }, [input])
+
+  // Handle input change
   const handleInputChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     setInput(e.target.value)
-    e.target.style.height = 'auto'
-    e.target.style.height = Math.min(e.target.scrollHeight, 200) + 'px'
   }
 
   const handleSubmit = async (e?: React.FormEvent) => {
@@ -51,11 +58,6 @@ export default function ChatPage() {
     setMessages((prev) => [...prev, userMessage, assistantMessage])
     setInput('')
     setIsLoading(true)
-
-    // Reset textarea height
-    if (inputRef.current) {
-      inputRef.current.style.height = 'auto'
-    }
 
     try {
       const response = await fetch('/api/chat', {
@@ -276,7 +278,7 @@ export default function ChatPage() {
 
         {/* Input */}
         <div className="border-t border-border p-4">
-          <form onSubmit={handleSubmit} className="flex gap-2">
+          <form onSubmit={handleSubmit} className="flex items-end gap-2">
             <textarea
               ref={inputRef}
               value={input}
@@ -284,13 +286,14 @@ export default function ChatPage() {
               onKeyDown={handleKeyDown}
               placeholder="Ask Ember about your EOS data..."
               rows={1}
-              className="flex-1 resize-none rounded-lg border border-border bg-white px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-ember-500 disabled:opacity-50"
+              className="flex-1 min-h-[42px] max-h-[300px] resize-none rounded-lg border border-border bg-white px-4 py-2.5 text-sm leading-relaxed focus:outline-none focus:ring-2 focus:ring-ember-500 disabled:opacity-50"
               disabled={isLoading}
             />
             <Button
               type="submit"
               disabled={!input.trim() || isLoading}
               isLoading={isLoading}
+              className="h-[42px]"
             >
               Send
             </Button>
