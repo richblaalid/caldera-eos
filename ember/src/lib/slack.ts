@@ -96,9 +96,13 @@ export async function getChannels(botToken: string): Promise<SlackChannel[]> {
   const allChannels = data.channels || []
   const memberChannels = allChannels.filter((c: SlackChannel) => c.is_member)
 
+  // Debug logging
   console.log(`Slack: Found ${allChannels.length} total channels, bot is member of ${memberChannels.length}`)
+  console.log('All channels:', allChannels.map((c: SlackChannel) => `${c.name} (member: ${c.is_member}, private: ${c.is_private})`))
 
-  return memberChannels.map((c: SlackChannel) => ({
+  // Return ALL channels for now to help debug - user can select any
+  // Bot will need to be invited before it can post
+  return allChannels.map((c: SlackChannel) => ({
     id: c.id,
     name: c.name,
     is_private: c.is_private,
