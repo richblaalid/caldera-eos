@@ -385,7 +385,7 @@ Executable task list for building Ember MVP. Each task includes acceptance crite
 
 ### Day 14: Launch Prep
 
-- [ ] **7.2.1** Final deployment
+- [x] **7.2.1** Final deployment
   - Production environment verified
   - All env vars set
   - **Acceptance:** Production deployed
@@ -473,6 +473,7 @@ Executable task list for building Ember MVP. Each task includes acceptance crite
 | 2026-01-31 | 7.1.1 | End-to-end testing | Complete |
 | 2026-01-31 | 7.1.2 | Bug fixes - lint errors, unused imports | Complete |
 | 2026-01-31 | 7.1.3 | Performance optimization - indexes verified | Complete |
+| 2026-01-31 | 7.2.1 | Final deployment - Vercel production | Complete |
 
 ---
 
