@@ -323,6 +323,10 @@ export interface ChatMessageMetadata {
     issues?: string[]
     todos?: string[]
   }
+  tool_executions?: Array<{
+    tool: string
+    result: string
+  }>
 }
 
 export interface ChatMessage {
