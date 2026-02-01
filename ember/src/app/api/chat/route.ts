@@ -1,7 +1,7 @@
 import { NextRequest } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { anthropic } from '@/lib/claude'
-import { EMBER_CHAT_SYSTEM_PROMPT } from '@/lib/ember'
+import { buildDynamicSystemPrompt } from '@/lib/ember'
 import { retrieveContext, buildChatContext } from '@/lib/context'
 import type { ChatMessageInsert, ChatMessageMetadata } from '@/types/database'
 
@@ -58,12 +58,13 @@ export async function POST(request: NextRequest) {
       await supabase.from('chat_messages').insert(userMessage)
     }
 
-    // Retrieve context for the query
+    // Retrieve context for the query (includes V/TO and journey stage)
     const context = await retrieveContext(lastUserMessage.content)
     const contextString = buildChatContext(context)
 
-    // Build enhanced system prompt with context
-    const systemPrompt = EMBER_CHAT_SYSTEM_PROMPT + contextString
+    // Build dynamic system prompt based on journey stage
+    const basePrompt = buildDynamicSystemPrompt(context.journeyStage, context.vtoSummary)
+    const systemPrompt = basePrompt + contextString
 
     // Create streaming response
     const stream = anthropic.messages.stream({

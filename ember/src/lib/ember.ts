@@ -3,6 +3,8 @@
  * Core prompts and configuration for the Ember AI coaching system
  */
 
+import type { VTO } from '@/types/database'
+
 // Partner profiles for context
 export const CALDERA_PARTNERS = {
   rich: {
@@ -20,6 +22,128 @@ export const CALDERA_PARTNERS = {
     role: 'Operations/Delivery',
     responsibilities: ['Service delivery', 'Operational excellence', 'Team management'],
   },
+}
+
+// =============================================
+// EOS Journey Stages
+// =============================================
+
+export type EOSJourneyStage =
+  | 'pre_focus_day'      // No V/TO data - need to start with Focus Day
+  | 'focus_day'          // V/TO partially complete (rocks, scorecard, issues)
+  | 'vision_building'    // Focus Day done, need to complete Core Values, Core Focus, etc.
+  | 'vto_complete'       // V/TO is complete, ready for ongoing implementation
+  | 'ongoing'            // Running EOS - L10s, quarterly sessions
+
+/**
+ * Determine where Caldera is in their EOS journey based on V/TO state
+ */
+export function determineJourneyStage(vto: VTO | null): EOSJourneyStage {
+  if (!vto) {
+    return 'pre_focus_day'
+  }
+
+  // Check Focus Day outputs (Rocks, Scorecard, Issues, Accountability Chart)
+  const hasFocusDayOutputs =
+    (vto.quarterly_rocks && vto.quarterly_rocks.length > 0) ||
+    (vto.issues_list && vto.issues_list.length > 0) ||
+    (vto.accountability_chart && vto.accountability_chart.length > 0)
+
+  // Check Vision elements
+  const hasCoreValues = vto.core_values && vto.core_values.length > 0
+  const hasCoreFocus = vto.core_focus?.purpose && vto.core_focus?.niche
+  const hasTenYearTarget = vto.ten_year_target?.goal
+  const hasThreeYearPicture = vto.three_year_picture?.measurables && vto.three_year_picture.measurables.length > 0
+  const hasOneYearPlan = vto.one_year_plan?.goals && vto.one_year_plan.goals.length > 0
+
+  // Full Vision check
+  const hasVision = hasCoreValues && hasCoreFocus && hasTenYearTarget && hasThreeYearPicture && hasOneYearPlan
+
+  if (!hasFocusDayOutputs) {
+    return 'pre_focus_day'
+  }
+
+  if (!hasCoreValues || !hasCoreFocus || !hasTenYearTarget) {
+    return 'focus_day'
+  }
+
+  if (!hasVision) {
+    return 'vision_building'
+  }
+
+  // Check if they have established patterns (meetings, ongoing data)
+  // For now, if V/TO is complete, they're in ongoing mode
+  return 'ongoing'
+}
+
+/**
+ * Get the priority focus and suggested actions for the current stage
+ */
+export function getJourneyStageFocus(stage: EOSJourneyStage): {
+  priority: string
+  description: string
+  suggestedActions: string[]
+} {
+  switch (stage) {
+    case 'pre_focus_day':
+      return {
+        priority: 'Focus Day Preparation',
+        description: 'Caldera has not yet completed their Focus Day - the foundational EOS session. This is where we establish the basics: Accountability Chart, initial Rocks, Scorecard, and Issues List.',
+        suggestedActions: [
+          'Start with Accountability Chart - identify major functions and who owns them',
+          'Discover initial Quarterly Rocks (3-7 priorities for the next 90 days)',
+          'Build the Scorecard with 5-15 weekly measurable numbers',
+          'Create the initial Issues List - get everything out of their heads',
+        ],
+      }
+    case 'focus_day':
+      return {
+        priority: 'Complete Focus Day',
+        description: 'Focus Day has started but is not complete. Continue working through the Focus Day elements.',
+        suggestedActions: [
+          'Complete any remaining Focus Day outputs (Rocks, Scorecard, Issues, Accountability Chart)',
+          'Review and refine what has been captured so far',
+          'Prepare to move into Vision Building',
+        ],
+      }
+    case 'vision_building':
+      return {
+        priority: 'Vision Building',
+        description: 'Focus Day is complete. Now we need to build the vision: Core Values, Core Focus, 10-Year Target, Marketing Strategy, 3-Year Picture, and 1-Year Plan.',
+        suggestedActions: [
+          'Discover Core Values (3-7 values that define who you are)',
+          'Define Core Focus (Purpose + Niche)',
+          'Set the 10-Year Target (big, audacious, measurable goal)',
+          'Build Marketing Strategy (Target Market, 3 Uniques, Proven Process)',
+          'Paint the 3-Year Picture (vivid, measurable future state)',
+          'Create the 1-Year Plan (annual goals and measurables)',
+        ],
+      }
+    case 'vto_complete':
+      return {
+        priority: 'Implementation',
+        description: 'V/TO is complete! Time to implement the Level 10 Meeting cadence and run EOS.',
+        suggestedActions: [
+          'Schedule and run weekly L10 meetings',
+          'Track Rock progress',
+          'Update Scorecard weekly',
+          'Work through Issues using IDS',
+        ],
+      }
+    case 'ongoing':
+      return {
+        priority: 'Continuous Improvement',
+        description: 'EOS is running. Focus on accountability, quarterly Rock reviews, annual planning, and continuous improvement.',
+        suggestedActions: [
+          'Prepare for L10 meetings',
+          'Review Rock progress and update statuses',
+          'Analyze Scorecard trends',
+          'Prioritize and solve Issues',
+          'Hold quarterly Rock reviews',
+          'Conduct annual planning sessions',
+        ],
+      }
+  }
 }
 
 // Main chat system prompt for Ember
@@ -84,6 +208,165 @@ When helping with Vision Building (V/TO creation), guide them through:
 When you have context about the team's current EOS data, reference it specifically. When you don't have context, ask for the relevant information or suggest where to find it in the system.
 
 When in interview/facilitation mode, be conversational and patient. Ask follow-up questions to dig deeper. After gathering enough information, summarize what you've learned and provide structured recommendations.`
+
+// =============================================
+// Dynamic System Prompt Builder
+// =============================================
+
+/**
+ * Build a dynamic system prompt based on the EOS journey stage
+ */
+export function buildDynamicSystemPrompt(
+  stage: EOSJourneyStage,
+  vtoSummary?: string
+): string {
+  const stageFocus = getJourneyStageFocus(stage)
+
+  // Base prompt is always included
+  let prompt = EMBER_CHAT_SYSTEM_PROMPT
+
+  // Add journey-specific context
+  prompt += `\n\n## Current EOS Journey Status
+
+**Stage: ${stageFocus.priority}**
+${stageFocus.description}
+
+**Your Primary Focus:**
+${stageFocus.suggestedActions.map((a, i) => `${i + 1}. ${a}`).join('\n')}
+
+`
+
+  // Add stage-specific behavioral guidance
+  switch (stage) {
+    case 'pre_focus_day':
+      prompt += `## IMPORTANT: Focus Day Mode
+
+Caldera has not yet had their Focus Day. This is the FIRST step in their EOS journey.
+
+**Your behavior in this mode:**
+1. When they greet you or ask what to do, immediately orient them toward Focus Day
+2. Explain what Focus Day accomplishes and why it matters
+3. Offer to facilitate the Focus Day session through conversation
+4. Use INTERVIEW MODE: Ask ONE question at a time, wait for response, dig deeper
+5. Don't overwhelm with multiple questions - be conversational and patient
+6. After gathering information on a topic, summarize and confirm before moving on
+
+**Focus Day Session Flow:**
+1. **Accountability Chart** - Map out major functions and seats
+2. **Rocks** - Identify 3-7 quarterly priorities
+3. **Scorecard** - Define 5-15 weekly numbers to track
+4. **Issues List** - Get everything out of their heads
+
+**Opening Suggestion:**
+When they start the conversation, greet them warmly and explain that since they haven't completed Focus Day yet, this is where you recommend starting. Offer to guide them through it conversationally.
+
+Example opening:
+"Welcome to Ember! I see you're starting your EOS journey - exciting! The first step is Focus Day, where we'll establish your foundation: who does what (Accountability Chart), your top priorities for the next 90 days (Rocks), the numbers you'll track weekly (Scorecard), and everything that's on your mind (Issues List). Would you like to start with the Accountability Chart? I'll guide you through it one question at a time."
+`
+      break
+
+    case 'focus_day':
+      prompt += `## Focus Day Continuation Mode
+
+Caldera has started Focus Day but hasn't completed all elements. Help them finish.
+
+**Your behavior:**
+1. Check what's been completed and what's missing
+2. Offer to continue where they left off
+3. Maintain interview mode - one question at a time
+4. Summarize progress and celebrate wins
+`
+      break
+
+    case 'vision_building':
+      prompt += `## Vision Building Mode
+
+Focus Day is done! Now guide Caldera through creating their vision.
+
+**Your behavior:**
+1. Congratulate them on completing Focus Day
+2. Explain the Vision Building process
+3. Guide them through Core Values, Core Focus, 10-Year Target, etc.
+4. Use interview mode for each section
+5. Help them think BIG for long-term targets
+
+**Vision Building Flow:**
+1. Core Values (start here - defines culture)
+2. Core Focus (Purpose + Niche)
+3. 10-Year Target (BHAG)
+4. Marketing Strategy
+5. 3-Year Picture
+6. 1-Year Plan
+`
+      break
+
+    case 'vto_complete':
+    case 'ongoing':
+      prompt += `## Ongoing Implementation Mode
+
+The V/TO is complete. Focus on execution and accountability.
+
+**Your behavior:**
+1. Help prepare for and debrief L10 meetings
+2. Review Rock progress and call out any that are off-track
+3. Analyze Scorecard trends and highlight concerns
+4. Facilitate IDS for Issues
+5. Hold the team accountable to their commitments
+6. Celebrate wins and progress
+`
+      break
+  }
+
+  // Add V/TO summary if available
+  if (vtoSummary) {
+    prompt += `\n\n## Current V/TO Summary\n${vtoSummary}`
+  }
+
+  return prompt
+}
+
+/**
+ * Format V/TO data into a summary for context
+ */
+export function formatVTOSummary(vto: VTO | null): string {
+  if (!vto) return 'No V/TO data yet.'
+
+  const sections: string[] = []
+
+  if (vto.core_values && vto.core_values.length > 0) {
+    sections.push(`**Core Values:** ${vto.core_values.join(', ')}`)
+  }
+
+  if (vto.core_focus?.purpose || vto.core_focus?.niche) {
+    sections.push(`**Core Focus:** Purpose: "${vto.core_focus.purpose || 'Not defined'}" | Niche: "${vto.core_focus.niche || 'Not defined'}"`)
+  }
+
+  if (vto.ten_year_target?.goal) {
+    sections.push(`**10-Year Target:** ${vto.ten_year_target.goal}`)
+  }
+
+  if (vto.three_year_picture?.measurables && vto.three_year_picture.measurables.length > 0) {
+    sections.push(`**3-Year Picture:** ${vto.three_year_picture.measurables.slice(0, 3).join(', ')}${vto.three_year_picture.measurables.length > 3 ? '...' : ''}`)
+  }
+
+  if (vto.one_year_plan?.goals && vto.one_year_plan.goals.length > 0) {
+    sections.push(`**1-Year Goals:** ${vto.one_year_plan.goals.slice(0, 3).map(g => g.description).join(', ')}${vto.one_year_plan.goals.length > 3 ? '...' : ''}`)
+  }
+
+  if (vto.quarterly_rocks && vto.quarterly_rocks.length > 0) {
+    sections.push(`**Quarterly Rocks:** ${vto.quarterly_rocks.length} defined`)
+  }
+
+  if (vto.issues_list && vto.issues_list.length > 0) {
+    sections.push(`**Issues List:** ${vto.issues_list.length} issues`)
+  }
+
+  if (vto.accountability_chart && vto.accountability_chart.length > 0) {
+    sections.push(`**Accountability Chart:** ${vto.accountability_chart.length} roles defined`)
+  }
+
+  return sections.length > 0 ? sections.join('\n') : 'V/TO exists but is empty.'
+}
 
 // Coaching scenario prompts for specific situations
 export const COACHING_PROMPTS = {

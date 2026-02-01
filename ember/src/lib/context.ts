@@ -4,12 +4,21 @@
  */
 
 import { createClient } from '@/lib/supabase/server'
-import { formatEOSContext } from '@/lib/ember'
+import {
+  formatEOSContext,
+  determineJourneyStage,
+  formatVTOSummary,
+  type EOSJourneyStage,
+} from '@/lib/ember'
+import type { VTO } from '@/types/database'
 
 export interface ChatContext {
   eosData: string
   transcriptContext: string
   sources: string[]
+  vto: VTO | null
+  journeyStage: EOSJourneyStage
+  vtoSummary: string
 }
 
 /**
@@ -18,6 +27,18 @@ export interface ChatContext {
 export async function retrieveContext(query: string): Promise<ChatContext> {
   const supabase = await createClient()
   const sources: string[] = []
+
+  // Fetch V/TO first to determine journey stage
+  const { data: vtoData } = await supabase
+    .from('vto')
+    .select('*')
+    .order('version', { ascending: false })
+    .limit(1)
+    .single()
+
+  const vto = vtoData as VTO | null
+  const journeyStage = determineJourneyStage(vto)
+  const vtoSummary = formatVTOSummary(vto)
 
   // Fetch current EOS data
   const [rocksRes, issuesRes, todosRes, metricsRes] = await Promise.all([
@@ -127,6 +148,9 @@ export async function retrieveContext(query: string): Promise<ChatContext> {
     eosData,
     transcriptContext,
     sources,
+    vto,
+    journeyStage,
+    vtoSummary,
   }
 }
 
