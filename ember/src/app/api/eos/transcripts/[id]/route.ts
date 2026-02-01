@@ -49,6 +49,7 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
     if (body.participants !== undefined) updates.participants = body.participants
     if (body.full_text !== undefined) updates.full_text = body.full_text
     if (body.summary !== undefined) updates.summary = body.summary
+    if (body.extractions !== undefined) updates.extractions = body.extractions
     if (body.processed !== undefined) updates.processed = body.processed
     if (body.processed_at !== undefined) updates.processed_at = body.processed_at
 
