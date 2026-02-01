@@ -2,9 +2,18 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
-import { Button, Card, CardHeader, CardTitle, CardContent, Input, Textarea } from '@/components/ui'
-import type { VTO, CoreValue, OneYearGoal } from '@/types/database'
+import { Button, Card, CardHeader, CardTitle, CardContent, Input, Textarea, Select } from '@/components/ui'
+import type { VTO, CoreValue, OneYearGoal, AccountabilityRole, AccountabilitySeat } from '@/types/database'
 import { v4 as uuidv4 } from 'uuid'
+
+const SEAT_OPTIONS: { value: AccountabilitySeat; label: string }[] = [
+  { value: 'visionary', label: 'Visionary' },
+  { value: 'integrator', label: 'Integrator' },
+  { value: 'sales', label: 'Sales' },
+  { value: 'operations', label: 'Operations' },
+  { value: 'finance', label: 'Finance' },
+  { value: 'other', label: 'Other' },
+]
 
 // Debounce hook
 function useDebounce<T>(value: T, delay: number): T {
@@ -96,6 +105,97 @@ function GoalEditor({
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
         </svg>
       </Button>
+    </div>
+  )
+}
+
+// Accountability Role Editor
+function AccountabilityRoleEditor({
+  role,
+  onChange,
+  onRemove,
+}: {
+  role: AccountabilityRole
+  onChange: (role: AccountabilityRole) => void
+  onRemove: () => void
+}) {
+  const [newLMA, setNewLMA] = useState('')
+
+  const addLMA = () => {
+    if (newLMA.trim()) {
+      onChange({ ...role, lma: [...role.lma, newLMA.trim()] })
+      setNewLMA('')
+    }
+  }
+
+  const removeLMA = (index: number) => {
+    onChange({ ...role, lma: role.lma.filter((_, i) => i !== index) })
+  }
+
+  return (
+    <div className="p-4 border rounded-lg space-y-4">
+      <div className="flex items-start justify-between gap-4">
+        <div className="flex-1 grid grid-cols-1 md:grid-cols-3 gap-4">
+          <Select
+            label="Seat"
+            value={role.seat}
+            onChange={(e) => onChange({ ...role, seat: e.target.value as AccountabilitySeat })}
+            options={SEAT_OPTIONS}
+          />
+          <Input
+            label="Title"
+            value={role.title}
+            onChange={(e) => onChange({ ...role, title: e.target.value })}
+            placeholder="e.g., Head of Sales"
+          />
+          <Input
+            label="Person"
+            value={role.owner_name || ''}
+            onChange={(e) => onChange({ ...role, owner_name: e.target.value })}
+            placeholder="Name"
+          />
+        </div>
+        <Button variant="ghost" size="sm" onClick={onRemove} className="mt-6">
+          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+          </svg>
+        </Button>
+      </div>
+
+      {/* LMA (Lead, Manage, Accountability) */}
+      <div>
+        <label className="block text-sm font-medium text-muted-foreground mb-2">
+          LMA (Lead, Manage, Accountability)
+        </label>
+        <div className="space-y-2">
+          {role.lma.map((item, index) => (
+            <div key={index} className="flex items-center gap-2">
+              <span className="text-muted-foreground text-sm">•</span>
+              <span className="flex-1 text-sm">{item}</span>
+              <button
+                type="button"
+                onClick={() => removeLMA(index)}
+                className="text-muted-foreground hover:text-danger"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+          ))}
+        </div>
+        <div className="flex items-center gap-2 mt-2">
+          <Input
+            value={newLMA}
+            onChange={(e) => setNewLMA(e.target.value)}
+            placeholder="Add responsibility..."
+            onKeyDown={(e) => e.key === 'Enter' && (e.preventDefault(), addLMA())}
+          />
+          <Button variant="outline" size="sm" onClick={addLMA} type="button">
+            Add
+          </Button>
+        </div>
+      </div>
     </div>
   )
 }
@@ -265,6 +365,36 @@ export default function VTOEditPage() {
         ...vto.marketing_strategy,
         three_uniques: vto.marketing_strategy.three_uniques.filter((_, i) => i !== index),
       },
+    })
+  }
+
+  // Accountability Chart helpers
+  const addAccountabilityRole = () => {
+    if (!vto) return
+    const newRole: AccountabilityRole = {
+      seat: 'other',
+      title: '',
+      owner_name: '',
+      lma: [],
+    }
+    setVTO({
+      ...vto,
+      accountability_chart: [...vto.accountability_chart, newRole],
+    })
+  }
+
+  const updateAccountabilityRole = (index: number, role: AccountabilityRole) => {
+    if (!vto) return
+    const updated = [...vto.accountability_chart]
+    updated[index] = role
+    setVTO({ ...vto, accountability_chart: updated })
+  }
+
+  const removeAccountabilityRole = (index: number) => {
+    if (!vto) return
+    setVTO({
+      ...vto,
+      accountability_chart: vto.accountability_chart.filter((_, i) => i !== index),
     })
   }
 
@@ -730,6 +860,35 @@ export default function VTOEditPage() {
                 )}
               </div>
             </div>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Accountability Chart Section */}
+      <div className="space-y-4">
+        <h2 className="text-lg font-semibold text-foreground border-b pb-2">Accountability Chart</h2>
+
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between">
+            <CardTitle>Roles & Responsibilities</CardTitle>
+            <Button variant="outline" size="sm" onClick={addAccountabilityRole}>
+              Add Role
+            </Button>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {vto.accountability_chart.map((role, index) => (
+              <AccountabilityRoleEditor
+                key={index}
+                role={role}
+                onChange={(r) => updateAccountabilityRole(index, r)}
+                onRemove={() => removeAccountabilityRole(index)}
+              />
+            ))}
+            {vto.accountability_chart.length === 0 && (
+              <p className="text-muted-foreground text-sm italic">
+                No roles defined yet. Click &quot;Add Role&quot; to build your Accountability Chart.
+              </p>
+            )}
           </CardContent>
         </Card>
       </div>
