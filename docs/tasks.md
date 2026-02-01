@@ -327,7 +327,7 @@ Executable task list for building Ember MVP. Each task includes acceptance crite
   - Input with send
   - **Acceptance:** Chat UI functional
 
-- [ ] **6.1.3** Implement context retrieval
+- [x] **6.1.3** Implement context retrieval
   - Pull relevant transcripts and EOS data
   - Vector similarity search
   - **Acceptance:** Context retrieved
@@ -341,7 +341,7 @@ Executable task list for building Ember MVP. Each task includes acceptance crite
   - Partner profiles
   - **Acceptance:** System prompt complete
 
-- [ ] **6.2.2** Implement RAG pipeline
+- [x] **6.2.2** Implement RAG pipeline
   - Retrieve relevant context for questions
   - Combine with EOS data
   - **Acceptance:** RAG working
@@ -465,7 +465,9 @@ Executable task list for building Ember MVP. Each task includes acceptance crite
 | 2026-01-31 | 5.2.4 | Link extractions to EOS | Complete |
 | 2026-01-31 | 6.1.1 | Build Chat API | Complete |
 | 2026-01-31 | 6.1.2 | Create Chat UI | Complete |
+| 2026-01-31 | 6.1.3 | Implement context retrieval | Complete |
 | 2026-01-31 | 6.2.1 | Build Ember system prompt | Complete |
+| 2026-01-31 | 6.2.2 | Implement RAG pipeline | Complete |
 | 2026-01-31 | 6.2.3 | Create coaching prompts | Complete |
 
 ---

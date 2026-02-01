@@ -2,7 +2,8 @@ import { NextRequest } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import { anthropic } from '@/lib/claude'
 import { EMBER_CHAT_SYSTEM_PROMPT } from '@/lib/ember'
-import type { ChatMessageInsert } from '@/types/database'
+import { retrieveContext, buildChatContext } from '@/lib/context'
+import type { ChatMessageInsert, ChatMessageMetadata } from '@/types/database'
 
 export const runtime = 'nodejs'
 export const maxDuration = 60
@@ -57,16 +58,26 @@ export async function POST(request: NextRequest) {
       await supabase.from('chat_messages').insert(userMessage)
     }
 
+    // Retrieve context for the query
+    const context = await retrieveContext(lastUserMessage.content)
+    const contextString = buildChatContext(context)
+
+    // Build enhanced system prompt with context
+    const systemPrompt = EMBER_CHAT_SYSTEM_PROMPT + contextString
+
     // Create streaming response
     const stream = anthropic.messages.stream({
       model: 'claude-sonnet-4-20250514',
       max_tokens: 2048,
-      system: EMBER_CHAT_SYSTEM_PROMPT,
+      system: systemPrompt,
       messages: messages.map((m) => ({
         role: m.role,
         content: m.content,
       })),
     })
+
+    // Track sources for metadata
+    const sources = context.sources
 
     // Create a TransformStream to handle the streaming
     const encoder = new TextEncoder()
@@ -91,12 +102,15 @@ export async function POST(request: NextRequest) {
 
           // Save the assistant's response after streaming completes
           if (fullResponse) {
+            const metadata: ChatMessageMetadata = {
+              sources,
+            }
             const assistantMessage: ChatMessageInsert = {
               user_id: user.id,
               conversation_id: currentConversationId,
               role: 'assistant',
               content: fullResponse,
-              metadata: {},
+              metadata,
             }
             await supabase.from('chat_messages').insert(assistantMessage)
           }
