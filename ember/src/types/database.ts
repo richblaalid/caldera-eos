@@ -8,6 +8,7 @@ export interface Profile {
   name: string | null
   avatar_url: string | null
   role: 'partner' | string
+  slack_user_id: string | null
   created_at: string
   updated_at: string
 }
@@ -374,6 +375,78 @@ export interface Insight {
 }
 
 // =============================================
+// Organizational Checkup
+// =============================================
+
+export type EOSComponent = 'vision' | 'people' | 'data' | 'issues' | 'process' | 'traction'
+
+export interface CheckupPeriod {
+  id: string
+  organization_id: string
+  name: string
+  start_date: string
+  end_date: string
+  is_active: boolean
+  created_at: string
+  updated_at: string
+}
+
+export interface CheckupQuestion {
+  id: string
+  component: EOSComponent
+  question_order: number
+  question_text: string
+  created_at: string
+}
+
+export interface CheckupResponse {
+  id: string
+  period_id: string
+  user_id: string
+  question_id: string
+  score: number // 1-5
+  notes: string | null
+  created_at: string
+  updated_at: string
+}
+
+export interface CheckupCompletion {
+  id: string
+  period_id: string
+  user_id: string
+  total_score: number
+  vision_score: number
+  people_score: number
+  data_score: number
+  issues_score: number
+  process_score: number
+  traction_score: number
+  completed_at: string
+}
+
+export interface SlackSettings {
+  id: string
+  organization_id: string
+  bot_token: string | null
+  channel_id: string | null
+  channel_name: string | null
+  is_active: boolean
+  created_at: string
+  updated_at: string
+}
+
+// Component score breakdown with max scores
+export interface ComponentScores {
+  vision: { score: number; max: number }
+  people: { score: number; max: number }
+  data: { score: number; max: number }
+  issues: { score: number; max: number }
+  process: { score: number; max: number }
+  traction: { score: number; max: number }
+  total: { score: number; max: number }
+}
+
+// =============================================
 // Insert/Update Types (with proper defaults)
 // =============================================
 
@@ -383,6 +456,7 @@ export interface ProfileInsert {
   name?: string | null
   avatar_url?: string | null
   role?: string
+  slack_user_id?: string | null
 }
 
 export interface VTOInsert {
@@ -518,6 +592,46 @@ export interface InsightInsert {
   acknowledged_at?: string | null
   acknowledged_by?: string | null
   expires_at?: string | null
+}
+
+export interface CheckupPeriodInsert {
+  id?: string
+  organization_id: string
+  name: string
+  start_date: string
+  end_date: string
+  is_active?: boolean
+}
+
+export interface CheckupResponseInsert {
+  id?: string
+  period_id: string
+  user_id: string
+  question_id: string
+  score: number
+  notes?: string | null
+}
+
+export interface CheckupCompletionInsert {
+  id?: string
+  period_id: string
+  user_id: string
+  total_score: number
+  vision_score: number
+  people_score: number
+  data_score: number
+  issues_score: number
+  process_score: number
+  traction_score: number
+}
+
+export interface SlackSettingsInsert {
+  id?: string
+  organization_id: string
+  bot_token?: string | null
+  channel_id?: string | null
+  channel_name?: string | null
+  is_active?: boolean
 }
 
 // =============================================
@@ -661,6 +775,56 @@ export interface Database {
             referencedColumns: ['id']
           }
         ]
+      }
+      checkup_periods: {
+        Row: CheckupPeriod
+        Insert: CheckupPeriodInsert
+        Update: Partial<CheckupPeriodInsert>
+        Relationships: []
+      }
+      checkup_questions: {
+        Row: CheckupQuestion
+        Insert: never // Read-only, seeded
+        Update: never
+        Relationships: []
+      }
+      checkup_responses: {
+        Row: CheckupResponse
+        Insert: CheckupResponseInsert
+        Update: Partial<CheckupResponseInsert>
+        Relationships: [
+          {
+            foreignKeyName: 'checkup_responses_period_id_fkey'
+            columns: ['period_id']
+            referencedRelation: 'checkup_periods'
+            referencedColumns: ['id']
+          },
+          {
+            foreignKeyName: 'checkup_responses_question_id_fkey'
+            columns: ['question_id']
+            referencedRelation: 'checkup_questions'
+            referencedColumns: ['id']
+          }
+        ]
+      }
+      checkup_completions: {
+        Row: CheckupCompletion
+        Insert: CheckupCompletionInsert
+        Update: Partial<CheckupCompletionInsert>
+        Relationships: [
+          {
+            foreignKeyName: 'checkup_completions_period_id_fkey'
+            columns: ['period_id']
+            referencedRelation: 'checkup_periods'
+            referencedColumns: ['id']
+          }
+        ]
+      }
+      slack_settings: {
+        Row: SlackSettings
+        Insert: SlackSettingsInsert
+        Update: Partial<SlackSettingsInsert>
+        Relationships: []
       }
     }
     Views: {
