@@ -33,10 +33,12 @@ export async function updateSession(request: NextRequest) {
   } = await supabase.auth.getUser()
 
   // Protect dashboard routes - redirect to login if not authenticated
+  // Exclude cron endpoints (they use their own auth via CRON_SECRET)
   if (
     !user &&
     !request.nextUrl.pathname.startsWith('/login') &&
     !request.nextUrl.pathname.startsWith('/auth') &&
+    !request.nextUrl.pathname.startsWith('/api/cron') &&
     request.nextUrl.pathname !== '/'
   ) {
     const url = request.nextUrl.clone()
