@@ -54,7 +54,7 @@ export function MobileNav({ isOpen, onClose, user, profile }: MobileNavProps) {
       />
 
       {/* Drawer */}
-      <div className="fixed inset-y-0 left-0 w-full max-w-xs bg-white shadow-xl">
+      <div className="fixed inset-y-0 left-0 w-full max-w-xs bg-background shadow-xl">
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-5 border-b border-border">
           <div className="flex items-center gap-3">
@@ -114,7 +114,7 @@ export function MobileNav({ isOpen, onClose, user, profile }: MobileNavProps) {
                   flex items-center gap-3 px-3 py-3 rounded-lg text-sm font-medium
                   transition-colors duration-150
                   ${isActive
-                    ? 'bg-ember-50 text-ember-700'
+                    ? 'bg-ember-500/10 text-ember-600 dark:text-ember-400'
                     : 'text-muted-foreground hover:bg-muted hover:text-foreground'
                   }
                 `}

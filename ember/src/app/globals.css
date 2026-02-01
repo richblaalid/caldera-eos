@@ -1,14 +1,13 @@
 @import "tailwindcss";
 
 /* Ember Design System
-   A warm, volcanic theme for Caldera's AI Integrator
+   Refined Minimal - Premium business tool aesthetic
 
-   Color Philosophy:
-   - Primary: Orange/Amber (ember, warmth, energy)
-   - Secondary: Slate (professional, grounded)
-   - Success: Emerald (on-track, growth)
-   - Warning: Amber (attention, caution)
-   - Danger: Red (off-track, critical)
+   Design Philosophy:
+   - Restraint over abundance: Orange as accent, not dominant
+   - Typography-first: Distinctive display + clean body text
+   - Subtle atmosphere: Light textures, soft shadows
+   - Generous spacing: Let content breathe
 */
 
 :root {
@@ -71,6 +70,7 @@
 
   /* Typography */
   --font-sans: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
+  --font-display: var(--font-bricolage), ui-sans-serif, system-ui, sans-serif;
   --font-mono: var(--font-geist-mono), ui-monospace, monospace;
 
   /* Border radius */
@@ -87,13 +87,35 @@
   --shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1);
 }
 
+/* Dark mode via class (for manual toggle) */
+.dark {
+  --background: #0f172a;
+  --foreground: #f8fafc;
+  --muted: #1e293b;
+  --muted-foreground: #94a3b8;
+  --border: #334155;
+
+  /* Adjusted ember colors for dark mode contrast */
+  --ember-50: #431407;
+  --ember-100: #7c2d12;
+
+  /* Status colors adjusted for dark backgrounds */
+  --success-foreground: #0f172a;
+  --warning-foreground: #0f172a;
+  --danger-foreground: #ffffff;
+}
+
+/* Dark mode via system preference (fallback when no class set) */
 @media (prefers-color-scheme: dark) {
-  :root {
+  :root:not(.light) {
     --background: #0f172a;
     --foreground: #f8fafc;
     --muted: #1e293b;
     --muted-foreground: #94a3b8;
     --border: #334155;
+
+    --ember-50: #431407;
+    --ember-100: #7c2d12;
   }
 }
 
@@ -139,4 +161,63 @@ body {
 
 .ember-gradient-light {
   background: linear-gradient(135deg, var(--ember-50) 0%, var(--ember-100) 100%);
+}
+
+/* Display typography - for headings and hero text */
+.font-display {
+  font-family: var(--font-display);
+  letter-spacing: -0.02em;
+}
+
+/* Subtle noise texture overlay */
+.noise-texture {
+  position: relative;
+}
+
+.noise-texture::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E");
+  opacity: 0.03;
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* Refined card style with subtle shadow */
+.card-refined {
+  background: var(--background);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  box-shadow: 0 1px 3px 0 rgb(0 0 0 / 0.04), 0 1px 2px -1px rgb(0 0 0 / 0.04);
+}
+
+.card-refined:hover {
+  box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.06), 0 2px 4px -2px rgb(0 0 0 / 0.06);
+}
+
+/* Ember accent glow for interactive elements */
+.ember-glow {
+  transition: box-shadow 0.2s ease;
+}
+
+.ember-glow:hover {
+  box-shadow: 0 0 0 3px rgb(249 115 22 / 0.1);
+}
+
+.ember-glow:focus-visible {
+  box-shadow: 0 0 0 3px rgb(249 115 22 / 0.2);
+}
+
+/* Hero section with subtle gradient wash */
+.hero-gradient {
+  background: linear-gradient(180deg, var(--ember-50) 0%, var(--background) 100%);
+}
+
+.dark .hero-gradient {
+  background: linear-gradient(180deg, rgb(249 115 22 / 0.05) 0%, var(--background) 100%);
+}
+
+.dark .ember-gradient-light {
+  background: linear-gradient(135deg, rgb(249 115 22 / 0.1) 0%, rgb(234 88 12 / 0.15) 100%);
 }

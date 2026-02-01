@@ -110,7 +110,7 @@ export function Sidebar({ className = '' }: SidebarProps) {
   const pathname = usePathname()
 
   return (
-    <aside className={`flex flex-col w-64 bg-white border-r border-border ${className}`}>
+    <aside className={`flex flex-col w-64 bg-background border-r border-border ${className}`}>
       {/* Logo */}
       <div className="flex items-center gap-3 px-6 py-5 border-b border-border">
         <div className="w-8 h-8 rounded-full ember-gradient flex items-center justify-center">
@@ -133,12 +133,12 @@ export function Sidebar({ className = '' }: SidebarProps) {
                 flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium
                 transition-colors duration-150
                 ${isActive
-                  ? 'bg-ember-50 text-ember-700'
+                  ? 'bg-ember-500/10 text-ember-600 dark:text-ember-400'
                   : 'text-muted-foreground hover:bg-muted hover:text-foreground'
                 }
               `}
             >
-              <span className={isActive ? 'text-ember-600' : ''}>{item.icon}</span>
+              <span className={isActive ? 'text-ember-500' : ''}>{item.icon}</span>
               <span>{item.name}</span>
             </Link>
           )

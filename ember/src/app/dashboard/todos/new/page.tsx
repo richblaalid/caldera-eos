@@ -132,7 +132,7 @@ export default function NewTodoPage() {
                   type="date"
                   value={dueDate}
                   onChange={(e) => setDueDate(e.target.value)}
-                  className="w-full h-10 px-3 text-sm rounded-lg border border-border bg-white"
+                  className="w-full h-10 px-3 text-sm rounded-lg border border-border bg-background"
                 />
                 <p className="text-xs text-muted-foreground mt-1">
                   EOS standard: 7 days
@@ -146,7 +146,7 @@ export default function NewTodoPage() {
                 <select
                   value={ownerId || ''}
                   onChange={(e) => setOwnerId(e.target.value || null)}
-                  className="w-full h-10 px-3 text-sm rounded-lg border border-border bg-white"
+                  className="w-full h-10 px-3 text-sm rounded-lg border border-border bg-background"
                 >
                   <option value="">Unassigned</option>
                   {profiles.map(profile => (

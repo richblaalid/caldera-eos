@@ -342,7 +342,7 @@ export default function MeetingDetailPage({ params }: PageProps) {
                 type="datetime-local"
                 value={meetingDate}
                 onChange={(e) => setMeetingDate(e.target.value)}
-                className="w-full h-10 px-3 text-sm rounded-lg border border-border bg-white"
+                className="w-full h-10 px-3 text-sm rounded-lg border border-border bg-background"
               />
             ) : (
               <p className="text-foreground">
@@ -367,7 +367,7 @@ export default function MeetingDetailPage({ params }: PageProps) {
               <select
                 value={durationMinutes}
                 onChange={(e) => setDurationMinutes(e.target.value)}
-                className="w-full h-10 px-3 text-sm rounded-lg border border-border bg-white"
+                className="w-full h-10 px-3 text-sm rounded-lg border border-border bg-background"
               >
                 <option value="">Not set</option>
                 <option value="60">60 min</option>
@@ -393,7 +393,7 @@ export default function MeetingDetailPage({ params }: PageProps) {
               <select
                 value={meetingType}
                 onChange={(e) => setMeetingType(e.target.value as MeetingType)}
-                className="w-full h-10 px-3 text-sm rounded-lg border border-border bg-white"
+                className="w-full h-10 px-3 text-sm rounded-lg border border-border bg-background"
               >
                 <option value="l10">L10 (Weekly)</option>
                 <option value="quarterly">Quarterly</option>

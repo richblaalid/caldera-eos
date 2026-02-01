@@ -454,7 +454,7 @@ export default function ChatPage() {
               onKeyDown={handleKeyDown}
               placeholder="Ask Ember about your EOS data..."
               rows={1}
-              className="flex-1 min-h-[42px] max-h-[300px] resize-none rounded-lg border border-border bg-white px-4 py-2.5 text-sm leading-relaxed focus:outline-none focus:ring-2 focus:ring-ember-500 disabled:opacity-50"
+              className="flex-1 min-h-[42px] max-h-[300px] resize-none rounded-lg border border-border bg-background px-4 py-2.5 text-sm leading-relaxed focus:outline-none focus:ring-2 focus:ring-ember-500 disabled:opacity-50"
               disabled={isLoading}
             />
             <Button

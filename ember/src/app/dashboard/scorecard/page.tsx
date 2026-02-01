@@ -209,7 +209,7 @@ export default async function ScorecardPage({ searchParams }: PageProps) {
         <div className="flex items-center gap-3">
           <select
             defaultValue={weekCount.toString()}
-            className="h-10 px-3 text-sm rounded-lg border border-border bg-white"
+            className="h-10 px-3 text-sm rounded-lg border border-border bg-background"
           >
             <option value="4">4 weeks</option>
             <option value="8">8 weeks</option>
@@ -224,7 +224,7 @@ export default async function ScorecardPage({ searchParams }: PageProps) {
           </Link>
           <Link
             href="/dashboard/scorecard/metrics/new"
-            className="inline-flex items-center justify-center h-10 px-4 text-sm font-medium rounded-lg border border-border bg-white text-foreground hover:bg-muted transition-colors"
+            className="inline-flex items-center justify-center h-10 px-4 text-sm font-medium rounded-lg border border-border bg-background text-foreground hover:bg-muted transition-colors"
           >
             Add Metric
           </Link>
@@ -237,7 +237,7 @@ export default async function ScorecardPage({ searchParams }: PageProps) {
           <table className="w-full min-w-[800px]">
             <thead>
               <tr className="border-b border-border">
-                <th className="px-4 py-3 text-left text-sm font-semibold text-foreground sticky left-0 bg-white z-10 min-w-[200px]">
+                <th className="px-4 py-3 text-left text-sm font-semibold text-foreground sticky left-0 bg-background z-10 min-w-[200px]">
                   Metric
                 </th>
                 <th className="px-3 py-3 text-center text-sm font-semibold text-foreground w-16">
@@ -259,7 +259,7 @@ export default async function ScorecardPage({ searchParams }: PageProps) {
             <tbody>
               {metrics.map((metric: MetricWithOwner) => (
                 <tr key={metric.id} className="border-b border-border hover:bg-muted/50">
-                  <td className="px-4 py-3 sticky left-0 bg-white z-10">
+                  <td className="px-4 py-3 sticky left-0 bg-background z-10">
                     <Link
                       href={`/dashboard/scorecard/metrics/${metric.id}`}
                       className="font-medium text-foreground hover:text-ember-600"

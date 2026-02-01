@@ -112,7 +112,7 @@ export default async function DashboardPage() {
             key={action.name}
             href={action.href}
             className={`
-              flex items-start gap-4 p-5 rounded-xl border bg-white
+              flex items-start gap-4 p-5 rounded-xl border bg-background
               transition-all duration-150 hover:shadow-md
               ${action.color}
             `}
@@ -131,7 +131,7 @@ export default async function DashboardPage() {
       {/* Recent activity section (placeholder) */}
       <div className="mt-8">
         <h2 className="text-lg font-semibold text-foreground mb-4">Recent Activity</h2>
-        <div className="bg-white rounded-xl border border-border p-6">
+        <div className="bg-background rounded-xl border border-border p-6">
           <p className="text-muted-foreground text-sm">
             Your recent EOS activity will appear here once you start using the system.
           </p>
@@ -141,7 +141,7 @@ export default async function DashboardPage() {
       {/* Upcoming L10 section (placeholder) */}
       <div className="mt-8">
         <h2 className="text-lg font-semibold text-foreground mb-4">Upcoming L10</h2>
-        <div className="bg-white rounded-xl border border-border p-6">
+        <div className="bg-background rounded-xl border border-border p-6">
           <div className="flex items-center gap-4">
             <div className="w-12 h-12 rounded-lg bg-ember-100 flex items-center justify-center">
               <svg className="w-6 h-6 text-ember-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">

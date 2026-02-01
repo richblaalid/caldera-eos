@@ -67,7 +67,7 @@ export function Modal({
       >
         <div
           className={`
-            w-full ${sizeStyles[size]} bg-white rounded-xl shadow-lg
+            w-full ${sizeStyles[size]} bg-background rounded-xl shadow-lg
             transform transition-all duration-200
           `}
           onClick={(e) => e.stopPropagation()}

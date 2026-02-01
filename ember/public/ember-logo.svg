@@ -1,0 +1,35 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 48" fill="none">
+  <defs>
+    <linearGradient id="ember-flame-grad" x1="50%" y1="100%" x2="50%" y2="0%">
+      <stop offset="0%" stop-color="#c2410c"/>
+      <stop offset="50%" stop-color="#ea580c"/>
+      <stop offset="100%" stop-color="#f97316"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Flame mark with upward traction - chevron-like shape suggesting momentum -->
+  <g transform="translate(4, 4)">
+    <!-- Main flame body - upward pointing with chevron silhouette -->
+    <path
+      d="M20 40C20 40 8 32 8 22C8 14 14 8 20 4C20 4 16 12 16 18C16 22 18 26 20 28C22 26 24 22 24 18C24 12 20 4 20 4C26 8 32 14 32 22C32 32 20 40 20 40Z"
+      fill="url(#ember-flame-grad)"
+    />
+    <!-- Inner highlight - creates depth and subtle chevron -->
+    <path
+      d="M20 36C20 36 14 30 14 24C14 20 16 16 20 12C20 12 18 18 18 22C18 26 20 30 20 30C20 30 22 26 22 22C22 18 20 12 20 12C24 16 26 20 26 24C26 30 20 36 20 36Z"
+      fill="#fff"
+      fill-opacity="0.25"
+    />
+  </g>
+
+  <!-- Wordmark: "Ember" -->
+  <text
+    x="52"
+    y="33"
+    font-family="system-ui, -apple-system, sans-serif"
+    font-size="26"
+    font-weight="600"
+    letter-spacing="-0.02em"
+    fill="#0f172a"
+  >Ember</text>
+</svg>
