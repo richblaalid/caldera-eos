@@ -192,7 +192,7 @@ export default function AssessPage() {
 
   // Count answered questions
   const answeredCount = Object.keys(responses).length
-  const totalCount = 20
+  const totalCount = questions ? Object.values(questions).flat().length : 20
   const canSubmit = answeredCount === totalCount
 
   if (loading) {

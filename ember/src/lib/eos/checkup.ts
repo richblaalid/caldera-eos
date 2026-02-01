@@ -277,8 +277,16 @@ export async function submitCheckup(periodId: string, userId: string) {
   ])
 
   // Verify all questions are answered
-  if (responses.length !== 20) {
-    throw new Error(`Please answer all 20 questions. Currently answered: ${responses.length}`)
+  const totalQuestions = questions.length
+  if (responses.length !== totalQuestions) {
+    // Find which questions are missing
+    const answeredIds = new Set(responses.map(r => r.question_id))
+    const unanswered = questions.filter(q => !answeredIds.has(q.id))
+    const unansweredList = unanswered.map(q => `#${q.question_order}`).join(', ')
+    throw new Error(
+      `Please answer all ${totalQuestions} questions. Currently answered: ${responses.length}. ` +
+      `Missing: ${unansweredList || 'unknown'}`
+    )
   }
 
   const scores = calculateComponentScores(responses, questions)
