@@ -113,9 +113,24 @@ export function Sidebar({ className = '' }: SidebarProps) {
     <aside className={`flex flex-col w-64 bg-background border-r border-border ${className}`}>
       {/* Logo */}
       <div className="flex items-center gap-3 px-6 py-5 border-b border-border">
-        <div className="w-8 h-8 rounded-full ember-gradient flex items-center justify-center">
-          <span className="text-sm text-white font-bold">E</span>
-        </div>
+        <svg className="w-8 h-8" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <defs>
+            <linearGradient id="sidebar-ember-grad" x1="50%" y1="100%" x2="50%" y2="0%">
+              <stop offset="0%" stopColor="#c2410c"/>
+              <stop offset="50%" stopColor="#ea580c"/>
+              <stop offset="100%" stopColor="#f97316"/>
+            </linearGradient>
+          </defs>
+          <path
+            d="M16 2C16 2 6 10 6 18C6 24 10 28 16 30C16 30 12 24 12 20C12 16 14 12 16 10C18 12 20 16 20 20C20 24 16 30 16 30C22 28 26 24 26 18C26 10 16 2 16 2Z"
+            fill="url(#sidebar-ember-grad)"
+          />
+          <path
+            d="M16 8C16 8 11 14 11 19C11 23 13 26 16 27C16 27 14 23 14 20C14 17 15 14 16 13C17 14 18 17 18 20C18 23 16 27 16 27C19 26 21 23 21 19C21 14 16 8 16 8Z"
+            fill="#fff"
+            fillOpacity="0.2"
+          />
+        </svg>
         <span className="font-semibold text-foreground">Ember</span>
       </div>
 

@@ -238,12 +238,12 @@ export default async function TodosPage({ searchParams }: PageProps) {
       {(stats.dueToday > 0 || stats.dueThisWeek > 0) && (
         <div className="flex gap-4 text-sm">
           {stats.dueToday > 0 && (
-            <span className="px-3 py-1.5 bg-amber-100 text-amber-700 rounded-lg">
+            <span className="px-3 py-1.5 bg-amber-500/10 text-amber-700 dark:text-amber-400 rounded-lg">
               {stats.dueToday} due today
             </span>
           )}
           {stats.dueThisWeek > 0 && (
-            <span className="px-3 py-1.5 bg-blue-100 text-blue-700 rounded-lg">
+            <span className="px-3 py-1.5 bg-blue-500/10 text-blue-700 dark:text-blue-400 rounded-lg">
               {stats.dueThisWeek} due this week
             </span>
           )}
