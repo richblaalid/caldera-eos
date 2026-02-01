@@ -4,24 +4,7 @@ import { useState, useEffect, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { Card, CardHeader, CardTitle, CardContent, Button, Input, Badge } from '@/components/ui'
-import type { Transcript, Meeting } from '@/types/database'
-
-interface ExtractedItem {
-  type: 'issue' | 'todo' | 'decision' | 'action'
-  title: string
-  description?: string
-  owner?: string
-  priority?: number
-  due_date?: string
-  context: string
-}
-
-interface Extractions {
-  issues: ExtractedItem[]
-  todos: ExtractedItem[]
-  decisions: ExtractedItem[]
-  summary: string
-}
+import type { Transcript, Meeting, TranscriptExtractions, TranscriptExtractedItem } from '@/types/database'
 
 interface PageProps {
   params: Promise<{ id: string }>
@@ -39,7 +22,7 @@ export default function TranscriptDetailPage({ params }: PageProps) {
   const [error, setError] = useState<string | null>(null)
   const [transcriptId, setTranscriptId] = useState<string | null>(null)
   const [searchTerm, setSearchTerm] = useState('')
-  const [extractions, setExtractions] = useState<Extractions | null>(null)
+  const [extractions, setExtractions] = useState<TranscriptExtractions | null>(null)
   const [creatingItem, setCreatingItem] = useState<string | null>(null)
 
   // Form state
@@ -69,6 +52,11 @@ export default function TranscriptDetailPage({ params }: PageProps) {
 
         const transcriptData = await transcriptRes.json()
         setTranscript(transcriptData)
+
+        // Load extractions from transcript data if available
+        if (transcriptData.extractions) {
+          setExtractions(transcriptData.extractions)
+        }
 
         // Initialize form state
         setTitle(transcriptData.title || '')
@@ -154,6 +142,21 @@ export default function TranscriptDetailPage({ params }: PageProps) {
     }
   }
 
+  // Helper to persist extractions changes to DB
+  const persistExtractions = async (newExtractions: TranscriptExtractions) => {
+    if (!transcriptId) return
+
+    try {
+      await fetch(`/api/eos/transcripts/${transcriptId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ extractions: newExtractions }),
+      })
+    } catch (err) {
+      console.error('Failed to persist extractions:', err)
+    }
+  }
+
   const handleProcess = async () => {
     if (!transcriptId) return
 
@@ -182,7 +185,7 @@ export default function TranscriptDetailPage({ params }: PageProps) {
     }
   }
 
-  const handleCreateIssue = async (item: ExtractedItem) => {
+  const handleCreateIssue = async (item: TranscriptExtractedItem) => {
     setCreatingItem(item.title)
     try {
       const res = await fetch('/api/eos/issues', {
@@ -199,15 +202,20 @@ export default function TranscriptDetailPage({ params }: PageProps) {
 
       if (!res.ok) throw new Error('Failed to create issue')
 
-      // Remove from extractions list
-      setExtractions((prev) =>
-        prev
-          ? {
-              ...prev,
-              issues: prev.issues.filter((i) => i.title !== item.title),
-            }
-          : null
-      )
+      // Mark as created in extractions and persist to DB
+      const newExtractions = extractions
+        ? {
+            ...extractions,
+            issues: extractions.issues.map((i) =>
+              i.title === item.title ? { ...i, created: true } : i
+            ),
+          }
+        : null
+
+      if (newExtractions) {
+        setExtractions(newExtractions)
+        await persistExtractions(newExtractions)
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to create issue')
     } finally {
@@ -215,7 +223,7 @@ export default function TranscriptDetailPage({ params }: PageProps) {
     }
   }
 
-  const handleCreateTodo = async (item: ExtractedItem) => {
+  const handleCreateTodo = async (item: TranscriptExtractedItem) => {
     setCreatingItem(item.title)
     try {
       // Calculate default due date (7 days from now per EOS)
@@ -234,15 +242,20 @@ export default function TranscriptDetailPage({ params }: PageProps) {
 
       if (!res.ok) throw new Error('Failed to create to-do')
 
-      // Remove from extractions list
-      setExtractions((prev) =>
-        prev
-          ? {
-              ...prev,
-              todos: prev.todos.filter((t) => t.title !== item.title),
-            }
-          : null
-      )
+      // Mark as created in extractions and persist to DB
+      const newExtractions = extractions
+        ? {
+            ...extractions,
+            todos: extractions.todos.map((t) =>
+              t.title === item.title ? { ...t, created: true } : t
+            ),
+          }
+        : null
+
+      if (newExtractions) {
+        setExtractions(newExtractions)
+        await persistExtractions(newExtractions)
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to create to-do')
     } finally {
@@ -250,15 +263,18 @@ export default function TranscriptDetailPage({ params }: PageProps) {
     }
   }
 
-  const dismissExtraction = (type: 'issues' | 'todos' | 'decisions', title: string) => {
-    setExtractions((prev) =>
-      prev
-        ? {
-            ...prev,
-            [type]: prev[type].filter((item) => item.title !== title),
-          }
-        : null
-    )
+  const dismissExtraction = async (type: 'issues' | 'todos' | 'decisions', title: string) => {
+    const newExtractions = extractions
+      ? {
+          ...extractions,
+          [type]: extractions[type].filter((item) => item.title !== title),
+        }
+      : null
+
+    if (newExtractions) {
+      setExtractions(newExtractions)
+      await persistExtractions(newExtractions)
+    }
   }
 
   // Highlight search matches in text
@@ -536,35 +552,40 @@ export default function TranscriptDetailPage({ params }: PageProps) {
                   <svg className="w-4 h-4 text-danger" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                   </svg>
-                  Issues ({extractions.issues.length})
+                  Issues ({extractions.issues.filter(i => !i.created).length} pending, {extractions.issues.filter(i => i.created).length} created)
                 </h3>
                 <div className="space-y-2">
                   {extractions.issues.map((item, i) => (
-                    <div key={i} className="flex items-start justify-between gap-3 p-3 bg-muted/50 rounded-lg">
+                    <div key={i} className={`flex items-start justify-between gap-3 p-3 rounded-lg ${item.created ? 'bg-success/10' : 'bg-muted/50'}`}>
                       <div className="flex-1 min-w-0">
-                        <p className="font-medium text-foreground">{item.title}</p>
+                        <div className="flex items-center gap-2">
+                          <p className={`font-medium ${item.created ? 'text-muted-foreground' : 'text-foreground'}`}>{item.title}</p>
+                          {item.created && <Badge variant="success">Created</Badge>}
+                        </div>
                         {item.context && (
                           <p className="text-sm text-muted-foreground mt-1 italic">&ldquo;{item.context}&rdquo;</p>
                         )}
                       </div>
-                      <div className="flex items-center gap-2 shrink-0">
-                        <Button
-                          size="sm"
-                          onClick={() => handleCreateIssue(item)}
-                          isLoading={creatingItem === item.title}
-                        >
-                          Create Issue
-                        </Button>
-                        <button
-                          onClick={() => dismissExtraction('issues', item.title)}
-                          className="p-1 text-muted-foreground hover:text-foreground"
-                          title="Dismiss"
-                        >
-                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                          </svg>
-                        </button>
-                      </div>
+                      {!item.created && (
+                        <div className="flex items-center gap-2 shrink-0">
+                          <Button
+                            size="sm"
+                            onClick={() => handleCreateIssue(item)}
+                            isLoading={creatingItem === item.title}
+                          >
+                            Create Issue
+                          </Button>
+                          <button
+                            onClick={() => dismissExtraction('issues', item.title)}
+                            className="p-1 text-muted-foreground hover:text-foreground"
+                            title="Dismiss"
+                          >
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                            </svg>
+                          </button>
+                        </div>
+                      )}
                     </div>
                   ))}
                 </div>
@@ -578,13 +599,16 @@ export default function TranscriptDetailPage({ params }: PageProps) {
                   <svg className="w-4 h-4 text-info" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
                   </svg>
-                  To-dos ({extractions.todos.length})
+                  To-dos ({extractions.todos.filter(t => !t.created).length} pending, {extractions.todos.filter(t => t.created).length} created)
                 </h3>
                 <div className="space-y-2">
                   {extractions.todos.map((item, i) => (
-                    <div key={i} className="flex items-start justify-between gap-3 p-3 bg-muted/50 rounded-lg">
+                    <div key={i} className={`flex items-start justify-between gap-3 p-3 rounded-lg ${item.created ? 'bg-success/10' : 'bg-muted/50'}`}>
                       <div className="flex-1 min-w-0">
-                        <p className="font-medium text-foreground">{item.title}</p>
+                        <div className="flex items-center gap-2">
+                          <p className={`font-medium ${item.created ? 'text-muted-foreground' : 'text-foreground'}`}>{item.title}</p>
+                          {item.created && <Badge variant="success">Created</Badge>}
+                        </div>
                         {item.owner && (
                           <p className="text-sm text-muted-foreground">Owner: {item.owner}</p>
                         )}
@@ -592,24 +616,26 @@ export default function TranscriptDetailPage({ params }: PageProps) {
                           <p className="text-sm text-muted-foreground mt-1 italic">&ldquo;{item.context}&rdquo;</p>
                         )}
                       </div>
-                      <div className="flex items-center gap-2 shrink-0">
-                        <Button
-                          size="sm"
-                          onClick={() => handleCreateTodo(item)}
-                          isLoading={creatingItem === item.title}
-                        >
-                          Create To-do
-                        </Button>
-                        <button
-                          onClick={() => dismissExtraction('todos', item.title)}
-                          className="p-1 text-muted-foreground hover:text-foreground"
-                          title="Dismiss"
-                        >
-                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                          </svg>
-                        </button>
-                      </div>
+                      {!item.created && (
+                        <div className="flex items-center gap-2 shrink-0">
+                          <Button
+                            size="sm"
+                            onClick={() => handleCreateTodo(item)}
+                            isLoading={creatingItem === item.title}
+                          >
+                            Create To-do
+                          </Button>
+                          <button
+                            onClick={() => dismissExtraction('todos', item.title)}
+                            className="p-1 text-muted-foreground hover:text-foreground"
+                            title="Dismiss"
+                          >
+                            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                            </svg>
+                          </button>
+                        </div>
+                      )}
                     </div>
                   ))}
                 </div>
