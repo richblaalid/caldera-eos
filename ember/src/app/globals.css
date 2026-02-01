@@ -128,6 +128,29 @@ body {
   -moz-osx-font-smoothing: grayscale;
 }
 
+/*
+ * Dynamic color utilities that respond to theme changes
+ * These override Tailwind's static compiled values to use CSS variables
+ */
+.bg-background { background-color: var(--background) !important; }
+.bg-foreground { background-color: var(--foreground) !important; }
+.bg-muted { background-color: var(--muted) !important; }
+.bg-muted\/50 { background-color: color-mix(in srgb, var(--muted) 50%, transparent) !important; }
+.bg-border { background-color: var(--border) !important; }
+
+.text-foreground { color: var(--foreground) !important; }
+.text-muted-foreground { color: var(--muted-foreground) !important; }
+.text-background { color: var(--background) !important; }
+
+.border-border { border-color: var(--border) !important; }
+.border-muted { border-color: var(--muted) !important; }
+
+.hover\:bg-muted:hover { background-color: var(--muted) !important; }
+.hover\:bg-muted\/50:hover { background-color: color-mix(in srgb, var(--muted) 50%, transparent) !important; }
+.hover\:text-foreground:hover { color: var(--foreground) !important; }
+
+.group:hover .group-hover\:bg-muted { background-color: var(--muted) !important; }
+
 /* Focus ring utility */
 .focus-ring {
   outline: none;
