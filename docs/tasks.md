@@ -317,7 +317,7 @@ Executable task list for building Ember MVP. Each task includes acceptance crite
 
 ### Day 11: Chat Infrastructure
 
-- [ ] **6.1.1** Build Chat API
+- [x] **6.1.1** Build Chat API
   - Message handling endpoint
   - Context retrieval
   - **Acceptance:** Chat API works
@@ -336,7 +336,7 @@ Executable task list for building Ember MVP. Each task includes acceptance crite
 
 ### Day 12: Coaching Intelligence
 
-- [ ] **6.2.1** Build Ember system prompt
+- [x] **6.2.1** Build Ember system prompt
   - Persona, EOS expertise, Caldera context
   - Partner profiles
   - **Acceptance:** System prompt complete
@@ -346,7 +346,7 @@ Executable task list for building Ember MVP. Each task includes acceptance crite
   - Combine with EOS data
   - **Acceptance:** RAG working
 
-- [ ] **6.2.3** Create coaching prompts
+- [x] **6.2.3** Create coaching prompts
   - Specific prompts for common scenarios
   - EOS methodology grounding
   - **Acceptance:** Coaching prompts work
@@ -463,6 +463,9 @@ Executable task list for building Ember MVP. Each task includes acceptance crite
 | 2026-01-31 | 5.2.2 | Generate embeddings | Complete |
 | 2026-01-31 | 5.2.3 | Build extraction pipeline | Complete |
 | 2026-01-31 | 5.2.4 | Link extractions to EOS | Complete |
+| 2026-01-31 | 6.1.1 | Build Chat API | Complete |
+| 2026-01-31 | 6.2.1 | Build Ember system prompt | Complete |
+| 2026-01-31 | 6.2.3 | Create coaching prompts | Complete |
 
 ---
 
