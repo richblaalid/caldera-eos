@@ -351,7 +351,7 @@ Executable task list for building Ember MVP. Each task includes acceptance crite
   - EOS methodology grounding
   - **Acceptance:** Coaching prompts work
 
-- [ ] **6.2.4** Add private chat storage
+- [x] **6.2.4** Add private chat storage
   - User-specific chat history
   - Row-level security
   - **Acceptance:** Private chats work
@@ -469,6 +469,7 @@ Executable task list for building Ember MVP. Each task includes acceptance crite
 | 2026-01-31 | 6.2.1 | Build Ember system prompt | Complete |
 | 2026-01-31 | 6.2.2 | Implement RAG pipeline | Complete |
 | 2026-01-31 | 6.2.3 | Create coaching prompts | Complete |
+| 2026-01-31 | 6.2.4 | Add private chat storage | Complete |
 
 ---
 
