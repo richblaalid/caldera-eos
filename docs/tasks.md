@@ -317,17 +317,17 @@ Executable task list for building Ember MVP. Each task includes acceptance crite
 
 ### Day 11: Chat Infrastructure
 
-- [ ] **6.1.1** Build Chat API
+- [x] **6.1.1** Build Chat API
   - Message handling endpoint
   - Context retrieval
   - **Acceptance:** Chat API works
 
-- [ ] **6.1.2** Create Chat UI
+- [x] **6.1.2** Create Chat UI
   - Message list with streaming
   - Input with send
   - **Acceptance:** Chat UI functional
 
-- [ ] **6.1.3** Implement context retrieval
+- [x] **6.1.3** Implement context retrieval
   - Pull relevant transcripts and EOS data
   - Vector similarity search
   - **Acceptance:** Context retrieved
@@ -336,22 +336,22 @@ Executable task list for building Ember MVP. Each task includes acceptance crite
 
 ### Day 12: Coaching Intelligence
 
-- [ ] **6.2.1** Build Ember system prompt
+- [x] **6.2.1** Build Ember system prompt
   - Persona, EOS expertise, Caldera context
   - Partner profiles
   - **Acceptance:** System prompt complete
 
-- [ ] **6.2.2** Implement RAG pipeline
+- [x] **6.2.2** Implement RAG pipeline
   - Retrieve relevant context for questions
   - Combine with EOS data
   - **Acceptance:** RAG working
 
-- [ ] **6.2.3** Create coaching prompts
+- [x] **6.2.3** Create coaching prompts
   - Specific prompts for common scenarios
   - EOS methodology grounding
   - **Acceptance:** Coaching prompts work
 
-- [ ] **6.2.4** Add private chat storage
+- [x] **6.2.4** Add private chat storage
   - User-specific chat history
   - Row-level security
   - **Acceptance:** Private chats work
@@ -463,6 +463,13 @@ Executable task list for building Ember MVP. Each task includes acceptance crite
 | 2026-01-31 | 5.2.2 | Generate embeddings | Complete |
 | 2026-01-31 | 5.2.3 | Build extraction pipeline | Complete |
 | 2026-01-31 | 5.2.4 | Link extractions to EOS | Complete |
+| 2026-01-31 | 6.1.1 | Build Chat API | Complete |
+| 2026-01-31 | 6.1.2 | Create Chat UI | Complete |
+| 2026-01-31 | 6.1.3 | Implement context retrieval | Complete |
+| 2026-01-31 | 6.2.1 | Build Ember system prompt | Complete |
+| 2026-01-31 | 6.2.2 | Implement RAG pipeline | Complete |
+| 2026-01-31 | 6.2.3 | Create coaching prompts | Complete |
+| 2026-01-31 | 6.2.4 | Add private chat storage | Complete |
 
 ---
 
