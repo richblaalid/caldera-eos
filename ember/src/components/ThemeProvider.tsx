@@ -25,13 +25,6 @@ interface ThemeProviderProps {
   defaultTheme?: Theme
 }
 
-// Get initial theme from localStorage or default
-function getInitialTheme(defaultTheme: Theme): Theme {
-  if (typeof window === 'undefined') return defaultTheme
-  const stored = localStorage.getItem('ember-theme') as Theme | null
-  return stored || defaultTheme
-}
-
 // Get system preference
 function getSystemTheme(): 'light' | 'dark' {
   if (typeof window === 'undefined') return 'light'
@@ -44,70 +37,78 @@ function resolveTheme(t: Theme): 'light' | 'dark' {
   return t
 }
 
-// Apply theme to document
-function applyTheme(resolved: 'light' | 'dark') {
-  const root = document.documentElement
-  root.classList.remove('light', 'dark')
-  root.classList.add(resolved)
-}
-
 export function ThemeProvider({ children, defaultTheme = 'system' }: ThemeProviderProps) {
-  const [theme, setThemeState] = useState<Theme>(() => getInitialTheme(defaultTheme))
-  const [resolvedTheme, setResolvedTheme] = useState<'light' | 'dark'>(() => resolveTheme(getInitialTheme(defaultTheme)))
+  const [theme, setThemeState] = useState<Theme>(defaultTheme)
+  const [resolvedTheme, setResolvedTheme] = useState<'light' | 'dark'>('light')
   const [mounted, setMounted] = useState(false)
 
-  // Apply theme on mount and when theme changes
+  // Initialize theme from localStorage on mount
   useEffect(() => {
-    applyTheme(resolvedTheme)
-    // eslint-disable-next-line react-hooks/set-state-in-effect
+    const stored = localStorage.getItem('ember-theme') as Theme | null
+    const initialTheme = stored || defaultTheme
+    setThemeState(initialTheme)
+    const resolved = resolveTheme(initialTheme)
+    setResolvedTheme(resolved)
     setMounted(true)
-  }, [resolvedTheme])
+  }, [defaultTheme])
+
+  // Apply theme class to document whenever resolvedTheme changes
+  useEffect(() => {
+    if (!mounted) return
+    const root = document.documentElement
+    root.classList.remove('light', 'dark')
+    root.classList.add(resolvedTheme)
+  }, [resolvedTheme, mounted])
 
   // Listen for system preference changes
   useEffect(() => {
+    if (!mounted) return
     const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)')
     const handler = () => {
       if (theme === 'system') {
         const resolved = getSystemTheme()
         setResolvedTheme(resolved)
-        applyTheme(resolved)
       }
     }
     mediaQuery.addEventListener('change', handler)
     return () => mediaQuery.removeEventListener('change', handler)
-  }, [theme])
+  }, [theme, mounted])
 
   const setTheme = useCallback((newTheme: Theme) => {
     setThemeState(newTheme)
     localStorage.setItem('ember-theme', newTheme)
     const resolved = resolveTheme(newTheme)
     setResolvedTheme(resolved)
-    applyTheme(resolved)
+    // Apply immediately, don't wait for effect
+    const root = document.documentElement
+    root.classList.remove('light', 'dark')
+    root.classList.add(resolved)
   }, [])
 
-  // Prevent flash by not rendering until mounted
-  if (!mounted) {
-    return (
+  // Always render children, use CSS to handle initial flash
+  return (
+    <>
+      {/* Inline script to prevent flash of wrong theme */}
       <script
         dangerouslySetInnerHTML={{
           __html: `
             (function() {
-              const stored = localStorage.getItem('ember-theme');
-              const theme = stored || '${defaultTheme}';
-              const resolved = theme === 'system'
-                ? (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light')
-                : theme;
-              document.documentElement.classList.add(resolved);
+              try {
+                const stored = localStorage.getItem('ember-theme');
+                const theme = stored || '${defaultTheme}';
+                const resolved = theme === 'system'
+                  ? (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light')
+                  : theme;
+                document.documentElement.classList.remove('light', 'dark');
+                document.documentElement.classList.add(resolved);
+              } catch (e) {}
             })();
           `,
         }}
       />
-    )
-  }
-
-  return (
-    <ThemeContext.Provider value={{ theme, resolvedTheme, setTheme }}>
-      {children}
-    </ThemeContext.Provider>
+      <ThemeContext.Provider value={{ theme, resolvedTheme, setTheme }}>
+        {children}
+      </ThemeContext.Provider>
+    </>
   )
 }

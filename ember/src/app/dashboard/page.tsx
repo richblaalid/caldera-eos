@@ -23,7 +23,7 @@ export default async function DashboardPage() {
       name: 'V/TO',
       description: 'Vision/Traction Organizer',
       href: '/dashboard/vto',
-      color: 'bg-ember-500/10 border-ember-500/20 hover:border-ember-500/40',
+      accentColor: 'bg-ember-500',
       iconColor: 'text-ember-600 dark:text-ember-400',
       icon: (
         <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -35,7 +35,7 @@ export default async function DashboardPage() {
       name: 'Rocks',
       description: '90-day priorities',
       href: '/dashboard/rocks',
-      color: 'bg-blue-500/10 border-blue-500/20 hover:border-blue-500/40',
+      accentColor: 'bg-blue-500',
       iconColor: 'text-blue-600 dark:text-blue-400',
       icon: (
         <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -47,7 +47,7 @@ export default async function DashboardPage() {
       name: 'Scorecard',
       description: 'Weekly metrics',
       href: '/dashboard/scorecard',
-      color: 'bg-green-500/10 border-green-500/20 hover:border-green-500/40',
+      accentColor: 'bg-green-500',
       iconColor: 'text-green-600 dark:text-green-400',
       icon: (
         <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -59,7 +59,7 @@ export default async function DashboardPage() {
       name: 'Issues',
       description: 'IDS workflow',
       href: '/dashboard/issues',
-      color: 'bg-amber-500/10 border-amber-500/20 hover:border-amber-500/40',
+      accentColor: 'bg-amber-500',
       iconColor: 'text-amber-600 dark:text-amber-400',
       icon: (
         <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -71,7 +71,7 @@ export default async function DashboardPage() {
       name: 'To-dos',
       description: '7-day action items',
       href: '/dashboard/todos',
-      color: 'bg-purple-500/10 border-purple-500/20 hover:border-purple-500/40',
+      accentColor: 'bg-purple-500',
       iconColor: 'text-purple-600 dark:text-purple-400',
       icon: (
         <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -83,7 +83,7 @@ export default async function DashboardPage() {
       name: 'Chat with Ember',
       description: 'EOS coaching & questions',
       href: '/dashboard/chat',
-      color: 'bg-slate-500/10 border-slate-500/20 hover:border-slate-500/40',
+      accentColor: 'bg-slate-500',
       iconColor: 'text-slate-600 dark:text-slate-400',
       icon: (
         <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -111,13 +111,11 @@ export default async function DashboardPage() {
           <Link
             key={action.name}
             href={action.href}
-            className={`
-              flex items-start gap-4 p-5 rounded-xl border bg-background
-              transition-all duration-150 hover:shadow-md
-              ${action.color}
-            `}
+            className="group relative flex items-start gap-4 p-5 rounded-xl border border-border bg-background hover:bg-muted/50 transition-all duration-150 hover:shadow-md overflow-hidden"
           >
-            <div className={`p-2 rounded-lg ${action.color.split(' ')[0]}`}>
+            {/* Accent bar */}
+            <div className={`absolute left-0 top-0 bottom-0 w-1 ${action.accentColor}`} />
+            <div className="p-2 rounded-lg bg-muted/50 group-hover:bg-muted transition-colors">
               <span className={action.iconColor}>{action.icon}</span>
             </div>
             <div>
