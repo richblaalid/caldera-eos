@@ -1,7 +1,7 @@
 import Link from 'next/link'
 import { getTodos, getProfiles } from '@/lib/eos'
-import { Card, CardContent, Badge } from '@/components/ui'
-import type { TodoWithOwner, Profile } from '@/types/database'
+import { Card, CardContent } from '@/components/ui'
+import type { Profile } from '@/types/database'
 import { TodoListClient } from './TodoListClient'
 import { QuickAddTodo } from './QuickAddTodo'
 

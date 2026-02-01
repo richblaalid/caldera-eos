@@ -1,7 +1,7 @@
 import Link from 'next/link'
-import { getIssues, getProfiles } from '@/lib/eos'
+import { getIssues } from '@/lib/eos'
 import { Card, CardContent, StatusBadge, Badge } from '@/components/ui'
-import type { IssueWithOwner, IssueStatus, Profile } from '@/types/database'
+import type { IssueWithOwner } from '@/types/database'
 
 // Status filter component
 function StatusFilter({

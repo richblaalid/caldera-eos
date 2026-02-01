@@ -1,7 +1,7 @@
 import Link from 'next/link'
 import { getRocks, getCurrentQuarter, getProfiles } from '@/lib/eos'
 import { Card, CardContent, StatusBadge } from '@/components/ui'
-import type { RockWithOwner, RockStatus, Profile } from '@/types/database'
+import type { RockWithOwner, Profile } from '@/types/database'
 
 // Status filter component
 function StatusFilter({

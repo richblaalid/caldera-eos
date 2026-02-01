@@ -2,6 +2,48 @@ import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import type { VTO, VTOInsert } from '@/types/database'
 
+// Helper to get user's organization ID
+async function getUserOrganizationId(supabase: Awaited<ReturnType<typeof createClient>>): Promise<string | null> {
+  // First check if user is already a member of an org
+  const { data: membership } = await supabase
+    .from('organization_members')
+    .select('organization_id')
+    .limit(1)
+    .single()
+
+  if (membership?.organization_id) {
+    return membership.organization_id
+  }
+
+  // Check allowed_emails and auto-assign
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user?.email) return null
+
+  const { data: allowed } = await supabase
+    .from('allowed_emails')
+    .select('organization_id')
+    .eq('email', user.email)
+    .eq('auto_assign', true)
+    .single()
+
+  if (allowed?.organization_id) {
+    // Auto-assign user to organization
+    await supabase
+      .from('organization_members')
+      .insert({
+        organization_id: allowed.organization_id,
+        user_id: user.id,
+        role: 'member',
+      })
+      .select()
+      .single()
+
+    return allowed.organization_id
+  }
+
+  return null
+}
+
 // GET /api/eos/vto - Retrieve current V/TO
 export async function GET() {
   try {
@@ -79,12 +121,14 @@ export async function PUT(request: Request) {
       }
       result = data
     } else {
-      // Create new V/TO
+      // Create new V/TO with organization
+      const orgId = await getUserOrganizationId(supabase)
       const { data, error } = await supabase
         .from('vto')
         .insert({
           ...body,
           version: 1,
+          ...(orgId && { organization_id: orgId }),
         })
         .select()
         .single()

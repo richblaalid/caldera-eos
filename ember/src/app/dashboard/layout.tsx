@@ -18,6 +18,14 @@ export default async function DashboardLayout({
     redirect('/login')
   }
 
+  // Check if user is authorized using secure database function
+  const { data: isAllowed } = await supabase
+    .rpc('is_user_allowed')
+
+  if (!isAllowed) {
+    redirect('/unauthorized')
+  }
+
   // Fetch user profile
   const { data: profile } = await supabase
     .from('profiles')

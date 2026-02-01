@@ -156,7 +156,7 @@ export default function ChatPage() {
     }
   }
 
-  const usePrompt = (prompt: string) => {
+  const selectPrompt = (prompt: string) => {
     setInput(prompt)
     inputRef.current?.focus()
   }
@@ -251,7 +251,7 @@ export default function ChatPage() {
               {promptCategory === 'focus-day' && (
                 <div className="grid grid-cols-2 gap-2 w-full max-w-lg">
                   <button
-                    onClick={() => usePrompt(FOCUS_DAY_PROMPTS.overview)}
+                    onClick={() => selectPrompt(FOCUS_DAY_PROMPTS.overview)}
                     className="p-3 text-left text-sm rounded-lg border border-border hover:bg-muted/50 transition-colors"
                   >
                     <span className="font-medium text-foreground">Focus Day Overview</span>
@@ -260,7 +260,7 @@ export default function ChatPage() {
                     </p>
                   </button>
                   <button
-                    onClick={() => usePrompt(FOCUS_DAY_PROMPTS.accountabilityChart)}
+                    onClick={() => selectPrompt(FOCUS_DAY_PROMPTS.accountabilityChart)}
                     className="p-3 text-left text-sm rounded-lg border border-border hover:bg-muted/50 transition-colors"
                   >
                     <span className="font-medium text-foreground">Accountability Chart</span>
@@ -269,7 +269,7 @@ export default function ChatPage() {
                     </p>
                   </button>
                   <button
-                    onClick={() => usePrompt(FOCUS_DAY_PROMPTS.rocks)}
+                    onClick={() => selectPrompt(FOCUS_DAY_PROMPTS.rocks)}
                     className="p-3 text-left text-sm rounded-lg border border-border hover:bg-muted/50 transition-colors"
                   >
                     <span className="font-medium text-foreground">Discover Rocks</span>
@@ -278,7 +278,7 @@ export default function ChatPage() {
                     </p>
                   </button>
                   <button
-                    onClick={() => usePrompt(FOCUS_DAY_PROMPTS.scorecard)}
+                    onClick={() => selectPrompt(FOCUS_DAY_PROMPTS.scorecard)}
                     className="p-3 text-left text-sm rounded-lg border border-border hover:bg-muted/50 transition-colors"
                   >
                     <span className="font-medium text-foreground">Build Scorecard</span>
@@ -287,7 +287,7 @@ export default function ChatPage() {
                     </p>
                   </button>
                   <button
-                    onClick={() => usePrompt(FOCUS_DAY_PROMPTS.issuesList)}
+                    onClick={() => selectPrompt(FOCUS_DAY_PROMPTS.issuesList)}
                     className="p-3 text-left text-sm rounded-lg border border-border hover:bg-muted/50 transition-colors"
                   >
                     <span className="font-medium text-foreground">Issues List</span>
@@ -296,7 +296,7 @@ export default function ChatPage() {
                     </p>
                   </button>
                   <button
-                    onClick={() => usePrompt(FOCUS_DAY_PROMPTS.l10Format)}
+                    onClick={() => selectPrompt(FOCUS_DAY_PROMPTS.l10Format)}
                     className="p-3 text-left text-sm rounded-lg border border-border hover:bg-muted/50 transition-colors"
                   >
                     <span className="font-medium text-foreground">L10 Format</span>
@@ -311,7 +311,7 @@ export default function ChatPage() {
               {promptCategory === 'vto' && (
                 <div className="grid grid-cols-2 gap-2 w-full max-w-lg">
                   <button
-                    onClick={() => usePrompt(VTO_PROMPTS.coreValues)}
+                    onClick={() => selectPrompt(VTO_PROMPTS.coreValues)}
                     className="p-3 text-left text-sm rounded-lg border border-border hover:bg-muted/50 transition-colors"
                   >
                     <span className="font-medium text-foreground">Core Values</span>
@@ -320,7 +320,7 @@ export default function ChatPage() {
                     </p>
                   </button>
                   <button
-                    onClick={() => usePrompt(VTO_PROMPTS.coreFocus)}
+                    onClick={() => selectPrompt(VTO_PROMPTS.coreFocus)}
                     className="p-3 text-left text-sm rounded-lg border border-border hover:bg-muted/50 transition-colors"
                   >
                     <span className="font-medium text-foreground">Core Focus</span>
@@ -329,7 +329,7 @@ export default function ChatPage() {
                     </p>
                   </button>
                   <button
-                    onClick={() => usePrompt(VTO_PROMPTS.tenYearTarget)}
+                    onClick={() => selectPrompt(VTO_PROMPTS.tenYearTarget)}
                     className="p-3 text-left text-sm rounded-lg border border-border hover:bg-muted/50 transition-colors"
                   >
                     <span className="font-medium text-foreground">10-Year Target</span>
@@ -338,7 +338,7 @@ export default function ChatPage() {
                     </p>
                   </button>
                   <button
-                    onClick={() => usePrompt(VTO_PROMPTS.marketingStrategy)}
+                    onClick={() => selectPrompt(VTO_PROMPTS.marketingStrategy)}
                     className="p-3 text-left text-sm rounded-lg border border-border hover:bg-muted/50 transition-colors"
                   >
                     <span className="font-medium text-foreground">Marketing Strategy</span>
@@ -347,7 +347,7 @@ export default function ChatPage() {
                     </p>
                   </button>
                   <button
-                    onClick={() => usePrompt(VTO_PROMPTS.threeYearPicture)}
+                    onClick={() => selectPrompt(VTO_PROMPTS.threeYearPicture)}
                     className="p-3 text-left text-sm rounded-lg border border-border hover:bg-muted/50 transition-colors"
                   >
                     <span className="font-medium text-foreground">3-Year Picture</span>
@@ -356,7 +356,7 @@ export default function ChatPage() {
                     </p>
                   </button>
                   <button
-                    onClick={() => usePrompt(VTO_PROMPTS.oneYearPlan)}
+                    onClick={() => selectPrompt(VTO_PROMPTS.oneYearPlan)}
                     className="p-3 text-left text-sm rounded-lg border border-border hover:bg-muted/50 transition-colors"
                   >
                     <span className="font-medium text-foreground">1-Year Plan</span>
@@ -371,7 +371,7 @@ export default function ChatPage() {
               {promptCategory === 'l10' && (
                 <div className="grid grid-cols-2 gap-2 w-full max-w-lg">
                   <button
-                    onClick={() => usePrompt(COACHING_PROMPTS.l10Prep)}
+                    onClick={() => selectPrompt(COACHING_PROMPTS.l10Prep)}
                     className="p-3 text-left text-sm rounded-lg border border-border hover:bg-muted/50 transition-colors"
                   >
                     <span className="font-medium text-foreground">L10 Prep</span>
@@ -380,7 +380,7 @@ export default function ChatPage() {
                     </p>
                   </button>
                   <button
-                    onClick={() => usePrompt(COACHING_PROMPTS.rockReview)}
+                    onClick={() => selectPrompt(COACHING_PROMPTS.rockReview)}
                     className="p-3 text-left text-sm rounded-lg border border-border hover:bg-muted/50 transition-colors"
                   >
                     <span className="font-medium text-foreground">Rock Review</span>
@@ -389,7 +389,7 @@ export default function ChatPage() {
                     </p>
                   </button>
                   <button
-                    onClick={() => usePrompt(COACHING_PROMPTS.scorecardAnalysis)}
+                    onClick={() => selectPrompt(COACHING_PROMPTS.scorecardAnalysis)}
                     className="p-3 text-left text-sm rounded-lg border border-border hover:bg-muted/50 transition-colors"
                   >
                     <span className="font-medium text-foreground">Scorecard</span>
@@ -398,7 +398,7 @@ export default function ChatPage() {
                     </p>
                   </button>
                   <button
-                    onClick={() => usePrompt(COACHING_PROMPTS.accountabilityCheck)}
+                    onClick={() => selectPrompt(COACHING_PROMPTS.accountabilityCheck)}
                     className="p-3 text-left text-sm rounded-lg border border-border hover:bg-muted/50 transition-colors"
                   >
                     <span className="font-medium text-foreground">Accountability</span>
@@ -407,7 +407,7 @@ export default function ChatPage() {
                     </p>
                   </button>
                   <button
-                    onClick={() => usePrompt(COACHING_PROMPTS.issueIDS)}
+                    onClick={() => selectPrompt(COACHING_PROMPTS.issueIDS)}
                     className="p-3 text-left text-sm rounded-lg border border-border hover:bg-muted/50 transition-colors col-span-2"
                   >
                     <span className="font-medium text-foreground">IDS an Issue</span>

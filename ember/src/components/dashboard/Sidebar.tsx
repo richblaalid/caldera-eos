@@ -112,7 +112,7 @@ export function Sidebar({ className = '' }: SidebarProps) {
   return (
     <aside className={`flex flex-col w-64 bg-background border-r border-border ${className}`}>
       {/* Logo */}
-      <div className="flex items-center gap-3 px-6 py-5 border-b border-border">
+      <div className="flex items-center gap-3 h-16 px-6 border-b border-border">
         <svg className="w-8 h-8" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg">
           <defs>
             <linearGradient id="sidebar-ember-grad" x1="50%" y1="100%" x2="50%" y2="0%">
