@@ -43,6 +43,7 @@ export function getSlackOAuthUrl(state: string): string {
     'users:read',
     'users:read.email',
     'channels:read',
+    'groups:read', // For private channels
   ].join(',')
 
   const params = new URLSearchParams({
@@ -92,14 +93,17 @@ export async function getChannels(botToken: string): Promise<SlackChannel[]> {
     return []
   }
 
-  return data.channels
-    .filter((c: SlackChannel) => c.is_member)
-    .map((c: SlackChannel) => ({
-      id: c.id,
-      name: c.name,
-      is_private: c.is_private,
-      is_member: c.is_member,
-    }))
+  const allChannels = data.channels || []
+  const memberChannels = allChannels.filter((c: SlackChannel) => c.is_member)
+
+  console.log(`Slack: Found ${allChannels.length} total channels, bot is member of ${memberChannels.length}`)
+
+  return memberChannels.map((c: SlackChannel) => ({
+    id: c.id,
+    name: c.name,
+    is_private: c.is_private,
+    is_member: c.is_member,
+  }))
 }
 
 // Fetch Slack users for profile mapping
