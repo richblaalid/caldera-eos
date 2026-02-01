@@ -80,28 +80,39 @@ export async function exchangeCodeForToken(code: string): Promise<SlackOAuthResp
 
 // Fetch list of channels the bot can post to
 export async function getChannels(botToken: string): Promise<SlackChannel[]> {
-  const response = await fetch(`${SLACK_API_BASE}/conversations.list?types=public_channel,private_channel&limit=200`, {
-    headers: {
-      Authorization: `Bearer ${botToken}`,
-    },
+  // First check what scopes we have
+  const authResponse = await fetch(`${SLACK_API_BASE}/auth.test`, {
+    headers: { Authorization: `Bearer ${botToken}` },
   })
+  const authData = await authResponse.json()
+  console.log('Slack auth.test response:', JSON.stringify(authData))
 
-  const data = await response.json()
+  // Fetch public channels
+  const publicResponse = await fetch(`${SLACK_API_BASE}/conversations.list?types=public_channel&limit=200`, {
+    headers: { Authorization: `Bearer ${botToken}` },
+  })
+  const publicData = await publicResponse.json()
+  console.log(`Slack public channels: ${publicData.ok ? publicData.channels?.length : publicData.error}`)
 
-  if (!data.ok) {
-    console.error('Slack channels error:', data.error)
+  // Fetch private channels separately to see if scope is the issue
+  const privateResponse = await fetch(`${SLACK_API_BASE}/conversations.list?types=private_channel&limit=200`, {
+    headers: { Authorization: `Bearer ${botToken}` },
+  })
+  const privateData = await privateResponse.json()
+  console.log(`Slack private channels: ${privateData.ok ? (privateData.channels?.length || 0) : privateData.error}`)
+
+  if (!publicData.ok && !privateData.ok) {
+    console.error('Slack channels error:', publicData.error || privateData.error)
     return []
   }
 
-  const allChannels = data.channels || []
-  const memberChannels = allChannels.filter((c: SlackChannel) => c.is_member)
+  const publicChannels = publicData.ok ? (publicData.channels || []) : []
+  const privateChannels = privateData.ok ? (privateData.channels || []) : []
+  const allChannels = [...publicChannels, ...privateChannels]
 
-  // Debug logging
-  console.log(`Slack: Found ${allChannels.length} total channels, bot is member of ${memberChannels.length}`)
-  console.log('All channels:', allChannels.map((c: SlackChannel) => `${c.name} (member: ${c.is_member}, private: ${c.is_private})`))
+  console.log(`Slack: Found ${publicChannels.length} public + ${privateChannels.length} private = ${allChannels.length} total`)
+  console.log('All channels:', allChannels.map((c: SlackChannel) => `${c.name} (private: ${c.is_private})`))
 
-  // Return ALL channels for now to help debug - user can select any
-  // Bot will need to be invited before it can post
   return allChannels.map((c: SlackChannel) => ({
     id: c.id,
     name: c.name,
