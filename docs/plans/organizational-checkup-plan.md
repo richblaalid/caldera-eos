@@ -138,14 +138,14 @@ Pending: @Rich @John @Wade
 - [x] Add completion status tracking
 - [x] "Who completed" view
 
-### Phase 5: Slack Integration (4 hours)
-- [ ] Create Slack app at api.slack.com
+### Phase 5: Slack Integration (4 hours) ✅
+- [x] Create Slack app at api.slack.com
 - [x] Add `slack_user_id` to profiles table (in migration)
-- [ ] Build OAuth flow (`/api/integrations/slack/oauth`)
-- [ ] Build Slack settings page with channel selector
-- [ ] Create `/lib/slack.ts` with Web API client
-- [ ] Implement reminder cron job with @mentions
-- [ ] Test end-to-end notifications
+- [x] Build OAuth flow (`/api/integrations/slack/oauth`)
+- [x] Build Slack settings page with channel selector
+- [x] Create `/lib/slack.ts` with Web API client
+- [x] Implement reminder cron job with @mentions
+- [ ] Test end-to-end notifications (manual step)
 
 ## Key Files to Create/Modify
 
