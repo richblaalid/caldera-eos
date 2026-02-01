@@ -65,11 +65,12 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     // Step 4: Generate overall summary
     const summary = await generateTranscriptSummary(transcript.full_text)
 
-    // Step 5: Update transcript as processed
+    // Step 5: Update transcript as processed with extractions
     const updated = await updateTranscript(id, {
       processed: true,
       processed_at: new Date().toISOString(),
       summary: summary || mergedExtractions.summary || null,
+      extractions: mergedExtractions,
     })
 
     return NextResponse.json({

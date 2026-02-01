@@ -263,6 +263,24 @@ export interface Meeting {
 // Transcripts
 // =============================================
 
+export interface TranscriptExtractedItem {
+  type: 'issue' | 'todo' | 'decision' | 'action'
+  title: string
+  description?: string
+  owner?: string
+  priority?: number
+  due_date?: string
+  context: string
+  created?: boolean // Tracks if item was already created as EOS entity
+}
+
+export interface TranscriptExtractions {
+  issues: TranscriptExtractedItem[]
+  todos: TranscriptExtractedItem[]
+  decisions: TranscriptExtractedItem[]
+  summary: string
+}
+
 export interface Transcript {
   id: string
   title: string | null
@@ -271,6 +289,7 @@ export interface Transcript {
   participants: string[]
   full_text: string | null
   summary: string | null
+  extractions: TranscriptExtractions | null
   source: string | null
   file_path: string | null
   processed: boolean
@@ -456,6 +475,7 @@ export interface TranscriptInsert {
   participants?: string[]
   full_text?: string | null
   summary?: string | null
+  extractions?: TranscriptExtractions | null
   source?: string | null
   file_path?: string | null
   processed?: boolean
