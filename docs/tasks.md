@@ -366,12 +366,12 @@ Executable task list for building Ember MVP. Each task includes acceptance crite
 
 ### Day 13: Integration & Testing
 
-- [ ] **7.1.1** End-to-end testing
+- [x] **7.1.1** End-to-end testing
   - Full workflow verification
   - All features tested
   - **Acceptance:** E2E tests pass
 
-- [ ] **7.1.2** Bug fixes
+- [x] **7.1.2** Bug fixes
   - Address issues from testing
   - Edge case handling
   - **Acceptance:** Known bugs fixed
@@ -470,6 +470,8 @@ Executable task list for building Ember MVP. Each task includes acceptance crite
 | 2026-01-31 | 6.2.2 | Implement RAG pipeline | Complete |
 | 2026-01-31 | 6.2.3 | Create coaching prompts | Complete |
 | 2026-01-31 | 6.2.4 | Add private chat storage | Complete |
+| 2026-01-31 | 7.1.1 | End-to-end testing | Complete |
+| 2026-01-31 | 7.1.2 | Bug fixes - lint errors, unused imports | Complete |
 
 ---
 

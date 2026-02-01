@@ -1,6 +1,6 @@
 import Link from 'next/link'
 import { getMetrics, getAllMetricEntries } from '@/lib/eos'
-import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui'
+import { Card, CardContent } from '@/components/ui'
 import type { ScorecardMetric, ScorecardEntry, Profile } from '@/types/database'
 
 type MetricWithOwner = ScorecardMetric & { owner: Profile | null }

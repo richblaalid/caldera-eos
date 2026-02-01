@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { Card, CardHeader, CardTitle, CardContent, Button, Input } from '@/components/ui'
+import { Card, CardContent, Button } from '@/components/ui'
 import type { ScorecardMetric, ScorecardEntry, Profile } from '@/types/database'
 
 type MetricWithOwner = ScorecardMetric & { owner: Profile | null }
@@ -139,7 +139,7 @@ export default function ScorecardEntryPage() {
   }
 
   const hasChanges = () => {
-    return Object.entries(entries).some(([_, entry]) =>
+    return Object.values(entries).some((entry) =>
       entry.value !== entry.originalValue || entry.notes !== entry.originalNotes
     )
   }
@@ -152,7 +152,7 @@ export default function ScorecardEntryPage() {
     try {
       // Collect all entries that have values
       const entriesToSave = Object.entries(entries)
-        .filter(([_, entry]) => entry.value !== '')
+        .filter(([, entry]) => entry.value !== '')
         .map(([metricId, entry]) => ({
           metric_id: metricId,
           week_of: selectedWeek,

@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { Button, Card, CardHeader, CardTitle, CardContent, Input, Textarea } from '@/components/ui'
-import type { VTO, CoreValue, OneYearGoal, AccountabilityRole, VTOIssue } from '@/types/database'
+import type { VTO, CoreValue, OneYearGoal } from '@/types/database'
 import { v4 as uuidv4 } from 'uuid'
 
 // Debounce hook

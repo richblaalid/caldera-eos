@@ -26,7 +26,7 @@ export function Card({
   )
 }
 
-interface CardHeaderProps extends HTMLAttributes<HTMLDivElement> {}
+type CardHeaderProps = HTMLAttributes<HTMLDivElement>
 
 export function CardHeader({ className = '', children, ...props }: CardHeaderProps) {
   return (
@@ -59,7 +59,7 @@ export function CardTitle({
   )
 }
 
-interface CardDescriptionProps extends HTMLAttributes<HTMLParagraphElement> {}
+type CardDescriptionProps = HTMLAttributes<HTMLParagraphElement>
 
 export function CardDescription({ className = '', children, ...props }: CardDescriptionProps) {
   return (
@@ -69,7 +69,7 @@ export function CardDescription({ className = '', children, ...props }: CardDesc
   )
 }
 
-interface CardContentProps extends HTMLAttributes<HTMLDivElement> {}
+type CardContentProps = HTMLAttributes<HTMLDivElement>
 
 export function CardContent({ className = '', children, ...props }: CardContentProps) {
   return (
@@ -79,7 +79,7 @@ export function CardContent({ className = '', children, ...props }: CardContentP
   )
 }
 
-interface CardFooterProps extends HTMLAttributes<HTMLDivElement> {}
+type CardFooterProps = HTMLAttributes<HTMLDivElement>
 
 export function CardFooter({ className = '', children, ...props }: CardFooterProps) {
   return (

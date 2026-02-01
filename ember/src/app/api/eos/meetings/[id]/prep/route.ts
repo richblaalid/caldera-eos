@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
-import { getMeeting, updateMeeting, getRocks, getIssues, getTodos, getMetrics, getAllMetricEntries, getProfiles } from '@/lib/eos'
+import { getMeeting, updateMeeting, getRocks, getIssues, getTodos, getMetrics, getAllMetricEntries } from '@/lib/eos'
 import { generateMeetingPrep, PrepInput } from '@/lib/claude'
 
 interface RouteContext {
@@ -28,16 +28,15 @@ export async function POST(request: NextRequest, context: RouteContext) {
 
     const { id } = await context.params
 
-    // Get the meeting
-    const meeting = await getMeeting(id)
+    // Get the meeting (validates it exists)
+    await getMeeting(id)
 
     // Gather all EOS data for prep
-    const [rocks, issues, todos, metrics, profiles] = await Promise.all([
+    const [rocks, issues, todos, metrics] = await Promise.all([
       getRocks(),
       getIssues(),
       getTodos({ completed: false }),
       getMetrics(),
-      getProfiles(),
     ])
 
     // Get latest scorecard entries (last 2 weeks)

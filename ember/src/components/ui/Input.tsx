@@ -1,4 +1,4 @@
-import { forwardRef, type InputHTMLAttributes } from 'react'
+import { forwardRef, useId, type InputHTMLAttributes } from 'react'
 
 interface InputProps extends InputHTMLAttributes<HTMLInputElement> {
   label?: string
@@ -22,7 +22,8 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(
     },
     ref
   ) => {
-    const inputId = id || `input-${Math.random().toString(36).substring(7)}`
+    const generatedId = useId()
+    const inputId = id || generatedId
 
     return (
       <div className="w-full">
@@ -84,7 +85,8 @@ interface TextareaProps extends React.TextareaHTMLAttributes<HTMLTextAreaElement
 
 export const Textarea = forwardRef<HTMLTextAreaElement, TextareaProps>(
   ({ className = '', label, error, hint, id, ...props }, ref) => {
-    const textareaId = id || `textarea-${Math.random().toString(36).substring(7)}`
+    const generatedId = useId()
+    const textareaId = id || generatedId
 
     return (
       <div className="w-full">
@@ -134,7 +136,8 @@ interface SelectProps extends React.SelectHTMLAttributes<HTMLSelectElement> {
 
 export const Select = forwardRef<HTMLSelectElement, SelectProps>(
   ({ className = '', label, error, hint, options, id, ...props }, ref) => {
-    const selectId = id || `select-${Math.random().toString(36).substring(7)}`
+    const generatedId = useId()
+    const selectId = id || generatedId
 
     return (
       <div className="w-full">

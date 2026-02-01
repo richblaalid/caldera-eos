@@ -56,13 +56,12 @@ export function ThemeProvider({ children, defaultTheme = 'system' }: ThemeProvid
   const [resolvedTheme, setResolvedTheme] = useState<'light' | 'dark'>(() => resolveTheme(getInitialTheme(defaultTheme)))
   const [mounted, setMounted] = useState(false)
 
-  // Apply theme on mount
+  // Apply theme on mount and when theme changes
   useEffect(() => {
-    const resolved = resolveTheme(theme)
-    setResolvedTheme(resolved)
-    applyTheme(resolved)
+    applyTheme(resolvedTheme)
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setMounted(true)
-  }, [theme])
+  }, [resolvedTheme])
 
   // Listen for system preference changes
   useEffect(() => {
