@@ -103,6 +103,7 @@ export async function GET(request: Request) {
       const blocks = buildCheckupReminderBlocks(
         activePeriod.name,
         slackUserIds,
+        pendingMemberIds.length,
         assessmentUrl
       )
 

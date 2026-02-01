@@ -178,10 +178,21 @@ export async function postMessage(
 // Build checkup reminder message with @mentions
 export function buildCheckupReminderBlocks(
   periodName: string,
-  pendingUserIds: string[],
+  pendingSlackUserIds: string[],
+  pendingCount: number,
   assessmentUrl: string
 ): object[] {
-  const mentions = pendingUserIds.map(id => `<@${id}>`).join(' ')
+  const mentions = pendingSlackUserIds.map(id => `<@${id}>`).join(' ')
+
+  // Build pending text: use @mentions if available, otherwise show count
+  let pendingText: string
+  if (pendingCount === 0) {
+    pendingText = '_Everyone has completed!_'
+  } else if (mentions) {
+    pendingText = mentions
+  } else {
+    pendingText = `${pendingCount} team member(s) still need to complete`
+  }
 
   return [
     {
@@ -203,7 +214,7 @@ export function buildCheckupReminderBlocks(
       type: 'section',
       text: {
         type: 'mrkdwn',
-        text: `*Pending:* ${mentions || '_Everyone has completed!_'}`,
+        text: `*Pending:* ${pendingText}`,
       },
     },
     {
