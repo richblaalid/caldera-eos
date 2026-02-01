@@ -1,6 +1,7 @@
 'use client'
 
 import { createClient } from '@/lib/supabase/client'
+import Image from 'next/image'
 
 export default function LoginPage() {
   const supabase = createClient()
@@ -15,16 +16,22 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center ember-gradient-light">
+    <div className="min-h-screen flex items-center justify-center bg-linear-to-br from-orange-50 via-white to-orange-100 dark:from-slate-950 dark:via-slate-900 dark:to-slate-950">
       <div className="max-w-md w-full mx-4">
-        <div className="bg-background rounded-2xl shadow-xl p-8 border border-border">
+        <div className="bg-background/80 backdrop-blur-sm rounded-2xl shadow-xl p-8 border border-border">
           {/* Logo/Brand */}
           <div className="text-center mb-8">
-            <div className="inline-flex items-center justify-center w-16 h-16 rounded-full ember-gradient mb-4">
-              <span className="text-2xl text-white font-bold">E</span>
+            <div className="flex justify-center mb-6">
+              <Image
+                src="/ember-logo.svg"
+                alt="Ember"
+                width={180}
+                height={48}
+                priority
+                className="dark:invert"
+              />
             </div>
-            <h1 className="text-2xl font-bold text-foreground">Welcome to Ember</h1>
-            <p className="text-muted-foreground mt-2">
+            <p className="text-muted-foreground">
               Your AI-powered EOS Integrator
             </p>
           </div>
@@ -32,7 +39,7 @@ export default function LoginPage() {
           {/* Login Button */}
           <button
             onClick={handleGoogleLogin}
-            className="w-full flex items-center justify-center gap-3 bg-background border border-border rounded-lg px-4 py-3 text-foreground font-medium hover:bg-muted transition-colors"
+            className="w-full flex items-center justify-center gap-3 bg-background border border-border rounded-lg px-4 py-3 text-foreground font-medium hover:bg-muted transition-colors shadow-sm"
           >
             <svg className="w-5 h-5" viewBox="0 0 24 24">
               <path

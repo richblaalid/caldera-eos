@@ -30,6 +30,47 @@ import type {
 // V/TO Operations
 // =============================================
 
+// Helper to get user's organization ID
+async function getUserOrganizationId(supabase: Awaited<ReturnType<typeof createClient>>): Promise<string | null> {
+  const { data: membership } = await supabase
+    .from('organization_members')
+    .select('organization_id')
+    .limit(1)
+    .single()
+
+  if (membership?.organization_id) {
+    return membership.organization_id
+  }
+
+  // Check allowed_emails and auto-assign
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user?.email) return null
+
+  const { data: allowed } = await supabase
+    .from('allowed_emails')
+    .select('organization_id')
+    .eq('email', user.email)
+    .eq('auto_assign', true)
+    .single()
+
+  if (allowed?.organization_id) {
+    // Auto-assign user to organization
+    await supabase
+      .from('organization_members')
+      .insert({
+        organization_id: allowed.organization_id,
+        user_id: user.id,
+        role: 'member',
+      })
+      .select()
+      .single()
+
+    return allowed.organization_id
+  }
+
+  return null
+}
+
 export async function getVTO() {
   const supabase = await createClient()
   const { data, error } = await supabase
@@ -57,9 +98,14 @@ export async function upsertVTO(vto: VTOInsert) {
     if (error) throw error
     return data as VTO
   } else {
+    // Get user's organization for new VTO
+    const orgId = await getUserOrganizationId(supabase)
     const { data, error } = await supabase
       .from('vto')
-      .insert(vto)
+      .insert({
+        ...vto,
+        ...(orgId && { organization_id: orgId }),
+      })
       .select()
       .single()
     if (error) throw error
@@ -557,13 +603,40 @@ export async function acknowledgeInsight(id: string, userId: string) {
 
 export async function getProfiles() {
   const supabase = await createClient()
-  const { data, error } = await supabase
+
+  // Get the current user's organization
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return []
+
+  const { data: membership } = await supabase
+    .from('organization_members')
+    .select('organization_id')
+    .eq('user_id', user.id)
+    .limit(1)
+    .single()
+
+  if (!membership) return []
+
+  // Get all user IDs in the organization
+  const { data: orgMembers, error: membersError } = await supabase
+    .from('organization_members')
+    .select('user_id')
+    .eq('organization_id', membership.organization_id)
+
+  if (membersError) throw membersError
+  if (!orgMembers || orgMembers.length === 0) return []
+
+  // Get profiles for those users
+  const userIds = orgMembers.map(m => m.user_id)
+  const { data: profiles, error: profilesError } = await supabase
     .from('profiles')
     .select('*')
+    .in('id', userIds)
     .order('name', { ascending: true })
 
-  if (error) throw error
-  return data as Profile[]
+  if (profilesError) throw profilesError
+
+  return (profiles || []) as Profile[]
 }
 
 export async function getProfile(id: string) {

@@ -355,6 +355,48 @@ export async function executeToolCall(
   }
 }
 
+// Helper to get user's organization ID
+async function getUserOrganizationId(supabase: ReturnType<typeof createClient> extends Promise<infer T> ? T : never): Promise<string | null> {
+  // First check if user is already a member of an org
+  const { data: membership } = await supabase
+    .from('organization_members')
+    .select('organization_id')
+    .limit(1)
+    .single()
+
+  if (membership?.organization_id) {
+    return membership.organization_id
+  }
+
+  // Check allowed_emails and auto-assign
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user?.email) return null
+
+  const { data: allowed } = await supabase
+    .from('allowed_emails')
+    .select('organization_id')
+    .eq('email', user.email)
+    .eq('auto_assign', true)
+    .single()
+
+  if (allowed?.organization_id) {
+    // Auto-assign user to organization
+    await supabase
+      .from('organization_members')
+      .insert({
+        organization_id: allowed.organization_id,
+        user_id: user.id,
+        role: 'member',
+      })
+      .select()
+      .single()
+
+    return allowed.organization_id
+  }
+
+  return null
+}
+
 // Helper to get or create V/TO
 async function getOrCreateVTO(supabase: ReturnType<typeof createClient> extends Promise<infer T> ? T : never): Promise<VTO> {
   const { data: existing } = await supabase
@@ -365,6 +407,9 @@ async function getOrCreateVTO(supabase: ReturnType<typeof createClient> extends 
     .single()
 
   if (existing) return existing as VTO
+
+  // Get user's organization for new VTO
+  const orgId = await getUserOrganizationId(supabase)
 
   // Create new V/TO
   const { data: created, error } = await supabase
@@ -380,6 +425,7 @@ async function getOrCreateVTO(supabase: ReturnType<typeof createClient> extends 
       issues_list: [],
       accountability_chart: [],
       version: 1,
+      ...(orgId && { organization_id: orgId }),
     })
     .select()
     .single()
@@ -597,6 +643,7 @@ async function saveQuarterlyRocks(
   }>
 
   const createdRocks: RockInsert[] = []
+  const orgId = await getUserOrganizationId(supabase)
 
   for (const rock of rocks) {
     const ownerId = await getProfileByName(supabase, rock.owner_name)
@@ -609,6 +656,7 @@ async function saveQuarterlyRocks(
       status: 'on_track',
       due_date: rock.due_date || null,
       milestones: [],
+      ...(orgId && { organization_id: orgId }),
     }
 
     const { data, error } = await supabase.from('rocks').insert(rockInsert).select().single()
@@ -650,6 +698,7 @@ async function saveScorecardMetrics(
     .limit(1)
 
   let displayOrder = (existing?.[0]?.display_order ?? 0) + 1
+  const orgId = await getUserOrganizationId(supabase)
 
   for (const metric of metrics) {
     const ownerId = await getProfileByName(supabase, metric.owner_name)
@@ -663,6 +712,7 @@ async function saveScorecardMetrics(
       owner_id: ownerId,
       display_order: displayOrder++,
       is_active: true,
+      ...(orgId && { organization_id: orgId }),
     }
 
     const { data, error } = await supabase
@@ -697,6 +747,7 @@ async function saveIssues(
   }>
 
   const createdIssues: IssueInsert[] = []
+  const orgId = await getUserOrganizationId(supabase)
 
   for (const issue of issues) {
     const ownerId = issue.owner_name ? await getProfileByName(supabase, issue.owner_name) : null
@@ -708,6 +759,7 @@ async function saveIssues(
       status: 'open',
       source: 'manual',
       owner_id: ownerId,
+      ...(orgId && { organization_id: orgId }),
     }
 
     const { data, error } = await supabase.from('issues').insert(issueInsert).select().single()
