@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect } from 'react'
 import { Card, CardContent, Button } from '@/components/ui'
-import { COACHING_PROMPTS } from '@/lib/ember'
+import { COACHING_PROMPTS, FOCUS_DAY_PROMPTS, VTO_PROMPTS } from '@/lib/ember'
 
 interface Message {
   id: string
@@ -11,11 +11,14 @@ interface Message {
   isStreaming?: boolean
 }
 
+type PromptCategory = 'focus-day' | 'vto' | 'l10'
+
 export default function ChatPage() {
   const [messages, setMessages] = useState<Message[]>([])
   const [input, setInput] = useState('')
   const [isLoading, setIsLoading] = useState(false)
   const [conversationId, setConversationId] = useState<string | null>(null)
+  const [promptCategory, setPromptCategory] = useState<PromptCategory>('focus-day')
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLTextAreaElement>(null)
 
@@ -205,50 +208,215 @@ export default function ChatPage() {
               <h2 className="text-lg font-semibold text-foreground mb-2">
                 Hi, I&apos;m Ember
               </h2>
-              <p className="text-muted-foreground mb-6 max-w-md">
-                I&apos;m your EOS coaching partner. Ask me about your Rocks, Issues, Scorecard,
-                or get help preparing for your L10 meeting.
+              <p className="text-muted-foreground mb-4 max-w-md">
+                I&apos;m your EOS coaching partner. I can help you prepare for Focus Day,
+                build your V/TO, or run effective L10 meetings.
               </p>
 
-              {/* Quick Prompts */}
-              <div className="grid grid-cols-2 gap-2 w-full max-w-lg">
+              {/* Category Tabs */}
+              <div className="flex gap-2 mb-4">
                 <button
-                  onClick={() => usePrompt(COACHING_PROMPTS.l10Prep)}
-                  className="p-3 text-left text-sm rounded-lg border border-border hover:bg-muted/50 transition-colors"
+                  onClick={() => setPromptCategory('focus-day')}
+                  className={`px-3 py-1.5 text-sm font-medium rounded-md transition-colors ${
+                    promptCategory === 'focus-day'
+                      ? 'bg-ember-600 text-white'
+                      : 'bg-muted text-muted-foreground hover:text-foreground'
+                  }`}
                 >
-                  <span className="font-medium text-foreground">L10 Prep</span>
-                  <p className="text-xs text-muted-foreground mt-1">
-                    Prepare for your next meeting
-                  </p>
+                  Focus Day
                 </button>
                 <button
-                  onClick={() => usePrompt(COACHING_PROMPTS.rockReview)}
-                  className="p-3 text-left text-sm rounded-lg border border-border hover:bg-muted/50 transition-colors"
+                  onClick={() => setPromptCategory('vto')}
+                  className={`px-3 py-1.5 text-sm font-medium rounded-md transition-colors ${
+                    promptCategory === 'vto'
+                      ? 'bg-ember-600 text-white'
+                      : 'bg-muted text-muted-foreground hover:text-foreground'
+                  }`}
                 >
-                  <span className="font-medium text-foreground">Rock Review</span>
-                  <p className="text-xs text-muted-foreground mt-1">
-                    Check Rock progress
-                  </p>
+                  V/TO Building
                 </button>
                 <button
-                  onClick={() => usePrompt(COACHING_PROMPTS.scorecardAnalysis)}
-                  className="p-3 text-left text-sm rounded-lg border border-border hover:bg-muted/50 transition-colors"
+                  onClick={() => setPromptCategory('l10')}
+                  className={`px-3 py-1.5 text-sm font-medium rounded-md transition-colors ${
+                    promptCategory === 'l10'
+                      ? 'bg-ember-600 text-white'
+                      : 'bg-muted text-muted-foreground hover:text-foreground'
+                  }`}
                 >
-                  <span className="font-medium text-foreground">Scorecard</span>
-                  <p className="text-xs text-muted-foreground mt-1">
-                    Analyze metrics trends
-                  </p>
-                </button>
-                <button
-                  onClick={() => usePrompt(COACHING_PROMPTS.accountabilityCheck)}
-                  className="p-3 text-left text-sm rounded-lg border border-border hover:bg-muted/50 transition-colors"
-                >
-                  <span className="font-medium text-foreground">Accountability</span>
-                  <p className="text-xs text-muted-foreground mt-1">
-                    Review commitments
-                  </p>
+                  L10 Meetings
                 </button>
               </div>
+
+              {/* Quick Prompts - Focus Day */}
+              {promptCategory === 'focus-day' && (
+                <div className="grid grid-cols-2 gap-2 w-full max-w-lg">
+                  <button
+                    onClick={() => usePrompt(FOCUS_DAY_PROMPTS.overview)}
+                    className="p-3 text-left text-sm rounded-lg border border-border hover:bg-muted/50 transition-colors"
+                  >
+                    <span className="font-medium text-foreground">Focus Day Overview</span>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Understand what to expect
+                    </p>
+                  </button>
+                  <button
+                    onClick={() => usePrompt(FOCUS_DAY_PROMPTS.accountabilityChart)}
+                    className="p-3 text-left text-sm rounded-lg border border-border hover:bg-muted/50 transition-colors"
+                  >
+                    <span className="font-medium text-foreground">Accountability Chart</span>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Define roles and seats
+                    </p>
+                  </button>
+                  <button
+                    onClick={() => usePrompt(FOCUS_DAY_PROMPTS.rocks)}
+                    className="p-3 text-left text-sm rounded-lg border border-border hover:bg-muted/50 transition-colors"
+                  >
+                    <span className="font-medium text-foreground">Discover Rocks</span>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Identify 90-day priorities
+                    </p>
+                  </button>
+                  <button
+                    onClick={() => usePrompt(FOCUS_DAY_PROMPTS.scorecard)}
+                    className="p-3 text-left text-sm rounded-lg border border-border hover:bg-muted/50 transition-colors"
+                  >
+                    <span className="font-medium text-foreground">Build Scorecard</span>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Define weekly metrics
+                    </p>
+                  </button>
+                  <button
+                    onClick={() => usePrompt(FOCUS_DAY_PROMPTS.issuesList)}
+                    className="p-3 text-left text-sm rounded-lg border border-border hover:bg-muted/50 transition-colors"
+                  >
+                    <span className="font-medium text-foreground">Issues List</span>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Capture obstacles and opportunities
+                    </p>
+                  </button>
+                  <button
+                    onClick={() => usePrompt(FOCUS_DAY_PROMPTS.l10Format)}
+                    className="p-3 text-left text-sm rounded-lg border border-border hover:bg-muted/50 transition-colors"
+                  >
+                    <span className="font-medium text-foreground">L10 Format</span>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Learn the meeting structure
+                    </p>
+                  </button>
+                </div>
+              )}
+
+              {/* Quick Prompts - VTO */}
+              {promptCategory === 'vto' && (
+                <div className="grid grid-cols-2 gap-2 w-full max-w-lg">
+                  <button
+                    onClick={() => usePrompt(VTO_PROMPTS.coreValues)}
+                    className="p-3 text-left text-sm rounded-lg border border-border hover:bg-muted/50 transition-colors"
+                  >
+                    <span className="font-medium text-foreground">Core Values</span>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Discover your culture
+                    </p>
+                  </button>
+                  <button
+                    onClick={() => usePrompt(VTO_PROMPTS.coreFocus)}
+                    className="p-3 text-left text-sm rounded-lg border border-border hover:bg-muted/50 transition-colors"
+                  >
+                    <span className="font-medium text-foreground">Core Focus</span>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Purpose and niche
+                    </p>
+                  </button>
+                  <button
+                    onClick={() => usePrompt(VTO_PROMPTS.tenYearTarget)}
+                    className="p-3 text-left text-sm rounded-lg border border-border hover:bg-muted/50 transition-colors"
+                  >
+                    <span className="font-medium text-foreground">10-Year Target</span>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Your big audacious goal
+                    </p>
+                  </button>
+                  <button
+                    onClick={() => usePrompt(VTO_PROMPTS.marketingStrategy)}
+                    className="p-3 text-left text-sm rounded-lg border border-border hover:bg-muted/50 transition-colors"
+                  >
+                    <span className="font-medium text-foreground">Marketing Strategy</span>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Target, Uniques, Process
+                    </p>
+                  </button>
+                  <button
+                    onClick={() => usePrompt(VTO_PROMPTS.threeYearPicture)}
+                    className="p-3 text-left text-sm rounded-lg border border-border hover:bg-muted/50 transition-colors"
+                  >
+                    <span className="font-medium text-foreground">3-Year Picture</span>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Vivid future state
+                    </p>
+                  </button>
+                  <button
+                    onClick={() => usePrompt(VTO_PROMPTS.oneYearPlan)}
+                    className="p-3 text-left text-sm rounded-lg border border-border hover:bg-muted/50 transition-colors"
+                  >
+                    <span className="font-medium text-foreground">1-Year Plan</span>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Annual goals
+                    </p>
+                  </button>
+                </div>
+              )}
+
+              {/* Quick Prompts - L10 */}
+              {promptCategory === 'l10' && (
+                <div className="grid grid-cols-2 gap-2 w-full max-w-lg">
+                  <button
+                    onClick={() => usePrompt(COACHING_PROMPTS.l10Prep)}
+                    className="p-3 text-left text-sm rounded-lg border border-border hover:bg-muted/50 transition-colors"
+                  >
+                    <span className="font-medium text-foreground">L10 Prep</span>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Prepare for your next meeting
+                    </p>
+                  </button>
+                  <button
+                    onClick={() => usePrompt(COACHING_PROMPTS.rockReview)}
+                    className="p-3 text-left text-sm rounded-lg border border-border hover:bg-muted/50 transition-colors"
+                  >
+                    <span className="font-medium text-foreground">Rock Review</span>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Check Rock progress
+                    </p>
+                  </button>
+                  <button
+                    onClick={() => usePrompt(COACHING_PROMPTS.scorecardAnalysis)}
+                    className="p-3 text-left text-sm rounded-lg border border-border hover:bg-muted/50 transition-colors"
+                  >
+                    <span className="font-medium text-foreground">Scorecard</span>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Analyze metrics trends
+                    </p>
+                  </button>
+                  <button
+                    onClick={() => usePrompt(COACHING_PROMPTS.accountabilityCheck)}
+                    className="p-3 text-left text-sm rounded-lg border border-border hover:bg-muted/50 transition-colors"
+                  >
+                    <span className="font-medium text-foreground">Accountability</span>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Review commitments
+                    </p>
+                  </button>
+                  <button
+                    onClick={() => usePrompt(COACHING_PROMPTS.issueIDS)}
+                    className="p-3 text-left text-sm rounded-lg border border-border hover:bg-muted/50 transition-colors col-span-2"
+                  >
+                    <span className="font-medium text-foreground">IDS an Issue</span>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Identify, Discuss, Solve a problem
+                    </p>
+                  </button>
+                </div>
+              )}
             </div>
           ) : (
             <>
