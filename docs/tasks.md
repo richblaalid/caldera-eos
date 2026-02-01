@@ -258,27 +258,27 @@ Executable task list for building Ember MVP. Each task includes acceptance crite
 
 ### Day 9: Transcript Upload
 
-- [ ] **5.1.1** Build file upload interface
+- [x] **5.1.1** Build file upload interface
   - Accept .txt, .md transcript files
   - Drag-and-drop support
   - **Acceptance:** File upload works
 
-- [ ] **5.1.2** Implement text extraction
+- [x] **5.1.2** Implement text extraction
   - Parse and clean transcript text
   - Handle various formats
   - **Acceptance:** Text extraction works
 
-- [ ] **5.1.3** Create transcript storage
+- [x] **5.1.3** Create transcript storage
   - Save full transcript and metadata
   - Link to meeting
   - **Acceptance:** Transcripts stored
 
-- [ ] **5.1.4** Build transcript list view
+- [x] **5.1.4** Build transcript list view
   - View all uploaded transcripts
   - Search and filter
   - **Acceptance:** Transcript list renders
 
-- [ ] **5.1.5** Create transcript detail view
+- [x] **5.1.5** Create transcript detail view
   - View full text with search
   - Highlight functionality
   - **Acceptance:** Transcript detail works
@@ -287,22 +287,22 @@ Executable task list for building Ember MVP. Each task includes acceptance crite
 
 ### Day 10: Transcript Analysis
 
-- [ ] **5.2.1** Implement chunking
+- [x] **5.2.1** Implement chunking
   - Split transcripts into searchable chunks
   - Speaker attribution
   - **Acceptance:** Chunking works
 
-- [ ] **5.2.2** Generate embeddings
+- [x] **5.2.2** Generate embeddings
   - Create and store vector embeddings
   - pgvector integration
   - **Acceptance:** Embeddings stored
 
-- [ ] **5.2.3** Build extraction pipeline
+- [x] **5.2.3** Build extraction pipeline
   - AI extracts decisions, issues, to-dos
   - Structured output
   - **Acceptance:** Extraction works
 
-- [ ] **5.2.4** Link extractions to EOS
+- [x] **5.2.4** Link extractions to EOS
   - Create Issues/To-dos from extraction
   - User review before creation
   - **Acceptance:** Auto-creation works
@@ -454,6 +454,15 @@ Executable task list for building Ember MVP. Each task includes acceptance crite
 | 2026-01-31 | 4.2.2 | Build AI prep generation | Complete |
 | 2026-01-31 | 4.2.3 | Create prep display page | Complete |
 | 2026-01-31 | 4.2.4 | Set up scheduled job | Complete |
+| 2026-01-31 | 5.1.1 | Build file upload interface | Complete |
+| 2026-01-31 | 5.1.2 | Implement text extraction | Complete |
+| 2026-01-31 | 5.1.3 | Create transcript storage | Complete |
+| 2026-01-31 | 5.1.4 | Build transcript list view | Complete |
+| 2026-01-31 | 5.1.5 | Create transcript detail view | Complete |
+| 2026-01-31 | 5.2.1 | Implement chunking | Complete |
+| 2026-01-31 | 5.2.2 | Generate embeddings | Complete |
+| 2026-01-31 | 5.2.3 | Build extraction pipeline | Complete |
+| 2026-01-31 | 5.2.4 | Link extractions to EOS | Complete |
 
 ---
 

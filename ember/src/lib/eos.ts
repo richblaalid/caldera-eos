@@ -20,6 +20,10 @@ import type {
   Insight,
   InsightInsert,
   Profile,
+  Transcript,
+  TranscriptInsert,
+  TranscriptChunk,
+  TranscriptChunkInsert,
 } from '@/types/database'
 
 // =============================================
@@ -572,6 +576,115 @@ export async function getProfile(id: string) {
 
   if (error) throw error
   return data as Profile
+}
+
+// =============================================
+// Transcripts Operations
+// =============================================
+
+export async function getTranscripts(filters?: { meeting_id?: string; processed?: boolean }) {
+  const supabase = await createClient()
+  let query = supabase
+    .from('transcripts')
+    .select('*')
+    .order('meeting_date', { ascending: false })
+    .order('created_at', { ascending: false })
+
+  if (filters?.meeting_id) {
+    query = query.eq('meeting_id', filters.meeting_id)
+  }
+  if (filters?.processed !== undefined) {
+    query = query.eq('processed', filters.processed)
+  }
+
+  const { data, error } = await query
+  if (error) throw error
+  return data as Transcript[]
+}
+
+export async function getTranscript(id: string) {
+  const supabase = await createClient()
+  const { data, error } = await supabase
+    .from('transcripts')
+    .select('*')
+    .eq('id', id)
+    .single()
+
+  if (error) throw error
+  return data as Transcript
+}
+
+export async function createTranscript(transcript: TranscriptInsert) {
+  const supabase = await createClient()
+  const { data, error } = await supabase
+    .from('transcripts')
+    .insert(transcript)
+    .select()
+    .single()
+
+  if (error) throw error
+  return data as Transcript
+}
+
+export async function updateTranscript(id: string, updates: Partial<TranscriptInsert>) {
+  const supabase = await createClient()
+  const { data, error } = await supabase
+    .from('transcripts')
+    .update(updates)
+    .eq('id', id)
+    .select()
+    .single()
+
+  if (error) throw error
+  return data as Transcript
+}
+
+export async function deleteTranscript(id: string) {
+  const supabase = await createClient()
+  // Delete chunks first due to foreign key
+  await supabase.from('transcript_chunks').delete().eq('transcript_id', id)
+  const { error } = await supabase.from('transcripts').delete().eq('id', id)
+  if (error) throw error
+}
+
+// =============================================
+// Transcript Chunks Operations
+// =============================================
+
+export async function getTranscriptChunks(transcriptId: string) {
+  const supabase = await createClient()
+  const { data, error } = await supabase
+    .from('transcript_chunks')
+    .select('*')
+    .eq('transcript_id', transcriptId)
+    .order('chunk_index', { ascending: true })
+
+  if (error) throw error
+  return data as TranscriptChunk[]
+}
+
+export async function createTranscriptChunks(chunks: TranscriptChunkInsert[]) {
+  const supabase = await createClient()
+  const { data, error } = await supabase
+    .from('transcript_chunks')
+    .insert(chunks)
+    .select()
+
+  if (error) throw error
+  return data as TranscriptChunk[]
+}
+
+export async function updateChunkEmbedding(chunkId: string, embedding: number[]) {
+  const supabase = await createClient()
+  const { data, error } = await supabase
+    .from('transcript_chunks')
+    .update({ embedding })
+    .eq('id', chunkId)
+    .select()
+    .single()
+
+  if (error) throw error
+  return data as TranscriptChunk
 }
 
 // =============================================
