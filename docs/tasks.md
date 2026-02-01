@@ -322,7 +322,7 @@ Executable task list for building Ember MVP. Each task includes acceptance crite
   - Context retrieval
   - **Acceptance:** Chat API works
 
-- [ ] **6.1.2** Create Chat UI
+- [x] **6.1.2** Create Chat UI
   - Message list with streaming
   - Input with send
   - **Acceptance:** Chat UI functional
@@ -464,6 +464,7 @@ Executable task list for building Ember MVP. Each task includes acceptance crite
 | 2026-01-31 | 5.2.3 | Build extraction pipeline | Complete |
 | 2026-01-31 | 5.2.4 | Link extractions to EOS | Complete |
 | 2026-01-31 | 6.1.1 | Build Chat API | Complete |
+| 2026-01-31 | 6.1.2 | Create Chat UI | Complete |
 | 2026-01-31 | 6.2.1 | Build Ember system prompt | Complete |
 | 2026-01-31 | 6.2.3 | Create coaching prompts | Complete |
 
