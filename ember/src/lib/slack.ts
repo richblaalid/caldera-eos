@@ -80,26 +80,20 @@ export async function exchangeCodeForToken(code: string): Promise<SlackOAuthResp
 
 // Fetch list of channels the bot can post to
 export async function getChannels(botToken: string): Promise<SlackChannel[]> {
-  // First check what scopes we have
-  const authResponse = await fetch(`${SLACK_API_BASE}/auth.test`, {
-    headers: { Authorization: `Bearer ${botToken}` },
-  })
-  const authData = await authResponse.json()
-  console.log('Slack auth.test response:', JSON.stringify(authData))
+  // Fetch public and private channels separately (requires different scopes)
+  const [publicResponse, privateResponse] = await Promise.all([
+    fetch(`${SLACK_API_BASE}/conversations.list?types=public_channel&limit=200`, {
+      headers: { Authorization: `Bearer ${botToken}` },
+    }),
+    fetch(`${SLACK_API_BASE}/conversations.list?types=private_channel&limit=200`, {
+      headers: { Authorization: `Bearer ${botToken}` },
+    }),
+  ])
 
-  // Fetch public channels
-  const publicResponse = await fetch(`${SLACK_API_BASE}/conversations.list?types=public_channel&limit=200`, {
-    headers: { Authorization: `Bearer ${botToken}` },
-  })
-  const publicData = await publicResponse.json()
-  console.log(`Slack public channels: ${publicData.ok ? publicData.channels?.length : publicData.error}`)
-
-  // Fetch private channels separately to see if scope is the issue
-  const privateResponse = await fetch(`${SLACK_API_BASE}/conversations.list?types=private_channel&limit=200`, {
-    headers: { Authorization: `Bearer ${botToken}` },
-  })
-  const privateData = await privateResponse.json()
-  console.log(`Slack private channels: ${privateData.ok ? (privateData.channels?.length || 0) : privateData.error}`)
+  const [publicData, privateData] = await Promise.all([
+    publicResponse.json(),
+    privateResponse.json(),
+  ])
 
   if (!publicData.ok && !privateData.ok) {
     console.error('Slack channels error:', publicData.error || privateData.error)
@@ -109,9 +103,6 @@ export async function getChannels(botToken: string): Promise<SlackChannel[]> {
   const publicChannels = publicData.ok ? (publicData.channels || []) : []
   const privateChannels = privateData.ok ? (privateData.channels || []) : []
   const allChannels = [...publicChannels, ...privateChannels]
-
-  console.log(`Slack: Found ${publicChannels.length} public + ${privateChannels.length} private = ${allChannels.length} total`)
-  console.log('All channels:', allChannels.map((c: SlackChannel) => `${c.name} (private: ${c.is_private})`))
 
   return allChannels.map((c: SlackChannel) => ({
     id: c.id,
