@@ -376,7 +376,7 @@ Executable task list for building Ember MVP. Each task includes acceptance crite
   - Edge case handling
   - **Acceptance:** Known bugs fixed
 
-- [ ] **7.1.3** Performance optimization
+- [x] **7.1.3** Performance optimization
   - Optimize slow queries
   - Add caching where needed
   - **Acceptance:** Performance acceptable
@@ -472,6 +472,7 @@ Executable task list for building Ember MVP. Each task includes acceptance crite
 | 2026-01-31 | 6.2.4 | Add private chat storage | Complete |
 | 2026-01-31 | 7.1.1 | End-to-end testing | Complete |
 | 2026-01-31 | 7.1.2 | Bug fixes - lint errors, unused imports | Complete |
+| 2026-01-31 | 7.1.3 | Performance optimization - indexes verified | Complete |
 
 ---
 
