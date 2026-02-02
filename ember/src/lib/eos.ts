@@ -186,9 +186,16 @@ export async function getRock(id: string) {
 
 export async function createRock(rock: RockInsert) {
   const supabase = await createClient()
+
+  // Get user's organization ID for RLS compliance
+  const orgId = await getUserOrganizationId(supabase)
+  if (!orgId) {
+    throw new Error('User is not a member of any organization')
+  }
+
   const { data, error } = await supabase
     .from('rocks')
-    .insert(rock)
+    .insert({ ...rock, organization_id: orgId })
     .select()
     .single()
 
@@ -250,9 +257,16 @@ export async function getIssue(id: string) {
 
 export async function createIssue(issue: IssueInsert) {
   const supabase = await createClient()
+
+  // Get user's organization ID for RLS compliance
+  const orgId = await getUserOrganizationId(supabase)
+  if (!orgId) {
+    throw new Error('User is not a member of any organization')
+  }
+
   const { data, error } = await supabase
     .from('issues')
-    .insert(issue)
+    .insert({ ...issue, organization_id: orgId })
     .select()
     .single()
 
@@ -317,9 +331,16 @@ export async function getTodo(id: string) {
 
 export async function createTodo(todo: TodoInsert) {
   const supabase = await createClient()
+
+  // Get user's organization ID for RLS compliance
+  const orgId = await getUserOrganizationId(supabase)
+  if (!orgId) {
+    throw new Error('User is not a member of any organization')
+  }
+
   const { data, error } = await supabase
     .from('todos')
-    .insert(todo)
+    .insert({ ...todo, organization_id: orgId })
     .select()
     .single()
 
