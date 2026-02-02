@@ -111,13 +111,13 @@ export function SearchModal({ isOpen, onClose, initialQuery = '' }: SearchModalP
     let path = ''
     switch (result.type) {
       case 'rock':
-        path = `/dashboard/rocks?id=${result.item.id}`
+        path = `/dashboard/rocks/${result.item.id}`
         break
       case 'issue':
-        path = `/dashboard/issues?id=${result.item.id}`
+        path = `/dashboard/issues/${result.item.id}`
         break
       case 'todo':
-        path = `/dashboard/todos?id=${result.item.id}`
+        path = `/dashboard/todos/${result.item.id}`
         break
       case 'transcript':
         path = `/dashboard/transcripts/${result.item.id}`
