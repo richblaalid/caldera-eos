@@ -855,3 +855,17 @@ export type RockWithOwner = Rock & { owner: Profile | null }
 export type IssueWithOwner = Issue & { owner: Profile | null }
 export type TodoWithOwner = Todo & { owner: Profile | null }
 export type MetricWithOwner = ScorecardMetric & { owner: Profile | null }
+
+// =============================================
+// Search Types
+// =============================================
+
+export type SearchEntityType = 'rocks' | 'issues' | 'todos' | 'transcripts' | 'meetings'
+
+export interface SearchResults {
+  rocks: RockWithOwner[]
+  issues: IssueWithOwner[]
+  todos: TodoWithOwner[]
+  transcripts: Transcript[]
+  meetings: Meeting[]
+}
