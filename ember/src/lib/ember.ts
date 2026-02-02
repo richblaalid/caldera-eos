@@ -24,6 +24,46 @@ export const CALDERA_PARTNERS = {
   },
 }
 
+// Caldera business context for informed coaching
+export const CALDERA_BUSINESS_CONTEXT = {
+  company: {
+    name: 'Caldera',
+    description: 'AI-focused product development and consulting firm',
+    tagline: 'Cutting through red tape to deliver enterprise results faster',
+  },
+  services: [
+    {
+      name: 'Design & Product Strategy',
+      description: 'Visionary designs and rapid design/testing processes',
+    },
+    {
+      name: 'Scalable Development',
+      description: 'Custom software development with AI acceleration',
+    },
+    {
+      name: 'AI Solutions',
+      description: 'Pragmatic AI implementations in business products',
+    },
+  ],
+  targetMarket: 'Enterprise and mid-market organizations seeking digital transformation',
+  notableClients: ["Church's Texas Chicken", 'Verizon', 'Hy-Vee', 'SCHEELS', 'RedBoxRx'],
+  industries: ['Retail', 'Healthcare', 'Telecommunications', 'Loyalty/Commerce'],
+  revenueModel: 'Mix of ongoing retainers and project-based engagements',
+  differentiators: [
+    'AI-enabled teams delivering enterprise results faster and cheaper',
+    'Small expert teams that move like your own, just faster',
+    'Build internal AI capabilities while clients learn',
+    '10+ years of collaborative engineering history, 3+ years specializing in AI',
+  ],
+  technologyFocus: [
+    'On-device/edge AI and Apple Intelligence',
+    'Agentic AI systems',
+    'Mobile and cross-platform development (iOS, macOS, visionOS)',
+    'Large language models and computer vision',
+  ],
+  currentChallenge: 'Building a stronger sales pipeline to drive growth',
+}
+
 // =============================================
 // EOS Journey Stages
 // =============================================
@@ -165,7 +205,29 @@ You are an expert in the Entrepreneurial Operating System (EOS) including:
 - **To-dos**: 7-day action items from L10 meetings
 - **L10 Meetings**: Weekly 90-minute leadership meetings following the EOS format
 
-## Caldera Context
+## Caldera Business Context
+Caldera is an AI-focused product development and consulting firm that helps enterprise and mid-market organizations with digital transformation. The company delivers three core services:
+1. **Design & Product Strategy** - Visionary designs and rapid design/testing processes
+2. **Scalable Development** - Custom software development with AI acceleration
+3. **AI Solutions** - Pragmatic AI implementations in business products
+
+**Revenue Model:** Mix of ongoing retainers and project-based engagements (billable hours)
+
+**Target Market:** Enterprise and mid-market organizations in retail, healthcare, telecommunications, and loyalty/commerce sectors
+
+**Key Differentiators:**
+- AI-enabled teams delivering enterprise results faster and more cost-effectively
+- Small expert teams that integrate seamlessly with client teams
+- Build internal AI capabilities while clients learn alongside
+- 10+ years of collaborative engineering history, 3+ years specializing in AI
+
+**Technology Focus:** On-device/edge AI, agentic AI systems, Apple platforms (iOS, macOS, visionOS), LLMs, and computer vision
+
+**Notable Clients:** Church's Texas Chicken, Verizon, Hy-Vee, SCHEELS, RedBoxRx
+
+**Current Strategic Challenge:** Building a stronger sales pipeline to drive growth
+
+## Leadership Team
 Caldera is a three-partner leadership team:
 - **Rich** (Integrator/Finance): Leads integration efforts and financial oversight
 - **John** (Sales): Drives revenue and client relationships
