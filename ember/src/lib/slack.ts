@@ -235,6 +235,71 @@ export function buildCheckupReminderBlocks(
   ]
 }
 
+// Look up a Slack user by email
+export async function findSlackUserByEmail(botToken: string, email: string): Promise<SlackUser | null> {
+  // Use users.lookupByEmail for direct lookup (more efficient than fetching all users)
+  const response = await fetch(
+    `${SLACK_API_BASE}/users.lookupByEmail?email=${encodeURIComponent(email)}`,
+    {
+      headers: {
+        Authorization: `Bearer ${botToken}`,
+      },
+    }
+  )
+
+  const data = await response.json()
+
+  if (!data.ok) {
+    // user_not_found is expected for emails not in Slack
+    if (data.error !== 'users_not_found') {
+      console.error('Slack lookupByEmail error:', data.error)
+    }
+    return null
+  }
+
+  const u = data.user
+  return {
+    id: u.id,
+    name: u.name,
+    real_name: u.real_name,
+    profile: {
+      email: u.profile?.email,
+      display_name: u.profile?.display_name,
+    },
+  }
+}
+
+// Sync Slack user IDs for all profiles in an organization
+export async function syncSlackUserIds(
+  botToken: string,
+  profiles: Array<{ id: string; email?: string | null }>
+): Promise<Map<string, string>> {
+  const emailToSlackId = new Map<string, string>()
+
+  // Fetch all Slack users once (more efficient for multiple lookups)
+  const slackUsers = await getSlackUsers(botToken)
+
+  // Build email -> slack_id map (case-insensitive)
+  const slackEmailMap = new Map<string, string>()
+  for (const user of slackUsers) {
+    if (user.profile.email) {
+      slackEmailMap.set(user.profile.email.toLowerCase(), user.id)
+    }
+  }
+
+  // Match profiles to Slack users
+  for (const profile of profiles) {
+    if (profile.email) {
+      const slackId = slackEmailMap.get(profile.email.toLowerCase())
+      if (slackId) {
+        emailToSlackId.set(profile.id, slackId)
+      }
+    }
+  }
+
+  return emailToSlackId
+}
+
 // Test the bot token by calling auth.test
 export async function testConnection(botToken: string): Promise<{ ok: boolean; team?: string; error?: string }> {
   const response = await fetch(`${SLACK_API_BASE}/auth.test`, {

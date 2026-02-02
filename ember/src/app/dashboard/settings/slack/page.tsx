@@ -31,6 +31,7 @@ export default function SlackSettingsPage() {
   const [selectedChannel, setSelectedChannel] = useState<string>('')
   const [isActive, setIsActive] = useState(true)
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
+  const [syncing, setSyncing] = useState(false)
 
   // Check URL params for OAuth result
   useEffect(() => {
@@ -103,6 +104,36 @@ export default function SlackSettingsPage() {
       setMessage({ type: 'error', text: 'Failed to save settings.' })
     } finally {
       setSaving(false)
+    }
+  }
+
+  // Sync Slack user IDs to profiles
+  const handleSyncUsers = async () => {
+    setSyncing(true)
+    setMessage(null)
+
+    try {
+      const res = await fetch('/api/integrations/slack/sync-users', {
+        method: 'POST',
+      })
+
+      const result = await res.json()
+
+      if (res.ok) {
+        setMessage({
+          type: 'success',
+          text: `Synced ${result.matched} profile(s) with Slack. ${result.notFound} not found in Slack.`
+        })
+      } else {
+        throw new Error(result.error || 'Failed to sync')
+      }
+    } catch (err) {
+      setMessage({
+        type: 'error',
+        text: err instanceof Error ? err.message : 'Failed to sync Slack users.'
+      })
+    } finally {
+      setSyncing(false)
     }
   }
 
@@ -254,6 +285,28 @@ export default function SlackSettingsPage() {
                 className="px-4 py-2 bg-ember-500 text-white rounded-lg font-medium hover:bg-ember-600 transition-colors disabled:opacity-50"
               >
                 {saving ? 'Saving...' : 'Save Settings'}
+              </button>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* User Sync */}
+      {data?.connected && (
+        <Card>
+          <CardContent className="p-6 space-y-4">
+            <h3 className="text-lg font-semibold text-foreground">User Mapping</h3>
+            <p className="text-sm text-muted-foreground">
+              Sync your team profiles with Slack to enable @mentions in reminders.
+              This matches profiles by email address.
+            </p>
+            <div className="flex justify-end">
+              <button
+                onClick={handleSyncUsers}
+                disabled={syncing}
+                className="px-4 py-2 border border-border text-foreground rounded-lg font-medium hover:bg-muted transition-colors disabled:opacity-50"
+              >
+                {syncing ? 'Syncing...' : 'Sync Slack Users'}
               </button>
             </div>
           </CardContent>
