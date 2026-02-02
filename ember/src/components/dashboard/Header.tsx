@@ -1,8 +1,9 @@
 'use client'
 
 import Image from 'next/image'
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useEffect } from 'react'
 import { MobileNav } from './MobileNav'
+import { SearchModal } from './SearchModal'
 import { ThemeToggle } from '@/components/ThemeToggle'
 import type { Profile } from '@/types/database'
 
@@ -19,7 +20,22 @@ interface HeaderProps {
 
 export function Header({ user, profile }: HeaderProps) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
+  const [searchOpen, setSearchOpen] = useState(false)
   const closeMobileMenu = useCallback(() => setMobileMenuOpen(false), [])
+  const openSearch = useCallback(() => setSearchOpen(true), [])
+  const closeSearch = useCallback(() => setSearchOpen(false), [])
+
+  // Global Cmd+K / Ctrl+K shortcut
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
+        e.preventDefault()
+        setSearchOpen(true)
+      }
+    }
+    document.addEventListener('keydown', handleKeyDown)
+    return () => document.removeEventListener('keydown', handleKeyDown)
+  }, [])
 
   const displayName = profile?.name || user.user_metadata?.full_name || user.email?.split('@')[0]
   const avatarUrl = profile?.avatar_url || user.user_metadata?.avatar_url
@@ -65,19 +81,20 @@ export function Header({ user, profile }: HeaderProps) {
         {/* Spacer */}
         <div className="flex-1" />
 
-        {/* Search (optional - placeholder for future) */}
-        <div className="hidden md:flex items-center gap-4">
-          <div className="relative">
-            <input
-              type="text"
-              placeholder="Search..."
-              className="w-64 h-9 pl-9 pr-4 text-sm bg-muted border-0 rounded-lg focus:outline-none focus:ring-2 focus:ring-ember-500"
-            />
-            <svg className="absolute left-3 top-2.5 w-4 h-4 text-muted-foreground" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-            </svg>
-          </div>
-        </div>
+        {/* Search button */}
+        <button
+          type="button"
+          onClick={openSearch}
+          className="hidden md:flex items-center gap-3 w-64 h-9 px-3 text-sm bg-muted border-0 rounded-lg text-muted-foreground hover:bg-muted/80 transition-colors"
+        >
+          <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+          </svg>
+          <span className="flex-1 text-left">Search...</span>
+          <kbd className="hidden lg:inline-flex items-center gap-0.5 px-1.5 py-0.5 text-xs bg-background border border-border rounded">
+            <span className="text-[10px]">⌘</span>K
+          </kbd>
+        </button>
 
         {/* Theme toggle and user menu */}
         <div className="flex items-center gap-2">
@@ -120,6 +137,9 @@ export function Header({ user, profile }: HeaderProps) {
         user={user}
         profile={profile}
       />
+
+      {/* Search modal */}
+      <SearchModal isOpen={searchOpen} onClose={closeSearch} />
     </>
   )
 }
