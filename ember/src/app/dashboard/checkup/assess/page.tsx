@@ -88,9 +88,13 @@ export default function AssessPage() {
   const saveResponses = useCallback(async () => {
     if (!periodId || Object.keys(pendingChangesRef.current).length === 0) return
 
+    // Snapshot the items we're about to save
+    const itemsToSave = { ...pendingChangesRef.current }
+    const questionIds = Object.keys(itemsToSave)
+
     setSaving(true)
     try {
-      const responsesToSave = Object.entries(pendingChangesRef.current).map(
+      const responsesToSave = Object.entries(itemsToSave).map(
         ([questionId, { score, notes }]) => ({
           question_id: questionId,
           score,
@@ -98,15 +102,31 @@ export default function AssessPage() {
         })
       )
 
-      await fetch('/api/eos/checkup/responses', {
+      const res = await fetch('/api/eos/checkup/responses', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ periodId, responses: responsesToSave }),
       })
 
-      pendingChangesRef.current = {}
+      if (!res.ok) {
+        const data = await res.json()
+        throw new Error(data.error || 'Failed to save responses')
+      }
+
+      // Only remove items that were successfully saved AND haven't been updated since
+      for (const id of questionIds) {
+        const current = pendingChangesRef.current[id]
+        const saved = itemsToSave[id]
+        // Only delete if the current value matches what we saved
+        if (current && current.score === saved.score && current.notes === saved.notes) {
+          delete pendingChangesRef.current[id]
+        }
+      }
     } catch (err) {
       console.error('Error saving responses:', err)
+      setError('Failed to save some answers. They will retry automatically.')
+      // Clear error after 3 seconds
+      setTimeout(() => setError(null), 3000)
     } finally {
       setSaving(false)
     }
