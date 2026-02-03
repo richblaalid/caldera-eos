@@ -82,43 +82,46 @@
 
 ### 2.1 Database Schema
 
-- [ ] **2.1.1** Create migration for `eos_knowledge_chunks` table
-  - File: `ember/supabase/migrations/XXX_create_eos_knowledge_table.sql`
+- [x] **2.1.1** Create migration for `eos_knowledge_chunks` table ✓ 2025-02-02
+  - File: `ember/supabase/migrations/010_create_eos_knowledge_table.sql`
   - Columns: id, source_file, chapter_title, section_heading, content, chunk_index, embedding, metadata
 
-- [ ] **2.1.2** Create HNSW index on knowledge chunks
+- [x] **2.1.2** Create HNSW index on knowledge chunks ✓ 2025-02-02
   - Index on embedding column with cosine ops
+  - Included in migration 010
 
-- [ ] **2.1.3** Create PostgreSQL function for knowledge similarity search
+- [x] **2.1.3** Create PostgreSQL function for knowledge similarity search ✓ 2025-02-02
   - Function: `match_eos_knowledge(embedding, threshold, limit)`
+  - Included in migration 010
 
 - [ ] **2.1.4** Run migration
+  - Apply via Supabase dashboard
 
 ### 2.2 Knowledge Ingestion Script
 
-- [ ] **2.2.1** Create ingestion script file
+- [x] **2.2.1** Create ingestion script file ✓ 2025-02-02
   - File: `ember/scripts/ingest-eos-knowledge.ts`
 
-- [ ] **2.2.2** Implement markdown parsing
+- [x] **2.2.2** Implement markdown parsing ✓ 2025-02-02
   - Read chapter files from `.claude/skills/eos-domain-skill/chapters/`
   - Extract sections by heading
 
-- [ ] **2.2.3** Implement chunking logic
+- [x] **2.2.3** Implement chunking logic ✓ 2025-02-02
   - Split by section/heading
-  - Target ~1000-1500 chars per chunk
+  - Target ~1200 chars per chunk with 150 char overlap
   - Preserve heading context
 
-- [ ] **2.2.4** Implement embedding generation for chunks
-  - Batch API calls for efficiency
+- [x] **2.2.4** Implement embedding generation for chunks ✓ 2025-02-02
+  - Batch API calls (20 at a time)
   - Progress logging
 
-- [ ] **2.2.5** Implement database insertion
+- [x] **2.2.5** Implement database insertion ✓ 2025-02-02
   - Insert chunks with embeddings
-  - Handle duplicates (upsert or skip)
+  - Clears existing chunks before re-ingestion
 
 ### 2.3 Run Ingestion
 
-- [ ] **2.3.1** Add npm script for ingestion
+- [x] **2.3.1** Add npm script for ingestion ✓ 2025-02-02
   - File: `ember/package.json`
   - Script: `"ingest-eos": "npx tsx scripts/ingest-eos-knowledge.ts"`
 
