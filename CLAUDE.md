@@ -206,3 +206,27 @@ const saveChanges = async () => {
 
 See `docs/plans/` for detailed planning documents:
 - `docs/plans/wondrous-dancing-eagle.md` - Checkup feature plan with Slack integration phases
+
+# CLAUDE.md Addition — EOS Domain Skill Reference
+
+Add this section to your existing CLAUDE.md to wire up the EOS skill:
+
+---
+
+## EOS Domain Knowledge
+
+When working on Ember features involving Rocks, Scorecard, Issues, To-Dos, L10 Meetings, V/TO, People, or Process:
+
+**Read the skill first:** `/claude/skills/eos-domain/SKILL.md`
+
+This skill contains:
+- Canonical EOS business rules from *Traction* (validation constraints, entity definitions)
+- Classification taxonomy for transcript parsing and AI processing  
+- Full chapter content for RAG and coaching responses
+- Ember persona guidelines and Caldera-specific context
+
+The SKILL.md file tells you which reference file to read for each type of work. Follow its guidance on file priority.
+
+---
+
+*End of addition*
