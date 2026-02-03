@@ -554,9 +554,11 @@ export async function getMeeting(id: string) {
 
 export async function createMeeting(meeting: MeetingInsert) {
   const supabase = await createClient()
+  const orgId = await getUserOrganizationId(supabase)
+
   const { data, error } = await supabase
     .from('meetings')
-    .insert(meeting)
+    .insert({ ...meeting, organization_id: orgId })
     .select()
     .single()
 
@@ -710,9 +712,11 @@ export async function getTranscript(id: string) {
 
 export async function createTranscript(transcript: TranscriptInsert) {
   const supabase = await createClient()
+  const orgId = await getUserOrganizationId(supabase)
+
   const { data, error } = await supabase
     .from('transcripts')
-    .insert(transcript)
+    .insert({ ...transcript, organization_id: orgId })
     .select()
     .single()
 

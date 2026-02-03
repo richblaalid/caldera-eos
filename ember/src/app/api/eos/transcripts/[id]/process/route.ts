@@ -7,6 +7,7 @@ import {
 } from '@/lib/eos'
 import {
   chunkTranscript,
+  generateChunkEmbeddings,
   extractFromChunk,
   mergeExtractionResults,
   generateTranscriptSummary,
@@ -42,12 +43,23 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     // Step 1: Chunk the transcript
     const chunks = chunkTranscript(transcript.full_text, id)
 
+    // Step 1.5: Generate embeddings for semantic search
+    let chunksWithEmbeddings = chunks
+    try {
+      console.log(`Generating embeddings for ${chunks.length} chunks...`)
+      chunksWithEmbeddings = await generateChunkEmbeddings(chunks)
+      console.log('Embeddings generated successfully')
+    } catch (embeddingError) {
+      console.error('Error generating embeddings:', embeddingError)
+      // Continue without embeddings - they can be backfilled later
+    }
+
     // Save chunks to database
-    if (chunks.length > 0) {
+    if (chunksWithEmbeddings.length > 0) {
       // Delete existing chunks first
       await supabase.from('transcript_chunks').delete().eq('transcript_id', id)
-      // Create new chunks
-      await createTranscriptChunks(chunks)
+      // Create new chunks with embeddings
+      await createTranscriptChunks(chunksWithEmbeddings)
     }
 
     // Step 2: Extract items from each chunk
