@@ -94,8 +94,9 @@
   - Function: `match_eos_knowledge(embedding, threshold, limit)`
   - Included in migration 010
 
-- [ ] **2.1.4** Run migration
+- [x] **2.1.4** Run migration ✓ 2025-02-02
   - Apply via Supabase dashboard
+  - User applied migration successfully
 
 ### 2.2 Knowledge Ingestion Script
 
@@ -125,12 +126,14 @@
   - File: `ember/package.json`
   - Script: `"ingest-eos": "npx tsx scripts/ingest-eos-knowledge.ts"`
 
-- [ ] **2.3.2** Run ingestion script
+- [x] **2.3.2** Run ingestion script ✓ 2025-02-02
   - Execute and verify ~50-100 chunks created
+  - Result: 396 chunks from 11 chapters
 
-- [ ] **2.3.3** Verify knowledge search works
+- [x] **2.3.3** Verify knowledge search works ✓ 2025-02-02
   - Test query: "What are Core Values?"
   - Verify relevant chapter content returned
+  - Search working: found Vision Component content at 62.8% similarity
 
 ---
 
