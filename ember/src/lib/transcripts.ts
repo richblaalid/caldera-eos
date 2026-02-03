@@ -1,4 +1,5 @@
 import { anthropic } from './claude'
+import { generateEmbeddings } from './embeddings'
 import type { TranscriptChunkInsert } from '@/types/database'
 
 // =============================================
@@ -70,6 +71,57 @@ export function chunkTranscript(
   }
 
   return chunks
+}
+
+// =============================================
+// Embedding Generation for Chunks
+// =============================================
+
+const EMBEDDING_BATCH_SIZE = 50 // Process embeddings in batches
+
+/**
+ * Generate embeddings for transcript chunks
+ * Processes in batches to respect API limits
+ */
+export async function generateChunkEmbeddings(
+  chunks: TranscriptChunkInsert[]
+): Promise<TranscriptChunkInsert[]> {
+  if (chunks.length === 0) return chunks
+
+  const chunksWithEmbeddings: TranscriptChunkInsert[] = []
+
+  // Process in batches
+  for (let i = 0; i < chunks.length; i += EMBEDDING_BATCH_SIZE) {
+    const batch = chunks.slice(i, i + EMBEDDING_BATCH_SIZE)
+    const texts = batch.map((chunk) => chunk.content)
+
+    console.log(
+      `Generating embeddings for chunks ${i + 1}-${Math.min(i + EMBEDDING_BATCH_SIZE, chunks.length)} of ${chunks.length}...`
+    )
+
+    const embeddings = await generateEmbeddings(texts)
+
+    // Combine chunks with their embeddings
+    for (let j = 0; j < batch.length; j++) {
+      chunksWithEmbeddings.push({
+        ...batch[j],
+        embedding: embeddings[j],
+      })
+    }
+  }
+
+  return chunksWithEmbeddings
+}
+
+/**
+ * Chunk transcript and generate embeddings in one step
+ */
+export async function chunkTranscriptWithEmbeddings(
+  text: string,
+  transcriptId: string
+): Promise<TranscriptChunkInsert[]> {
+  const chunks = chunkTranscript(text, transcriptId)
+  return generateChunkEmbeddings(chunks)
 }
 
 // =============================================

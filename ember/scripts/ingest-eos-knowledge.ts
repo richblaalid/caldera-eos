@@ -10,8 +10,11 @@ config({ path: '.env.local' })
 
 import * as fs from 'fs'
 import * as path from 'path'
-import { createClient } from '@supabase/supabase-js'
+import { createClient, SupabaseClient } from '@supabase/supabase-js'
 import { generateEmbeddings } from '../src/lib/embeddings'
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type AnySupabaseClient = SupabaseClient<any, any, any>
 
 // =============================================
 // Configuration
@@ -219,7 +222,7 @@ function processChapter(filePath: string): Chunk[] {
 /**
  * Clear existing knowledge chunks (for re-ingestion)
  */
-async function clearExistingChunks(supabase: ReturnType<typeof createClient>) {
+async function clearExistingChunks(supabase: AnySupabaseClient) {
   console.log('Clearing existing knowledge chunks...')
   const { error } = await supabase.from('eos_knowledge_chunks').delete().neq('id', '00000000-0000-0000-0000-000000000000')
 
@@ -234,7 +237,7 @@ async function clearExistingChunks(supabase: ReturnType<typeof createClient>) {
  * Insert chunks with embeddings into database
  */
 async function insertChunks(
-  supabase: ReturnType<typeof createClient>,
+  supabase: AnySupabaseClient,
   chunks: Chunk[],
   embeddings: number[][]
 ) {
