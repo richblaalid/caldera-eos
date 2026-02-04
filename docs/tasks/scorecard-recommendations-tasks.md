@@ -150,14 +150,14 @@ export async function createInsight(insight: InsightInsert): Promise<Insight | n
 **File:** `ember/src/components/scorecard/SuggestedMetrics.tsx` (NEW)
 **Estimate:** 20 min
 
-- [ ] Create component that fetches pending metric suggestions
-- [ ] Display each suggestion with:
+- [x] Create component that fetches pending metric suggestions
+- [x] Display each suggestion with:
   - Metric name (bold)
   - Description
   - Source quote in italics
   - "Add to Scorecard" button (primary)
   - "Dismiss" button (ghost)
-- [ ] Handle empty state
+- [x] Handle empty state
 
 ---
 
@@ -165,10 +165,10 @@ export async function createInsight(insight: InsightInsert): Promise<Insight | n
 **File:** `ember/src/app/api/insights/suggestions/route.ts` (NEW)
 **Estimate:** 10 min
 
-- [ ] Create GET endpoint
-- [ ] Query insights where `type = 'suggestion'` and `title LIKE 'Suggested Metric:%'`
-- [ ] Filter to unacknowledged only
-- [ ] Return with source transcript info
+- [x] Create GET endpoint
+- [x] Query insights where `type = 'suggestion'` and `title LIKE 'Suggested Metric:%'`
+- [x] Filter to unacknowledged only
+- [x] Return with source transcript info
 
 ---
 
@@ -176,9 +176,9 @@ export async function createInsight(insight: InsightInsert): Promise<Insight | n
 **File:** `ember/src/app/dashboard/scorecard/page.tsx`
 **Estimate:** 10 min
 
-- [ ] Import SuggestedMetrics component
-- [ ] Add section above or below current metrics table
-- [ ] Only show when suggestions exist
+- [x] Import SuggestedMetrics component
+- [x] Add section above or below current metrics table
+- [x] Only show when suggestions exist
 
 ---
 
@@ -199,9 +199,9 @@ export async function createInsight(insight: InsightInsert): Promise<Insight | n
 **File:** `ember/src/app/api/insights/[id]/dismiss/route.ts` (NEW)
 **Estimate:** 10 min
 
-- [ ] Create POST endpoint
-- [ ] Mark insight as acknowledged
-- [ ] Return success
+- [x] Create POST endpoint
+- [x] Mark insight as acknowledged
+- [x] Return success
 
 ---
 

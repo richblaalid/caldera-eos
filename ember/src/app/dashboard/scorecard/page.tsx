@@ -1,6 +1,7 @@
 import Link from 'next/link'
 import { getMetrics, getAllMetricEntries } from '@/lib/eos'
 import { Card, CardContent } from '@/components/ui'
+import { SuggestedMetrics } from '@/components/scorecard/SuggestedMetrics'
 import type { ScorecardMetric, ScorecardEntry, Profile } from '@/types/database'
 
 type MetricWithOwner = ScorecardMetric & { owner: Profile | null }
@@ -310,6 +311,9 @@ export default async function ScorecardPage({ searchParams }: PageProps) {
           </table>
         </CardContent>
       </Card>
+
+      {/* Suggested Metrics from Transcripts */}
+      <SuggestedMetrics />
 
       {/* Legend */}
       <div className="flex items-center gap-6 text-sm">
