@@ -3,7 +3,8 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { Card, CardHeader, CardTitle, CardContent, Button, Input, Textarea, Badge } from '@/components/ui'
+import { Card, CardHeader, CardTitle, CardContent, Button, Input, Textarea, Badge, Tabs } from '@/components/ui'
+import { TranscriptsTab } from '@/components/meetings'
 import type { Meeting, Profile, MeetingType, MeetingPrepContent } from '@/types/database'
 
 interface PageProps {
@@ -94,6 +95,8 @@ export default function MeetingDetailPage({ params }: PageProps) {
   const [isGeneratingPrep, setIsGeneratingPrep] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [meetingId, setMeetingId] = useState<string | null>(null)
+  const [activeTab, setActiveTab] = useState('details')
+  const [transcriptCount, setTranscriptCount] = useState(0)
 
   // Form state
   const [title, setTitle] = useState('')
@@ -112,9 +115,10 @@ export default function MeetingDetailPage({ params }: PageProps) {
 
     async function fetchData() {
       try {
-        const [meetingRes, profilesRes] = await Promise.all([
+        const [meetingRes, profilesRes, transcriptsRes] = await Promise.all([
           fetch(`/api/eos/meetings/${meetingId}`),
-          fetch('/api/profiles')
+          fetch('/api/profiles'),
+          fetch(`/api/eos/transcripts?meeting_id=${meetingId}`)
         ])
 
         if (!meetingRes.ok) {
@@ -134,6 +138,11 @@ export default function MeetingDetailPage({ params }: PageProps) {
         if (profilesRes.ok) {
           const profilesData = await profilesRes.json()
           setProfiles(profilesData)
+        }
+
+        if (transcriptsRes.ok) {
+          const transcriptsData = await transcriptsRes.json()
+          setTranscriptCount(transcriptsData.length)
         }
       } catch {
         setError('Failed to load meeting')
@@ -321,187 +330,207 @@ export default function MeetingDetailPage({ params }: PageProps) {
         </div>
       )}
 
-      {/* AI Prep */}
-      {meeting.prep_content && (
-        <PrepSection prep={meeting.prep_content} />
-      )}
+      {/* Tabs */}
+      <Tabs
+        tabs={[
+          { id: 'details', label: 'Details' },
+          { id: 'transcripts', label: 'Transcripts', count: transcriptCount },
+        ]}
+        activeTab={activeTab}
+        onChange={setActiveTab}
+      />
 
-      {/* Details */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Details</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          {/* Date & Time */}
-          <div>
-            <label className="text-sm font-medium text-muted-foreground block mb-1">
-              Date & Time
-            </label>
-            {isEditing ? (
-              <input
-                type="datetime-local"
-                value={meetingDate}
-                onChange={(e) => setMeetingDate(e.target.value)}
-                className="w-full h-10 px-3 text-sm rounded-lg border border-border bg-background"
-              />
-            ) : (
-              <p className="text-foreground">
-                {meetingDateObj.toLocaleDateString('en-US', {
-                  weekday: 'long',
-                  year: 'numeric',
-                  month: 'long',
-                  day: 'numeric',
-                  hour: 'numeric',
-                  minute: '2-digit'
-                })}
-              </p>
-            )}
-          </div>
-
-          {/* Duration */}
-          <div>
-            <label className="text-sm font-medium text-muted-foreground block mb-1">
-              Duration
-            </label>
-            {isEditing ? (
-              <select
-                value={durationMinutes}
-                onChange={(e) => setDurationMinutes(e.target.value)}
-                className="w-full h-10 px-3 text-sm rounded-lg border border-border bg-background"
-              >
-                <option value="">Not set</option>
-                <option value="60">60 min</option>
-                <option value="90">90 min</option>
-                <option value="120">120 min</option>
-                <option value="180">180 min</option>
-                <option value="240">240 min</option>
-                <option value="480">480 min</option>
-              </select>
-            ) : (
-              <p className="text-foreground">
-                {meeting.duration_minutes ? `${meeting.duration_minutes} minutes` : 'Not set'}
-              </p>
-            )}
-          </div>
-
-          {/* Meeting Type */}
-          <div>
-            <label className="text-sm font-medium text-muted-foreground block mb-1">
-              Type
-            </label>
-            {isEditing ? (
-              <select
-                value={meetingType}
-                onChange={(e) => setMeetingType(e.target.value as MeetingType)}
-                className="w-full h-10 px-3 text-sm rounded-lg border border-border bg-background"
-              >
-                <option value="l10">L10 (Weekly)</option>
-                <option value="quarterly">Quarterly</option>
-                <option value="annual">Annual</option>
-                <option value="other">Other</option>
-              </select>
-            ) : (
-              <p className="text-foreground capitalize">{meeting.meeting_type}</p>
-            )}
-          </div>
-
-          {/* Attendees */}
-          {attendeeNames && attendeeNames.length > 0 && (
-            <div>
-              <label className="text-sm font-medium text-muted-foreground block mb-1">
-                Attendees
-              </label>
-              <p className="text-foreground">
-                {attendeeNames.join(', ')}
-              </p>
-            </div>
+      {/* Details Tab */}
+      {activeTab === 'details' && (
+        <div className="space-y-6">
+          {/* AI Prep */}
+          {meeting.prep_content && (
+            <PrepSection prep={meeting.prep_content} />
           )}
 
-          {/* Notes */}
-          <div>
-            <label className="text-sm font-medium text-muted-foreground block mb-1">
-              Notes
-            </label>
-            {isEditing ? (
-              <Textarea
-                value={notes}
-                onChange={(e) => setNotes(e.target.value)}
-                rows={4}
-                placeholder="Add meeting notes..."
-              />
-            ) : (
-              <p className="text-foreground whitespace-pre-wrap">
-                {meeting.notes || <span className="italic text-muted-foreground">No notes</span>}
-              </p>
-            )}
-          </div>
-        </CardContent>
-      </Card>
+          {/* Details */}
+          <Card>
+            <CardHeader>
+              <CardTitle>Details</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {/* Date & Time */}
+              <div>
+                <label className="text-sm font-medium text-muted-foreground block mb-1">
+                  Date & Time
+                </label>
+                {isEditing ? (
+                  <input
+                    type="datetime-local"
+                    value={meetingDate}
+                    onChange={(e) => setMeetingDate(e.target.value)}
+                    className="w-full h-10 px-3 text-sm rounded-lg border border-border bg-background"
+                  />
+                ) : (
+                  <p className="text-foreground">
+                    {meetingDateObj.toLocaleDateString('en-US', {
+                      weekday: 'long',
+                      year: 'numeric',
+                      month: 'long',
+                      day: 'numeric',
+                      hour: 'numeric',
+                      minute: '2-digit'
+                    })}
+                  </p>
+                )}
+              </div>
 
-      {/* Quick Links */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Quick Links</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-2">
-          <Link
-            href="/dashboard/rocks"
-            className="flex items-center gap-2 text-sm text-ember-600 hover:text-ember-700"
-          >
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
-            </svg>
-            View Rocks
-          </Link>
-          <Link
-            href="/dashboard/issues"
-            className="flex items-center gap-2 text-sm text-ember-600 hover:text-ember-700"
-          >
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-            </svg>
-            View Issues
-          </Link>
-          <Link
-            href="/dashboard/scorecard"
-            className="flex items-center gap-2 text-sm text-ember-600 hover:text-ember-700"
-          >
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-            </svg>
-            View Scorecard
-          </Link>
-          <Link
-            href="/dashboard/todos"
-            className="flex items-center gap-2 text-sm text-ember-600 hover:text-ember-700"
-          >
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
-            </svg>
-            View To-dos
-          </Link>
-        </CardContent>
-      </Card>
+              {/* Duration */}
+              <div>
+                <label className="text-sm font-medium text-muted-foreground block mb-1">
+                  Duration
+                </label>
+                {isEditing ? (
+                  <select
+                    value={durationMinutes}
+                    onChange={(e) => setDurationMinutes(e.target.value)}
+                    className="w-full h-10 px-3 text-sm rounded-lg border border-border bg-background"
+                  >
+                    <option value="">Not set</option>
+                    <option value="60">60 min</option>
+                    <option value="90">90 min</option>
+                    <option value="120">120 min</option>
+                    <option value="180">180 min</option>
+                    <option value="240">240 min</option>
+                    <option value="480">480 min</option>
+                  </select>
+                ) : (
+                  <p className="text-foreground">
+                    {meeting.duration_minutes ? `${meeting.duration_minutes} minutes` : 'Not set'}
+                  </p>
+                )}
+              </div>
 
-      {/* Danger zone */}
-      {isEditing && (
-        <Card className="border-danger/50">
-          <CardHeader>
-            <CardTitle className="text-danger">Danger Zone</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-sm text-muted-foreground mb-4">
-              Once you delete this meeting, there is no going back.
-            </p>
-            <Button
-              variant="danger"
-              onClick={handleDelete}
-              isLoading={isDeleting}
-            >
-              Delete Meeting
-            </Button>
-          </CardContent>
-        </Card>
+              {/* Meeting Type */}
+              <div>
+                <label className="text-sm font-medium text-muted-foreground block mb-1">
+                  Type
+                </label>
+                {isEditing ? (
+                  <select
+                    value={meetingType}
+                    onChange={(e) => setMeetingType(e.target.value as MeetingType)}
+                    className="w-full h-10 px-3 text-sm rounded-lg border border-border bg-background"
+                  >
+                    <option value="l10">L10 (Weekly)</option>
+                    <option value="quarterly">Quarterly</option>
+                    <option value="annual">Annual</option>
+                    <option value="other">Other</option>
+                  </select>
+                ) : (
+                  <p className="text-foreground capitalize">{meeting.meeting_type}</p>
+                )}
+              </div>
+
+              {/* Attendees */}
+              {attendeeNames && attendeeNames.length > 0 && (
+                <div>
+                  <label className="text-sm font-medium text-muted-foreground block mb-1">
+                    Attendees
+                  </label>
+                  <p className="text-foreground">
+                    {attendeeNames.join(', ')}
+                  </p>
+                </div>
+              )}
+
+              {/* Notes */}
+              <div>
+                <label className="text-sm font-medium text-muted-foreground block mb-1">
+                  Notes
+                </label>
+                {isEditing ? (
+                  <Textarea
+                    value={notes}
+                    onChange={(e) => setNotes(e.target.value)}
+                    rows={4}
+                    placeholder="Add meeting notes..."
+                  />
+                ) : (
+                  <p className="text-foreground whitespace-pre-wrap">
+                    {meeting.notes || <span className="italic text-muted-foreground">No notes</span>}
+                  </p>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Quick Links */}
+          <Card>
+            <CardHeader>
+              <CardTitle>Quick Links</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-2">
+              <Link
+                href="/dashboard/rocks"
+                className="flex items-center gap-2 text-sm text-ember-600 hover:text-ember-700"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                </svg>
+                View Rocks
+              </Link>
+              <Link
+                href="/dashboard/issues"
+                className="flex items-center gap-2 text-sm text-ember-600 hover:text-ember-700"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                View Issues
+              </Link>
+              <Link
+                href="/dashboard/scorecard"
+                className="flex items-center gap-2 text-sm text-ember-600 hover:text-ember-700"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                </svg>
+                View Scorecard
+              </Link>
+              <Link
+                href="/dashboard/todos"
+                className="flex items-center gap-2 text-sm text-ember-600 hover:text-ember-700"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
+                </svg>
+                View To-dos
+              </Link>
+            </CardContent>
+          </Card>
+
+          {/* Danger zone */}
+          {isEditing && (
+            <Card className="border-danger/50">
+              <CardHeader>
+                <CardTitle className="text-danger">Danger Zone</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <p className="text-sm text-muted-foreground mb-4">
+                  Once you delete this meeting, there is no going back.
+                </p>
+                <Button
+                  variant="danger"
+                  onClick={handleDelete}
+                  isLoading={isDeleting}
+                >
+                  Delete Meeting
+                </Button>
+              </CardContent>
+            </Card>
+          )}
+        </div>
+      )}
+
+      {/* Transcripts Tab */}
+      {activeTab === 'transcripts' && meetingId && (
+        <TranscriptsTab meetingId={meetingId} />
       )}
 
       {/* Metadata */}
