@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
-import { getAllMetricEntries, upsertMetricEntry } from '@/lib/eos'
+import { getAllMetricEntries, getMetricEntries, upsertMetricEntry } from '@/lib/eos'
 import type { ScorecardEntryInsert } from '@/types/database'
 
-// GET /api/eos/scorecard/entries - Get entries for a date range
+// GET /api/eos/scorecard/entries - Get entries for a date range or specific metric
 export async function GET(request: NextRequest) {
   try {
     const supabase = await createClient()
@@ -14,12 +14,21 @@ export async function GET(request: NextRequest) {
     }
 
     const { searchParams } = new URL(request.url)
+    const metricId = searchParams.get('metric_id')
+    const limit = searchParams.get('limit')
     const weekStart = searchParams.get('week_start')
     const weekEnd = searchParams.get('week_end')
 
+    // If metric_id is provided, get entries for that specific metric
+    if (metricId) {
+      const entries = await getMetricEntries(metricId, limit ? parseInt(limit, 10) : undefined)
+      return NextResponse.json(entries)
+    }
+
+    // Otherwise, require week range for grid view
     if (!weekStart || !weekEnd) {
       return NextResponse.json(
-        { error: 'week_start and week_end are required' },
+        { error: 'Either metric_id or both week_start and week_end are required' },
         { status: 400 }
       )
     }
