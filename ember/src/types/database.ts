@@ -82,7 +82,7 @@ export interface OneYearPlan {
   goals: OneYearGoal[]
 }
 
-export type AccountabilitySeat = 'visionary' | 'integrator' | 'sales' | 'operations' | 'finance' | 'other'
+export type AccountabilitySeat = 'visionary' | 'integrator' | 'sales' | 'operations' | 'delivery' | 'finance' | 'other'
 
 export interface AccountabilityRole {
   seat: AccountabilitySeat
@@ -275,10 +275,21 @@ export interface TranscriptExtractedItem {
   created?: boolean // Tracks if item was already created as EOS entity
 }
 
+export interface ExtractedMetric {
+  type: 'metric'
+  name: string
+  description?: string
+  suggested_target?: string
+  owner?: string
+  frequency?: 'weekly' | 'monthly' | 'quarterly' | 'daily'
+  context: string
+}
+
 export interface TranscriptExtractions {
   issues: TranscriptExtractedItem[]
   todos: TranscriptExtractedItem[]
   decisions: TranscriptExtractedItem[]
+  metrics: ExtractedMetric[]
   summary: string
 }
 

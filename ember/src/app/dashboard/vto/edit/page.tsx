@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { Button, Card, CardHeader, CardTitle, CardContent, Input, Textarea, Select } from '@/components/ui'
-import type { VTO, CoreValue, OneYearGoal, AccountabilityRole, AccountabilitySeat } from '@/types/database'
+import type { VTO, CoreValue, OneYearGoal, AccountabilityRole, AccountabilitySeat, Profile } from '@/types/database'
 import { v4 as uuidv4 } from 'uuid'
 
 const SEAT_OPTIONS: { value: AccountabilitySeat; label: string }[] = [
@@ -11,6 +11,7 @@ const SEAT_OPTIONS: { value: AccountabilitySeat; label: string }[] = [
   { value: 'integrator', label: 'Integrator' },
   { value: 'sales', label: 'Sales' },
   { value: 'operations', label: 'Operations' },
+  { value: 'delivery', label: 'Delivery' },
   { value: 'finance', label: 'Finance' },
   { value: 'other', label: 'Other' },
 ]
@@ -112,10 +113,12 @@ function GoalEditor({
 // Accountability Role Editor
 function AccountabilityRoleEditor({
   role,
+  profiles,
   onChange,
   onRemove,
 }: {
   role: AccountabilityRole
+  profiles: Profile[]
   onChange: (role: AccountabilityRole) => void
   onRemove: () => void
 }) {
@@ -131,6 +134,14 @@ function AccountabilityRoleEditor({
   const removeLMA = (index: number) => {
     onChange({ ...role, lma: role.lma.filter((_, i) => i !== index) })
   }
+
+  const profileOptions = [
+    { value: '', label: 'Unassigned' },
+    ...profiles.map((p) => ({
+      value: p.id,
+      label: p.name || p.email || 'Unknown',
+    })),
+  ]
 
   return (
     <div className="p-4 border rounded-lg space-y-4">
@@ -148,11 +159,18 @@ function AccountabilityRoleEditor({
             onChange={(e) => onChange({ ...role, title: e.target.value })}
             placeholder="e.g., Head of Sales"
           />
-          <Input
+          <Select
             label="Person"
-            value={role.owner_name || ''}
-            onChange={(e) => onChange({ ...role, owner_name: e.target.value })}
-            placeholder="Name"
+            value={role.owner_id || ''}
+            onChange={(e) => {
+              const selectedProfile = profiles.find((p) => p.id === e.target.value)
+              onChange({
+                ...role,
+                owner_id: e.target.value || undefined,
+                owner_name: selectedProfile?.name || selectedProfile?.email || undefined,
+              })
+            }}
+            options={profileOptions}
           />
         </div>
         <Button variant="ghost" size="sm" onClick={onRemove} className="mt-6">
@@ -203,6 +221,7 @@ function AccountabilityRoleEditor({
 export default function VTOEditPage() {
   const router = useRouter()
   const [vto, setVTO] = useState<VTO | null>(null)
+  const [profiles, setProfiles] = useState<Profile[]>([])
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -243,6 +262,22 @@ export default function VTOEditPage() {
       }
     }
     fetchVTO()
+  }, [])
+
+  // Fetch profiles for accountability chart dropdown
+  useEffect(() => {
+    async function fetchProfiles() {
+      try {
+        const res = await fetch('/api/profiles')
+        if (res.ok) {
+          const data = await res.json()
+          setProfiles(data)
+        }
+      } catch {
+        console.error('Failed to fetch profiles')
+      }
+    }
+    fetchProfiles()
   }, [])
 
   // Auto-save with debounce
@@ -880,6 +915,7 @@ export default function VTOEditPage() {
               <AccountabilityRoleEditor
                 key={index}
                 role={role}
+                profiles={profiles}
                 onChange={(r) => updateAccountabilityRole(index, r)}
                 onRemove={() => removeAccountabilityRole(index)}
               />
