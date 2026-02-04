@@ -138,10 +138,21 @@ export interface ExtractedItem {
   context: string // Relevant quote from transcript
 }
 
+export interface ExtractedMetric {
+  type: 'metric'
+  name: string
+  description?: string
+  suggested_target?: string
+  owner?: string
+  frequency?: 'weekly' | 'monthly' | 'quarterly' | 'daily'
+  context: string
+}
+
 export interface ExtractionResult {
   issues: ExtractedItem[]
   todos: ExtractedItem[]
   decisions: ExtractedItem[]
+  metrics: ExtractedMetric[]
   summary: string
 }
 
@@ -154,6 +165,11 @@ const EXTRACTION_SYSTEM_PROMPT = `You are an EOS (Entrepreneurial Operating Syst
 1. **Issues** - Problems, concerns, or topics that need discussion using the IDS (Identify, Discuss, Solve) process
 2. **To-dos** - Action items with clear owners and implied deadlines (EOS standard is 7 days)
 3. **Decisions** - Important decisions made during the meeting
+4. **Potential Metrics** - Measurable KPIs mentioned that could be tracked on a scorecard:
+   - Weekly/monthly numbers mentioned (calls made, revenue, utilization, etc.)
+   - Specific targets or goals discussed with numbers
+   - Measurements the team wants visibility into
+   Only extract when a SPECIFIC measurable number or KPI is mentioned.
 
 Be specific and actionable. Use exact quotes when helpful. Attribute items to speakers when mentioned.
 
@@ -166,7 +182,7 @@ export async function extractFromChunk(
   content: string,
   context: string = ''
 ): Promise<ExtractionResult> {
-  const userPrompt = `Analyze this meeting transcript excerpt and extract any Issues, To-dos, and Decisions.
+  const userPrompt = `Analyze this meeting transcript excerpt and extract any Issues, To-dos, Decisions, and potential Scorecard Metrics.
 
 ${context ? `Context from earlier in the meeting:\n${context}\n\n` : ''}Transcript:
 """
@@ -198,6 +214,17 @@ Return a JSON object with this structure:
     {
       "type": "decision",
       "title": "Decision summary",
+      "context": "Brief quote from transcript"
+    }
+  ],
+  "metrics": [
+    {
+      "type": "metric",
+      "name": "Metric name (e.g., Weekly Sales Calls)",
+      "description": "What this metric measures",
+      "suggested_target": "Target value if mentioned (e.g., 20)",
+      "owner": "Person who would own this metric",
+      "frequency": "weekly|monthly|quarterly|daily",
       "context": "Brief quote from transcript"
     }
   ],
@@ -237,6 +264,7 @@ If no items are found for a category, return an empty array. Only output valid J
       issues: parsed.issues || [],
       todos: parsed.todos || [],
       decisions: parsed.decisions || [],
+      metrics: parsed.metrics || [],
       summary: parsed.summary || '',
     }
   } catch (error) {
@@ -250,6 +278,7 @@ function emptyResult(): ExtractionResult {
     issues: [],
     todos: [],
     decisions: [],
+    metrics: [],
     summary: '',
   }
 }
@@ -298,12 +327,14 @@ export function mergeExtractionResults(
   const issues: ExtractedItem[] = []
   const todos: ExtractedItem[] = []
   const decisions: ExtractedItem[] = []
+  const metrics: ExtractedMetric[] = []
   const summaries: string[] = []
 
   for (const result of results) {
     issues.push(...result.issues)
     todos.push(...result.todos)
     decisions.push(...result.decisions)
+    metrics.push(...result.metrics)
     if (result.summary) {
       summaries.push(result.summary)
     }
@@ -320,10 +351,22 @@ export function mergeExtractionResults(
     })
   }
 
+  // Deduplicate metrics by name
+  const dedupeByName = <T extends { name: string }>(items: T[]): T[] => {
+    const seen = new Set<string>()
+    return items.filter((item) => {
+      const key = item.name.toLowerCase().trim()
+      if (seen.has(key)) return false
+      seen.add(key)
+      return true
+    })
+  }
+
   return {
     issues: dedupeByTitle(issues),
     todos: dedupeByTitle(todos),
     decisions: dedupeByTitle(decisions),
+    metrics: dedupeByName(metrics),
     summary: summaries.join(' '),
   }
 }
