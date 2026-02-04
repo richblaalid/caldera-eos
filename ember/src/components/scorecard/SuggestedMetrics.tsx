@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { Card, CardHeader, CardTitle, CardContent, Button } from '@/components/ui'
 import type { Insight } from '@/types/database'
-import { parseMetricSuggestion } from '@/lib/metric-suggestions'
+import { parseMetricSuggestion } from '@/lib/metric-suggestion-utils'
 
 interface SuggestedMetricsProps {
   className?: string

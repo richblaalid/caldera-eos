@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
-import { parseMetricSuggestion } from '@/lib/metric-suggestions'
+import { parseMetricSuggestion } from '@/lib/metric-suggestion-utils'
 
 interface RouteParams {
   params: Promise<{ id: string }>
