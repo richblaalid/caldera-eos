@@ -12,6 +12,7 @@ import {
   mergeExtractionResults,
   generateTranscriptSummary,
 } from '@/lib/transcripts'
+import { generateMetricSuggestions } from '@/lib/metric-suggestions'
 
 interface RouteParams {
   params: Promise<{ id: string }>
@@ -74,6 +75,23 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     // Step 3: Merge and deduplicate extractions
     const mergedExtractions = mergeExtractionResults(extractionResults)
 
+    // Step 3.5: Generate metric suggestions from extracted metrics
+    let metricSuggestionsCreated = 0
+    if (mergedExtractions.metrics && mergedExtractions.metrics.length > 0) {
+      try {
+        const suggestionIds = await generateMetricSuggestions(
+          mergedExtractions.metrics,
+          id,
+          transcript.title || 'Meeting Transcript'
+        )
+        metricSuggestionsCreated = suggestionIds.length
+        console.log(`Created ${metricSuggestionsCreated} metric suggestions`)
+      } catch (suggestionError) {
+        console.error('Error creating metric suggestions:', suggestionError)
+        // Continue - suggestions are optional
+      }
+    }
+
     // Step 4: Generate overall summary
     const summary = await generateTranscriptSummary(transcript.full_text)
 
@@ -89,6 +107,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       ...updated,
       chunks_created: chunks.length,
       extractions: mergedExtractions,
+      metric_suggestions_created: metricSuggestionsCreated,
     })
   } catch (error) {
     console.error('Error processing transcript:', error)

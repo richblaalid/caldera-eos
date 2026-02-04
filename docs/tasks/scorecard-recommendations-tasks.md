@@ -63,8 +63,8 @@ export interface ExtractedMetric {
 **File:** `ember/src/lib/eos.ts`
 **Estimate:** 10 min
 
-- [ ] Add `getExistingMetricNames()` function that returns all current scorecard metric names
-- [ ] Return lowercase names for comparison
+- [x] Add `getExistingMetricNames()` function that returns all current scorecard metric names
+- [x] Return lowercase names for comparison
 
 ```typescript
 export async function getExistingMetricNames(): Promise<string[]> {
@@ -83,10 +83,10 @@ export async function getExistingMetricNames(): Promise<string[]> {
 **File:** `ember/src/lib/metric-suggestions.ts` (NEW)
 **Estimate:** 15 min
 
-- [ ] Create new file
-- [ ] Import types and helpers
-- [ ] Add `isMetricNew()` function for fuzzy matching
-- [ ] Add `generateMetricSuggestions()` function that:
+- [x] Create new file
+- [x] Import types and helpers
+- [x] Add `isMetricNew()` function for fuzzy matching
+- [x] Add `generateMetricSuggestions()` function that:
   - Takes extracted metrics array
   - Filters out existing metrics
   - Creates insight records for new ones
@@ -111,9 +111,9 @@ export async function generateMetricSuggestions(
 **File:** `ember/src/lib/eos.ts`
 **Estimate:** 10 min
 
-- [ ] Add `createInsight()` function
-- [ ] Include organization_id handling
-- [ ] Return created insight
+- [x] Add `createInsight()` function
+- [x] Include organization_id handling
+- [x] Return created insight
 
 ```typescript
 export async function createInsight(insight: InsightInsert): Promise<Insight | null> {
@@ -137,10 +137,10 @@ export async function createInsight(insight: InsightInsert): Promise<Insight | n
 **File:** `ember/src/app/api/transcripts/[id]/process/route.ts`
 **Estimate:** 15 min
 
-- [ ] Import `generateMetricSuggestions` from new module
-- [ ] After extraction merging, call `generateMetricSuggestions()`
-- [ ] Pass transcript ID and title
-- [ ] Log number of suggestions created
+- [x] Import `generateMetricSuggestions` from new module
+- [x] After extraction merging, call `generateMetricSuggestions()`
+- [x] Pass transcript ID and title
+- [x] Log number of suggestions created
 
 ---
 

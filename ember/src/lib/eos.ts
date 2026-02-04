@@ -403,6 +403,15 @@ export async function getMetrics() {
   return data as (ScorecardMetric & { owner: Profile | null })[]
 }
 
+export async function getExistingMetricNames(): Promise<string[]> {
+  const supabase = await createClient()
+  const { data } = await supabase
+    .from('scorecard_metrics')
+    .select('name')
+    .eq('is_active', true)
+  return (data || []).map((m) => m.name.toLowerCase())
+}
+
 export async function getMetricEntries(metricId: string, weeks?: number) {
   const supabase = await createClient()
   let query = supabase
@@ -617,6 +626,24 @@ export async function acknowledgeInsight(id: string, userId: string) {
     .single()
 
   if (error) throw error
+  return data as Insight
+}
+
+export async function createInsight(insight: InsightInsert): Promise<Insight | null> {
+  const supabase = await createClient()
+  const orgId = await getUserOrganizationId(supabase)
+  if (!orgId) return null
+
+  const { data, error } = await supabase
+    .from('insights')
+    .insert({ ...insight, organization_id: orgId })
+    .select()
+    .single()
+
+  if (error) {
+    console.error('Error creating insight:', error)
+    return null
+  }
   return data as Insight
 }
 
