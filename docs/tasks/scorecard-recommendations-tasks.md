@@ -188,10 +188,10 @@ export async function createInsight(insight: InsightInsert): Promise<Insight | n
 **File:** `ember/src/app/api/insights/[id]/accept-metric/route.ts` (NEW)
 **Estimate:** 15 min
 
-- [ ] Create POST endpoint
-- [ ] Extract suggestion data from insight content (parse JSON from content field)
-- [ ] Return pre-populated metric data for form
-- [ ] Mark insight as acknowledged after metric created (separate call)
+- [x] Create POST endpoint
+- [x] Extract suggestion data from insight content (parse JSON from content field)
+- [x] Return pre-populated metric data for form
+- [x] Mark insight as acknowledged after metric created (separate call)
 
 ---
 
@@ -209,9 +209,9 @@ export async function createInsight(insight: InsightInsert): Promise<Insight | n
 **File:** `ember/src/components/scorecard/SuggestedMetrics.tsx`
 **Estimate:** 15 min
 
-- [ ] On "Add to Scorecard" click, call accept endpoint
-- [ ] Navigate to `/dashboard/scorecard/metrics/new` with query params for pre-population
-- [ ] Or open modal with pre-filled form
+- [x] On "Add to Scorecard" click, call accept endpoint
+- [x] Navigate to `/dashboard/scorecard/metrics/new` with query params for pre-population
+- [x] Or open modal with pre-filled form
 
 ---
 
@@ -219,9 +219,9 @@ export async function createInsight(insight: InsightInsert): Promise<Insight | n
 **File:** `ember/src/app/dashboard/scorecard/metrics/new/page.tsx`
 **Estimate:** 10 min
 
-- [ ] Read query params for pre-population (`name`, `description`, `target`, `owner`, `insightId`)
-- [ ] Pre-fill form fields if params present
-- [ ] After save, acknowledge the insight via API
+- [x] Read query params for pre-population (`name`, `description`, `target`, `owner`, `insightId`)
+- [x] Pre-fill form fields if params present
+- [x] After save, acknowledge the insight via API
 
 ---
 
