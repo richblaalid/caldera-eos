@@ -54,34 +54,13 @@ See rationale above.
 
 ## Phase 3: Library Restructure
 
-### 3.1 Create EOS Module Structure
-- [ ] Create `ember/src/lib/eos/` directory (if adding to existing `checkup.ts`)
-- [ ] Create `ember/src/lib/eos/utils.ts` with shared utilities (`getUserOrganizationId`, etc.)
+> **SKIPPED** - Decided not to proceed. Rationale:
+> - eos.ts (823 lines) is already well-organized with section headers
+> - 23 files would require import updates
+> - Same trade-off as Phase 2: high churn, manageable as-is
 
-### 3.2 Extract EOS Domain Modules
-- [ ] Extract Rock operations from `eos.ts` → `eos/rocks.ts`
-- [ ] Extract Issue operations from `eos.ts` → `eos/issues.ts`
-- [ ] Extract Todo operations from `eos.ts` → `eos/todos.ts`
-- [ ] Extract Scorecard operations from `eos.ts` → `eos/scorecard.ts`
-- [ ] Extract Meeting operations from `eos.ts` → `eos/meetings.ts`
-- [ ] Extract Transcript operations from `eos.ts` → `eos/transcripts.ts`
-- [ ] Extract Insight operations from `eos.ts` → `eos/insights.ts`
-- [ ] Extract VTO operations from `eos.ts` → `eos/vto.ts`
-
-### 3.3 Create EOS Module Index
-- [ ] Create `lib/eos/index.ts` with re-exports from all domain modules
-- [ ] Update all imports in API routes to use new module paths
-- [ ] Update all imports in pages to use new module paths
-- [ ] Verify no circular dependencies
-
-### 3.4 Add Documentation Headers
-- [ ] Add JSDoc header to `lib/search.ts` explaining: "Global entity search (SearchModal)"
-- [ ] Add JSDoc header to `lib/hybrid-search.ts` explaining: "Semantic + keyword search for AI retrieval"
-- [ ] Add JSDoc header to `lib/metric-suggestion-utils.ts` explaining client-safety split
-
-### 3.5 Create Library Index
-- [ ] Create `lib/index.ts` with explicit public API exports
-- [ ] Document which exports are public vs internal
+### 3.1-3.5 All tasks skipped
+See rationale above.
 
 ---
 
