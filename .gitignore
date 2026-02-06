@@ -1,1 +1,10 @@
+# OS files
 .DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+
+# AI Tool Directories (keep skills at root, ignore in ember/)
+# Root-level .agents/, .claude/, .cursor/ are tracked (contain skills)
+# ember/ level tool directories are ignored via ember/.gitignore
