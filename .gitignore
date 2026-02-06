@@ -5,6 +5,10 @@
 .Spotlight-V100
 .Trashes
 
-# AI Tool Directories (keep skills at root, ignore in ember/)
-# Root-level .agents/, .claude/, .cursor/ are tracked (contain skills)
+# AI Tool Directories
+# Only .claude/ is tracked (contains skills and commands for Claude Code)
+# All other AI tool directories are ignored
+.agents/
+.cursor/
+
 # ember/ level tool directories are ignored via ember/.gitignore
