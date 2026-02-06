@@ -3,6 +3,8 @@
  * These tools allow Ember to save structured data from conversations
  */
 
+import { tool } from 'ai'
+import { z } from 'zod'
 import type { Tool } from '@anthropic-ai/sdk/resources/messages'
 import { createClient } from '@/lib/supabase/server'
 import type {
@@ -776,4 +778,189 @@ async function saveIssues(
     message: `Created ${createdIssues.length} issues`,
     data: createdIssues,
   }
+}
+
+// =============================================
+// Vercel AI SDK Tool Definitions
+// =============================================
+
+/**
+ * Ember tools in Vercel AI SDK format
+ * These use Zod schemas for type-safe parameter validation
+ */
+export const emberTools = {
+  save_accountability_chart: tool({
+    description:
+      'Save the accountability chart (organization structure with roles and owners) to the V/TO. Use this after gathering and confirming accountability chart information with the user. Always confirm with the user before saving.',
+    inputSchema: z.object({
+      roles: z
+        .array(
+          z.object({
+            seat: z
+              .enum(['visionary', 'integrator', 'sales', 'operations', 'finance', 'other'])
+              .describe('The seat/function type'),
+            title: z.string().describe('The role title (e.g., "Head of Sales", "Integrator")'),
+            person_name: z.string().describe('Name of the person in this seat'),
+            responsibilities: z
+              .array(z.string())
+              .optional()
+              .describe('List of key responsibilities for this role'),
+          })
+        )
+        .describe('Array of accountability chart roles'),
+    }),
+    execute: async ({ roles }) => {
+      const supabase = await createClient()
+      return saveAccountabilityChart(supabase, { roles })
+    },
+  }),
+
+  save_core_values: tool({
+    description:
+      'Save the core values to the V/TO. Use this after discovering and confirming core values with the user. Core values define the culture - typically 3-7 values.',
+    inputSchema: z.object({
+      core_values: z
+        .array(z.string())
+        .describe('Array of core values (3-7 values that define the culture)'),
+    }),
+    execute: async ({ core_values }) => {
+      const supabase = await createClient()
+      return saveCoreValues(supabase, { core_values })
+    },
+  }),
+
+  save_core_focus: tool({
+    description:
+      'Save the core focus (purpose and niche) to the V/TO. Use this after defining and confirming the core focus with the user.',
+    inputSchema: z.object({
+      purpose: z.string().describe('The purpose/cause/passion - why the company exists'),
+      niche: z.string().describe('The niche - what the company does best, their specialty'),
+    }),
+    execute: async ({ purpose, niche }) => {
+      const supabase = await createClient()
+      return saveCoreFocus(supabase, { purpose, niche })
+    },
+  }),
+
+  save_ten_year_target: tool({
+    description:
+      'Save the 10-year target (BHAG - Big Hairy Audacious Goal) to the V/TO. This should be a big, measurable, inspiring goal.',
+    inputSchema: z.object({
+      goal: z.string().describe('The 10-year target goal statement'),
+      target_date: z
+        .string()
+        .optional()
+        .describe('Target date for achieving this goal (e.g., "2035")'),
+    }),
+    execute: async ({ goal, target_date }) => {
+      const supabase = await createClient()
+      return saveTenYearTarget(supabase, { goal, target_date })
+    },
+  }),
+
+  save_three_year_picture: tool({
+    description:
+      'Save the 3-year picture to the V/TO. This is a vivid, measurable description of where the company will be in 3 years.',
+    inputSchema: z.object({
+      target_date: z.string().describe('Target date (e.g., "December 2028")'),
+      revenue: z.string().optional().describe('Revenue target (e.g., "$10M")'),
+      profit: z.string().optional().describe('Profit target or description'),
+      team_size: z.number().optional().describe('Target team size'),
+      measurables: z.array(z.string()).describe('Key measurables for the 3-year picture'),
+      what_does_it_look_like: z
+        .array(z.string())
+        .optional()
+        .describe('Bullet points describing what success looks like'),
+    }),
+    execute: async (input) => {
+      const supabase = await createClient()
+      return saveThreeYearPicture(supabase, input)
+    },
+  }),
+
+  save_one_year_plan: tool({
+    description: 'Save the 1-year plan to the V/TO. This includes annual goals and measurables.',
+    inputSchema: z.object({
+      target_date: z.string().describe('Target date (e.g., "December 2026")'),
+      revenue: z.string().optional().describe('Revenue goal'),
+      profit: z.string().optional().describe('Profit goal'),
+      measurables: z.array(z.string()).optional().describe('Key measurables for the year'),
+      goals: z.array(z.string()).describe('The 3-7 most important goals for the year'),
+    }),
+    execute: async (input) => {
+      const supabase = await createClient()
+      return saveOneYearPlan(supabase, input)
+    },
+  }),
+
+  save_quarterly_rocks: tool({
+    description:
+      'Save quarterly rocks (90-day priorities) to the system. Creates rocks in the database with owners.',
+    inputSchema: z.object({
+      quarter: z.string().describe('The quarter (e.g., "Q1 2026")'),
+      rocks: z
+        .array(
+          z.object({
+            title: z.string().describe('Rock title - clear and specific'),
+            description: z
+              .string()
+              .optional()
+              .describe('Detailed description of what success looks like'),
+            owner_name: z.string().describe('Name of the rock owner (Rich, John, or Wade)'),
+            due_date: z.string().optional().describe('Due date in YYYY-MM-DD format'),
+          })
+        )
+        .describe('Array of rocks to create'),
+    }),
+    execute: async ({ quarter, rocks }) => {
+      const supabase = await createClient()
+      return saveQuarterlyRocks(supabase, { quarter, rocks })
+    },
+  }),
+
+  save_scorecard_metrics: tool({
+    description:
+      'Save scorecard metrics (weekly measurable numbers) to the system. These are the 5-15 numbers tracked weekly.',
+    inputSchema: z.object({
+      metrics: z
+        .array(
+          z.object({
+            name: z.string().describe('Metric name'),
+            description: z.string().optional().describe('What this metric measures'),
+            target: z.number().describe('Target value for this metric'),
+            unit: z.string().optional().describe('Unit of measurement (e.g., "$", "%", "calls")'),
+            goal_direction: z
+              .enum(['above', 'below', 'equal'])
+              .describe('Whether goal is to be above, below, or equal to target'),
+            owner_name: z.string().describe('Name of the metric owner'),
+          })
+        )
+        .describe('Array of metrics to create'),
+    }),
+    execute: async ({ metrics }) => {
+      const supabase = await createClient()
+      return saveScorecardMetrics(supabase, { metrics })
+    },
+  }),
+
+  save_issues: tool({
+    description:
+      'Save issues to the issues list. These are obstacles, problems, or opportunities to address.',
+    inputSchema: z.object({
+      issues: z
+        .array(
+          z.object({
+            title: z.string().describe('Issue title - clear statement of the problem'),
+            description: z.string().optional().describe('More detail about the issue'),
+            priority: z.number().optional().describe('Priority 1-3 (1 = highest priority)'),
+            owner_name: z.string().optional().describe('Name of the issue owner (optional)'),
+          })
+        )
+        .describe('Array of issues to create'),
+    }),
+    execute: async ({ issues }) => {
+      const supabase = await createClient()
+      return saveIssues(supabase, { issues })
+    },
+  }),
 }

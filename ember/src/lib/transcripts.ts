@@ -1,6 +1,11 @@
-import { anthropic } from './claude'
+import Anthropic from '@anthropic-ai/sdk'
 import { generateEmbeddings } from './embeddings'
 import type { TranscriptChunkInsert } from '@/types/database'
+
+// Create Anthropic client for transcript processing
+const anthropic = new Anthropic({
+  apiKey: process.env.ANTHROPIC_API_KEY,
+})
 
 // =============================================
 // Chunking Configuration

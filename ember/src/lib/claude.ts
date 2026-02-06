@@ -1,11 +1,6 @@
-import Anthropic from '@anthropic-ai/sdk'
-
-// Create a singleton Anthropic client
-const anthropic = new Anthropic({
-  apiKey: process.env.ANTHROPIC_API_KEY,
-})
-
-export { anthropic }
+import { generateObject } from 'ai'
+import { anthropic } from '@ai-sdk/anthropic'
+import { z } from 'zod'
 
 // Ember system prompt for L10 meeting prep
 export const EMBER_SYSTEM_PROMPT = `You are Ember, an AI assistant specializing in the Entrepreneurial Operating System (EOS). You serve as a "fourth partner" for Caldera's leadership team, helping them prepare for and run effective L10 meetings.
@@ -17,9 +12,7 @@ Your role is to:
 - Note any Scorecard metrics that missed their targets
 - Flag overdue To-dos that need follow-up
 
-Be direct, constructive, and focused on helping the team have productive meetings. Use EOS terminology correctly (Rocks, Issues, IDS, Scorecard, V/TO, L10).
-
-Format your output as structured JSON for parsing.`
+Be direct, constructive, and focused on helping the team have productive meetings. Use EOS terminology correctly (Rocks, Issues, IDS, Scorecard, V/TO, L10).`
 
 // Types for prep generation
 export interface PrepInput {
@@ -58,8 +51,17 @@ export interface PrepOutput {
   generated_at: string
 }
 
-export async function generateMeetingPrep(input: PrepInput): Promise<PrepOutput> {
-  const userPrompt = `Generate meeting prep for an upcoming L10 meeting based on the following EOS data:
+// Zod schema for structured output
+const prepOutputSchema = z.object({
+  summary: z.string().describe('Brief 2-3 sentence overview of what to focus on this L10'),
+  rocks_update: z.array(z.string()).describe('List of 2-4 key points about Rocks status'),
+  issues_to_discuss: z.array(z.string()).describe('List of 2-4 priority issues to address in IDS'),
+  scorecard_highlights: z.array(z.string()).describe('List of 2-3 notable metric trends or concerns'),
+  todos_review: z.array(z.string()).describe('List of 2-3 to-do items needing attention'),
+})
+
+function buildPrepPrompt(input: PrepInput): string {
+  return `Generate meeting prep for an upcoming L10 meeting based on the following EOS data:
 
 ## Current Rocks (${input.rocks.length} total)
 ${input.rocks.map(r => `- ${r.title} [${r.status}] - ${r.owner_name || 'Unassigned'}`).join('\n') || 'No rocks'}
@@ -91,64 +93,19 @@ ${input.todos
   })
   .join('\n') || 'No pending to-dos'}
 
-Please generate a meeting prep summary in the following JSON format:
-{
-  "summary": "Brief 2-3 sentence overview of what to focus on this L10",
-  "rocks_update": ["List of 2-4 key points about Rocks status"],
-  "issues_to_discuss": ["List of 2-4 priority issues to address in IDS"],
-  "scorecard_highlights": ["List of 2-3 notable metric trends or concerns"],
-  "todos_review": ["List of 2-3 to-do items needing attention"]
+Generate a meeting prep summary highlighting what needs attention.`
 }
 
-Only output valid JSON, no other text.`
-
-  const message = await anthropic.messages.create({
-    model: 'claude-sonnet-4-20250514',
-    max_tokens: 1024,
+export async function generateMeetingPrep(input: PrepInput): Promise<PrepOutput> {
+  const { object } = await generateObject({
+    model: anthropic('claude-sonnet-4-20250514'),
     system: EMBER_SYSTEM_PROMPT,
-    messages: [
-      { role: 'user', content: userPrompt }
-    ],
+    prompt: buildPrepPrompt(input),
+    schema: prepOutputSchema,
   })
 
-  // Extract text content
-  const textContent = message.content.find(c => c.type === 'text')
-  if (!textContent || textContent.type !== 'text') {
-    throw new Error('No text response from Claude')
-  }
-
-  // Parse JSON response - strip markdown code blocks if present
-  let jsonText = textContent.text.trim()
-
-  // Remove markdown code blocks (```json ... ``` or ``` ... ```)
-  if (jsonText.startsWith('```')) {
-    // Find the end of the first line (which might be ```json or just ```)
-    const firstNewline = jsonText.indexOf('\n')
-    if (firstNewline !== -1) {
-      jsonText = jsonText.slice(firstNewline + 1)
-    }
-    // Remove trailing ```
-    if (jsonText.endsWith('```')) {
-      jsonText = jsonText.slice(0, -3)
-    }
-    jsonText = jsonText.trim()
-  }
-
-  try {
-    const parsed = JSON.parse(jsonText)
-    return {
-      ...parsed,
-      generated_at: new Date().toISOString(),
-    }
-  } catch {
-    // If JSON parsing fails, create a fallback structure
-    return {
-      summary: textContent.text.slice(0, 200),
-      rocks_update: [],
-      issues_to_discuss: [],
-      scorecard_highlights: [],
-      todos_review: [],
-      generated_at: new Date().toISOString(),
-    }
+  return {
+    ...object,
+    generated_at: new Date().toISOString(),
   }
 }

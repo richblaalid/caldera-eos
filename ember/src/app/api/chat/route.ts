@@ -1,21 +1,25 @@
 import { NextRequest } from 'next/server'
+import { streamText, stepCountIs, convertToModelMessages, UIMessage } from 'ai'
+import { anthropic } from '@ai-sdk/anthropic'
 import { createClient } from '@/lib/supabase/server'
-import { anthropic } from '@/lib/claude'
 import { buildDynamicSystemPrompt } from '@/lib/ember'
 import { retrieveContext, buildChatContext } from '@/lib/context'
-import { EMBER_TOOLS, executeToolCall } from '@/lib/ember-tools'
+import { emberTools } from '@/lib/ember-tools'
 import type { ChatMessageInsert, ChatMessageMetadata } from '@/types/database'
-import type { MessageParam, ContentBlockParam } from '@anthropic-ai/sdk/resources/messages'
 
 export const runtime = 'nodejs'
 export const maxDuration = 60
 
 interface ChatRequest {
-  messages: Array<{
-    role: 'user' | 'assistant'
-    content: string
-  }>
+  messages: UIMessage[]
   conversationId?: string
+}
+
+// Helper to extract text content from UIMessage parts
+function getMessageText(message: UIMessage): string {
+  return message.parts
+    .map((part) => (part.type === 'text' ? part.text : ''))
+    .join('')
 }
 
 // POST /api/chat - Send a message and stream response
@@ -49,19 +53,20 @@ export async function POST(request: NextRequest) {
 
     // Save the user message
     const lastUserMessage = messages[messages.length - 1]
+    const lastUserMessageText = getMessageText(lastUserMessage)
     if (lastUserMessage.role === 'user') {
       const userMessage: ChatMessageInsert = {
         user_id: user.id,
         conversation_id: currentConversationId,
         role: 'user',
-        content: lastUserMessage.content,
+        content: lastUserMessageText,
         metadata: {},
       }
       await supabase.from('chat_messages').insert(userMessage)
     }
 
     // Retrieve context for the query (includes V/TO and journey stage)
-    const context = await retrieveContext(lastUserMessage.content)
+    const context = await retrieveContext(lastUserMessageText)
     const contextString = buildChatContext(context)
 
     // Build dynamic system prompt based on journey stage
@@ -71,151 +76,47 @@ export async function POST(request: NextRequest) {
     // Track sources for metadata
     const sources = context.sources
 
-    // Create a TransformStream to handle the streaming
-    const encoder = new TextEncoder()
-    let fullResponse = ''
-    const toolResults: Array<{ tool: string; result: string }> = []
+    // Convert UIMessages to model messages format
+    const modelMessages = await convertToModelMessages(messages)
 
-    const readable = new ReadableStream({
-      async start(controller) {
-        try {
-          // Convert messages for Claude API
-          const apiMessages: MessageParam[] = messages.map((m) => ({
-            role: m.role,
-            content: m.content,
-          }))
-
-          // Initial Claude call with tools
-          let continueLoop = true
-          let currentMessages = apiMessages
-
-          while (continueLoop) {
-            const response = await anthropic.messages.create({
-              model: 'claude-sonnet-4-20250514',
-              max_tokens: 4096,
-              system: systemPrompt,
-              tools: EMBER_TOOLS,
-              messages: currentMessages,
-            })
-
-            // Process the response content blocks
-            for (const block of response.content) {
-              if (block.type === 'text') {
-                fullResponse += block.text
-                // Stream the text to the client
-                controller.enqueue(
-                  encoder.encode(`data: ${JSON.stringify({ text: block.text })}\n\n`)
-                )
-              } else if (block.type === 'tool_use') {
-                // Execute the tool
-                const toolResult = await executeToolCall(
-                  block.name,
-                  block.input as Record<string, unknown>
-                )
-
-                toolResults.push({
-                  tool: block.name,
-                  result: toolResult.message,
-                })
-
-                // Notify client about the tool execution
-                controller.enqueue(
-                  encoder.encode(
-                    `data: ${JSON.stringify({
-                      tool_execution: {
-                        tool: block.name,
-                        success: toolResult.success,
-                        message: toolResult.message,
-                      },
-                    })}\n\n`
-                  )
-                )
-
-                // Add assistant message and tool result to continue the conversation
-                const assistantContent: ContentBlockParam[] = response.content.map((c) => {
-                  if (c.type === 'text') {
-                    return { type: 'text' as const, text: c.text }
-                  } else if (c.type === 'tool_use') {
-                    return {
-                      type: 'tool_use' as const,
-                      id: c.id,
-                      name: c.name,
-                      input: c.input,
-                    }
-                  }
-                  return { type: 'text' as const, text: '' }
-                })
-
-                currentMessages = [
-                  ...currentMessages,
-                  {
-                    role: 'assistant' as const,
-                    content: assistantContent,
-                  },
-                  {
-                    role: 'user' as const,
-                    content: [
-                      {
-                        type: 'tool_result' as const,
-                        tool_use_id: block.id,
-                        content: toolResult.success
-                          ? toolResult.message
-                          : `Error: ${toolResult.message}`,
-                      },
-                    ],
-                  },
-                ]
-              }
-            }
-
-            // Check if we should continue the loop
-            continueLoop = response.stop_reason === 'tool_use'
+    // Stream with automatic tool orchestration
+    const result = streamText({
+      model: anthropic('claude-sonnet-4-20250514'),
+      system: systemPrompt,
+      messages: modelMessages,
+      tools: emberTools,
+      stopWhen: stepCountIs(5), // Allow up to 5 tool call rounds
+      onFinish: async ({ text, toolResults }) => {
+        // Save the assistant's response after all tool calls complete
+        if (text) {
+          const metadata: ChatMessageMetadata = {
+            sources,
+            tool_executions: toolResults?.map((tr) => ({
+              tool: tr.toolName,
+              result:
+                'result' in tr
+                  ? typeof tr.result === 'string'
+                    ? tr.result
+                    : JSON.stringify(tr.result)
+                  : 'completed',
+            })),
           }
-
-          // Save the assistant's response after all tool calls complete
-          if (fullResponse) {
-            const metadata: ChatMessageMetadata = {
-              sources,
-              tool_executions: toolResults.length > 0 ? toolResults : undefined,
-            }
-            const assistantMessage: ChatMessageInsert = {
-              user_id: user.id,
-              conversation_id: currentConversationId,
-              role: 'assistant',
-              content: fullResponse,
-              metadata,
-            }
-            await supabase.from('chat_messages').insert(assistantMessage)
+          const assistantMessage: ChatMessageInsert = {
+            user_id: user.id,
+            conversation_id: currentConversationId,
+            role: 'assistant',
+            content: text,
+            metadata,
           }
-
-          // Send done event
-          controller.enqueue(
-            encoder.encode(
-              `data: ${JSON.stringify({
-                done: true,
-                conversationId: currentConversationId,
-                toolExecutions: toolResults,
-              })}\n\n`
-            )
-          )
-          controller.close()
-        } catch (error) {
-          console.error('Streaming error:', error)
-          controller.enqueue(
-            encoder.encode(
-              `data: ${JSON.stringify({ error: 'Streaming failed' })}\n\n`
-            )
-          )
-          controller.close()
+          await supabase.from('chat_messages').insert(assistantMessage)
         }
       },
     })
 
-    return new Response(readable, {
+    // Return the stream response with conversation ID in headers
+    return result.toUIMessageStreamResponse({
       headers: {
-        'Content-Type': 'text/event-stream',
-        'Cache-Control': 'no-cache',
-        Connection: 'keep-alive',
+        'X-Conversation-Id': currentConversationId,
       },
     })
   } catch (error) {
