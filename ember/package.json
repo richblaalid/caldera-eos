@@ -15,9 +15,12 @@
     "backfill-embeddings": "npx tsx scripts/backfill-transcript-embeddings.ts"
   },
   "dependencies": {
+    "@ai-sdk/anthropic": "^3.0.37",
+    "@ai-sdk/react": "^3.0.75",
     "@anthropic-ai/sdk": "^0.72.1",
     "@supabase/ssr": "^0.8.0",
     "@supabase/supabase-js": "^2.93.3",
+    "ai": "^6.0.73",
     "date-fns": "^4.1.0",
     "next": "16.1.6",
     "openai": "^6.17.0",

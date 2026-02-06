@@ -1,33 +1,33 @@
 'use client'
 
-import { useState, useRef, useEffect } from 'react'
+import { useRef, useEffect, useState } from 'react'
+import { useChat } from '@ai-sdk/react'
+import { DefaultChatTransport } from 'ai'
 import { Card, CardContent, Button } from '@/components/ui'
 import { COACHING_PROMPTS, FOCUS_DAY_PROMPTS, VTO_PROMPTS } from '@/lib/ember'
-
-interface Message {
-  id: string
-  role: 'user' | 'assistant'
-  content: string
-  isStreaming?: boolean
-}
 
 type PromptCategory = 'focus-day' | 'vto' | 'l10'
 
 export default function ChatPage() {
-  const [messages, setMessages] = useState<Message[]>([])
-  const [input, setInput] = useState('')
-  const [isLoading, setIsLoading] = useState(false)
-  const [conversationId, setConversationId] = useState<string | null>(null)
   const [promptCategory, setPromptCategory] = useState<PromptCategory>('focus-day')
+  const [input, setInput] = useState('')
   const messagesEndRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLTextAreaElement>(null)
+
+  const { messages, sendMessage, status, setMessages } = useChat({
+    transport: new DefaultChatTransport({
+      api: '/api/chat',
+    }),
+  })
+
+  const isLoading = status === 'streaming'
 
   // Auto-scroll to bottom on new messages
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages])
 
-  // Auto-resize textarea when input changes (including programmatic changes)
+  // Auto-resize textarea when input changes
   useEffect(() => {
     const textarea = inputRef.current
     if (textarea) {
@@ -36,117 +36,12 @@ export default function ChatPage() {
     }
   }, [input])
 
-  // Handle input change
-  const handleInputChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
-    setInput(e.target.value)
-  }
-
-  const handleSubmit = async (e?: React.FormEvent) => {
+  const handleSubmit = (e?: React.FormEvent) => {
     e?.preventDefault()
     if (!input.trim() || isLoading) return
 
-    const userMessage: Message = {
-      id: crypto.randomUUID(),
-      role: 'user',
-      content: input.trim(),
-    }
-
-    const assistantMessage: Message = {
-      id: crypto.randomUUID(),
-      role: 'assistant',
-      content: '',
-      isStreaming: true,
-    }
-
-    setMessages((prev) => [...prev, userMessage, assistantMessage])
+    sendMessage({ text: input })
     setInput('')
-    setIsLoading(true)
-
-    try {
-      const response = await fetch('/api/chat', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          messages: [...messages, userMessage].map((m) => ({
-            role: m.role,
-            content: m.content,
-          })),
-          conversationId,
-        }),
-      })
-
-      if (!response.ok) {
-        throw new Error('Chat request failed')
-      }
-
-      const reader = response.body?.getReader()
-      const decoder = new TextDecoder()
-
-      if (!reader) {
-        throw new Error('No response stream')
-      }
-
-      let fullContent = ''
-
-      while (true) {
-        const { done, value } = await reader.read()
-        if (done) break
-
-        const chunk = decoder.decode(value)
-        const lines = chunk.split('\n')
-
-        for (const line of lines) {
-          if (line.startsWith('data: ')) {
-            try {
-              const data = JSON.parse(line.slice(6))
-
-              if (data.text) {
-                fullContent += data.text
-                setMessages((prev) =>
-                  prev.map((m) =>
-                    m.id === assistantMessage.id
-                      ? { ...m, content: fullContent }
-                      : m
-                  )
-                )
-              }
-
-              if (data.done && data.conversationId) {
-                setConversationId(data.conversationId)
-              }
-
-              if (data.error) {
-                throw new Error(data.error)
-              }
-            } catch {
-              // Skip invalid JSON lines
-            }
-          }
-        }
-      }
-
-      // Mark streaming as complete
-      setMessages((prev) =>
-        prev.map((m) =>
-          m.id === assistantMessage.id ? { ...m, isStreaming: false } : m
-        )
-      )
-    } catch (error) {
-      console.error('Chat error:', error)
-      setMessages((prev) =>
-        prev.map((m) =>
-          m.id === assistantMessage.id
-            ? {
-                ...m,
-                content: 'Sorry, I encountered an error. Please try again.',
-                isStreaming: false,
-              }
-            : m
-        )
-      )
-    } finally {
-      setIsLoading(false)
-    }
   }
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
@@ -163,8 +58,14 @@ export default function ChatPage() {
 
   const startNewConversation = () => {
     setMessages([])
-    setConversationId(null)
     setInput('')
+  }
+
+  // Helper to get text content from message parts
+  const getMessageContent = (message: (typeof messages)[0]): string => {
+    return message.parts
+      .map((part) => (part.type === 'text' ? part.text : ''))
+      .join('')
   }
 
   return (
@@ -173,9 +74,7 @@ export default function ChatPage() {
       <div className="flex items-center justify-between mb-4">
         <div>
           <h1 className="text-2xl font-bold text-foreground">Chat with Ember</h1>
-          <p className="text-muted-foreground text-sm">
-            Your EOS coaching partner
-          </p>
+          <p className="text-muted-foreground text-sm">Your EOS coaching partner</p>
         </div>
         {messages.length > 0 && (
           <Button variant="outline" size="sm" onClick={startNewConversation}>
@@ -264,9 +163,7 @@ export default function ChatPage() {
                     className="p-3 text-left text-sm rounded-lg border border-border hover:bg-muted/50 transition-colors"
                   >
                     <span className="font-medium text-foreground">Accountability Chart</span>
-                    <p className="text-xs text-muted-foreground mt-1">
-                      Define roles and seats
-                    </p>
+                    <p className="text-xs text-muted-foreground mt-1">Define roles and seats</p>
                   </button>
                   <button
                     onClick={() => selectPrompt(FOCUS_DAY_PROMPTS.rocks)}
@@ -282,9 +179,7 @@ export default function ChatPage() {
                     className="p-3 text-left text-sm rounded-lg border border-border hover:bg-muted/50 transition-colors"
                   >
                     <span className="font-medium text-foreground">Build Scorecard</span>
-                    <p className="text-xs text-muted-foreground mt-1">
-                      Define weekly metrics
-                    </p>
+                    <p className="text-xs text-muted-foreground mt-1">Define weekly metrics</p>
                   </button>
                   <button
                     onClick={() => selectPrompt(FOCUS_DAY_PROMPTS.issuesList)}
@@ -315,54 +210,42 @@ export default function ChatPage() {
                     className="p-3 text-left text-sm rounded-lg border border-border hover:bg-muted/50 transition-colors"
                   >
                     <span className="font-medium text-foreground">Core Values</span>
-                    <p className="text-xs text-muted-foreground mt-1">
-                      Discover your culture
-                    </p>
+                    <p className="text-xs text-muted-foreground mt-1">Discover your culture</p>
                   </button>
                   <button
                     onClick={() => selectPrompt(VTO_PROMPTS.coreFocus)}
                     className="p-3 text-left text-sm rounded-lg border border-border hover:bg-muted/50 transition-colors"
                   >
                     <span className="font-medium text-foreground">Core Focus</span>
-                    <p className="text-xs text-muted-foreground mt-1">
-                      Purpose and niche
-                    </p>
+                    <p className="text-xs text-muted-foreground mt-1">Purpose and niche</p>
                   </button>
                   <button
                     onClick={() => selectPrompt(VTO_PROMPTS.tenYearTarget)}
                     className="p-3 text-left text-sm rounded-lg border border-border hover:bg-muted/50 transition-colors"
                   >
                     <span className="font-medium text-foreground">10-Year Target</span>
-                    <p className="text-xs text-muted-foreground mt-1">
-                      Your big audacious goal
-                    </p>
+                    <p className="text-xs text-muted-foreground mt-1">Your big audacious goal</p>
                   </button>
                   <button
                     onClick={() => selectPrompt(VTO_PROMPTS.marketingStrategy)}
                     className="p-3 text-left text-sm rounded-lg border border-border hover:bg-muted/50 transition-colors"
                   >
                     <span className="font-medium text-foreground">Marketing Strategy</span>
-                    <p className="text-xs text-muted-foreground mt-1">
-                      Target, Uniques, Process
-                    </p>
+                    <p className="text-xs text-muted-foreground mt-1">Target, Uniques, Process</p>
                   </button>
                   <button
                     onClick={() => selectPrompt(VTO_PROMPTS.threeYearPicture)}
                     className="p-3 text-left text-sm rounded-lg border border-border hover:bg-muted/50 transition-colors"
                   >
                     <span className="font-medium text-foreground">3-Year Picture</span>
-                    <p className="text-xs text-muted-foreground mt-1">
-                      Vivid future state
-                    </p>
+                    <p className="text-xs text-muted-foreground mt-1">Vivid future state</p>
                   </button>
                   <button
                     onClick={() => selectPrompt(VTO_PROMPTS.oneYearPlan)}
                     className="p-3 text-left text-sm rounded-lg border border-border hover:bg-muted/50 transition-colors"
                   >
                     <span className="font-medium text-foreground">1-Year Plan</span>
-                    <p className="text-xs text-muted-foreground mt-1">
-                      Annual goals
-                    </p>
+                    <p className="text-xs text-muted-foreground mt-1">Annual goals</p>
                   </button>
                 </div>
               )}
@@ -384,27 +267,21 @@ export default function ChatPage() {
                     className="p-3 text-left text-sm rounded-lg border border-border hover:bg-muted/50 transition-colors"
                   >
                     <span className="font-medium text-foreground">Rock Review</span>
-                    <p className="text-xs text-muted-foreground mt-1">
-                      Check Rock progress
-                    </p>
+                    <p className="text-xs text-muted-foreground mt-1">Check Rock progress</p>
                   </button>
                   <button
                     onClick={() => selectPrompt(COACHING_PROMPTS.scorecardAnalysis)}
                     className="p-3 text-left text-sm rounded-lg border border-border hover:bg-muted/50 transition-colors"
                   >
                     <span className="font-medium text-foreground">Scorecard</span>
-                    <p className="text-xs text-muted-foreground mt-1">
-                      Analyze metrics trends
-                    </p>
+                    <p className="text-xs text-muted-foreground mt-1">Analyze metrics trends</p>
                   </button>
                   <button
                     onClick={() => selectPrompt(COACHING_PROMPTS.accountabilityCheck)}
                     className="p-3 text-left text-sm rounded-lg border border-border hover:bg-muted/50 transition-colors"
                   >
                     <span className="font-medium text-foreground">Accountability</span>
-                    <p className="text-xs text-muted-foreground mt-1">
-                      Review commitments
-                    </p>
+                    <p className="text-xs text-muted-foreground mt-1">Review commitments</p>
                   </button>
                   <button
                     onClick={() => selectPrompt(COACHING_PROMPTS.issueIDS)}
@@ -432,10 +309,7 @@ export default function ChatPage() {
                         : 'bg-muted text-foreground'
                     }`}
                   >
-                    <div className="whitespace-pre-wrap">{message.content}</div>
-                    {message.isStreaming && (
-                      <span className="inline-block w-2 h-4 ml-1 bg-current animate-pulse" />
-                    )}
+                    <div className="whitespace-pre-wrap">{getMessageContent(message)}</div>
                   </div>
                 </div>
               ))}
@@ -450,7 +324,7 @@ export default function ChatPage() {
             <textarea
               ref={inputRef}
               value={input}
-              onChange={handleInputChange}
+              onChange={(e) => setInput(e.target.value)}
               onKeyDown={handleKeyDown}
               placeholder="Ask Ember about your EOS data..."
               rows={1}
