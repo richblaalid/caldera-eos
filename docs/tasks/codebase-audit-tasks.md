@@ -42,139 +42,94 @@
 
 ## Phase 2: Type Organization
 
-### 2.1 Create Type Directory Structure
-- [ ] Create `ember/src/types/entities/` directory
-- [ ] Create `ember/src/types/integrations/` directory
+> **SKIPPED** - Decided not to proceed. Rationale:
+> - database.ts (883 lines) is already well-organized with clear section headers
+> - 63 files would require import updates (high churn, low benefit)
+> - File organization is manageable as-is
 
-### 2.2 Extract Entity Types
-- [ ] Extract Rock-related types from `database.ts` → `entities/rocks.ts`
-- [ ] Extract Issue-related types from `database.ts` → `entities/issues.ts`
-- [ ] Extract Todo-related types from `database.ts` → `entities/todos.ts`
-- [ ] Extract Scorecard types from `database.ts` → `entities/scorecard.ts`
-- [ ] Extract Meeting types from `database.ts` → `entities/meetings.ts`
-- [ ] Extract Transcript types from `database.ts` → `entities/transcripts.ts`
-
-### 2.3 Extract Domain Types
-- [ ] Extract VTO types from `database.ts` → `types/vto.ts`
-- [ ] Extract Search types from `database.ts` → `types/search.ts`
-- [ ] Extract Slack types from `database.ts` → `integrations/slack.ts`
-- [ ] Extract Checkup types from `database.ts` → `entities/checkup.ts`
-
-### 2.4 Create Type Index
-- [ ] Create `types/entities/index.ts` with re-exports
-- [ ] Create `types/integrations/index.ts` with re-exports
-- [ ] Update `types/index.ts` to re-export all domains
-- [ ] Update all imports in codebase to use new paths
+### 2.1-2.4 All tasks skipped
+See rationale above.
 
 ---
 
 ## Phase 3: Library Restructure
 
-### 3.1 Create EOS Module Structure
-- [ ] Create `ember/src/lib/eos/` directory (if adding to existing `checkup.ts`)
-- [ ] Create `ember/src/lib/eos/utils.ts` with shared utilities (`getUserOrganizationId`, etc.)
+> **SKIPPED** - Decided not to proceed. Rationale:
+> - eos.ts (823 lines) is already well-organized with section headers
+> - 23 files would require import updates
+> - Same trade-off as Phase 2: high churn, manageable as-is
 
-### 3.2 Extract EOS Domain Modules
-- [ ] Extract Rock operations from `eos.ts` → `eos/rocks.ts`
-- [ ] Extract Issue operations from `eos.ts` → `eos/issues.ts`
-- [ ] Extract Todo operations from `eos.ts` → `eos/todos.ts`
-- [ ] Extract Scorecard operations from `eos.ts` → `eos/scorecard.ts`
-- [ ] Extract Meeting operations from `eos.ts` → `eos/meetings.ts`
-- [ ] Extract Transcript operations from `eos.ts` → `eos/transcripts.ts`
-- [ ] Extract Insight operations from `eos.ts` → `eos/insights.ts`
-- [ ] Extract VTO operations from `eos.ts` → `eos/vto.ts`
-
-### 3.3 Create EOS Module Index
-- [ ] Create `lib/eos/index.ts` with re-exports from all domain modules
-- [ ] Update all imports in API routes to use new module paths
-- [ ] Update all imports in pages to use new module paths
-- [ ] Verify no circular dependencies
-
-### 3.4 Add Documentation Headers
-- [ ] Add JSDoc header to `lib/search.ts` explaining: "Global entity search (SearchModal)"
-- [ ] Add JSDoc header to `lib/hybrid-search.ts` explaining: "Semantic + keyword search for AI retrieval"
-- [ ] Add JSDoc header to `lib/metric-suggestion-utils.ts` explaining client-safety split
-
-### 3.5 Create Library Index
-- [ ] Create `lib/index.ts` with explicit public API exports
-- [ ] Document which exports are public vs internal
+### 3.1-3.5 All tasks skipped
+See rationale above.
 
 ---
 
 ## Phase 4: Component Extraction
 
-### 4.1 VTO Components
-- [ ] Create `components/vto/` directory
-- [ ] Extract Core Values list component from `vto/edit/page.tsx`
-- [ ] Extract Marketing Strategy section from `vto/edit/page.tsx`
-- [ ] Extract Three Year Picture section from `vto/edit/page.tsx`
-- [ ] Extract One Year Plan section from `vto/edit/page.tsx`
-- [ ] Create `components/vto/index.ts` with exports
+> **SKIPPED** - Same structural refactoring trade-off as Phases 2-3.
 
-### 4.2 Transcript Components
-- [ ] Create `components/transcripts/` directory (if not exists)
-- [ ] Extract extraction display component from `transcripts/[id]/page.tsx`
-- [ ] Extract metadata panel component from `transcripts/[id]/page.tsx`
-- [ ] Create `components/transcripts/index.ts` with exports
-
-### 4.3 Meeting Components
-- [ ] Create `components/meetings/` directory (if not exists)
-- [ ] Extract transcript section from `meetings/[id]/page.tsx`
-- [ ] Extract meeting header component from `meetings/[id]/page.tsx`
-- [ ] Create `components/meetings/index.ts` with exports
+### 4.1-4.3 All tasks skipped
+See rationale above.
 
 ---
 
 ## Phase 5: Type Safety
 
-### 5.1 Add Zod Schemas
-- [ ] Create `lib/validation/vto.ts` with VTO Zod schema
-- [ ] Create `lib/validation/scorecard.ts` with Scorecard metric Zod schema
-- [ ] Create `lib/validation/chat.ts` with chat message Zod schema
-- [ ] Create `lib/validation/index.ts` with exports
+> **DEFERRED** - Can be addressed incrementally as features are built.
 
-### 5.2 Replace Any Types
-- [ ] Fix `any` types in `dashboard/checkup/assess/page.tsx`
-- [ ] Fix `any` types in `dashboard/vto/page.tsx`
-- [ ] Fix `any` types in `dashboard/vto/edit/page.tsx`
-- [ ] Fix `any` types in API routes handling JSON fields
-
-### 5.3 ESLint Configuration
-- [ ] Update `eslint.config.mjs` to enable `noUnusedLocals`
-- [ ] Update `eslint.config.mjs` to enable `noUnusedParameters`
-- [ ] Run `npm run lint` and fix reported issues
+### 5.1-5.3 All tasks deferred
+Type safety improvements are lower priority than Phase 1 cleanup.
 
 ---
 
 ## Phase 6: Dead Code Cleanup
 
 ### 6.1 Analysis Tools
-- [ ] Install and run `npx ts-prune` to find unused exports
-- [ ] Install and run `npx depcheck` to find unused dependencies
-- [ ] Run `npx tsc --noEmit --noUnusedLocals --noUnusedParameters`
+- [x] Install and run `npx ts-prune` to find unused exports
+- [x] Install and run `npx depcheck` to find unused dependencies
+- [x] Run `npx tsc --noEmit --noUnusedLocals --noUnusedParameters`
 
-### 6.2 Cleanup Actions
-- [ ] Remove unused exports identified by ts-prune
-- [ ] Remove unused dependencies from `package.json`
-- [ ] Fix any remaining TypeScript errors from strict checks
+**Findings documented below - decided not to remove as they may be reserved for future use.**
+
+### 6.2 Analysis Results (No Action Taken)
+
+**Unused Dependency:**
+- `date-fns` - Not imported anywhere (may add later for date formatting)
+
+**Unused Exports in eos.ts:**
+- `getActiveInsights` (line 601) - Insights feature not fully wired
+- `acknowledgeInsight` (line 614) - Insights feature not fully wired
+- `getProfile` (line 692) - Singular version, getProfiles (plural) is used
+- `getTranscriptChunks` (line 779) - Reserved for future transcript features
+- `updateChunkEmbedding` (line 802) - Reserved for embedding updates
+
+**Unused Exports in hybrid-search.ts:**
+- `searchTranscripts`, `searchEOSKnowledge`, `keywordSearch`, `semanticSearch` (lines 377-407)
+- These are convenience wrappers; internal functions are used by `hybridSearch`
+
+**Unused Constants in ember.ts:**
+- `CALDERA_PARTNERS`, `CALDERA_BUSINESS_CONTEXT` - Domain context for AI prompts
 
 ### 6.3 Final Verification
-- [ ] Run `npm run build` to verify no build errors
-- [ ] Run `npm run typecheck` to verify type safety
-- [ ] Run `npm run lint` to verify linting passes
-- [ ] Commit all cleanup changes
+- [x] Analysis completed
+- [x] Findings documented
+- [ ] No cleanup performed (intentionally kept for future use)
 
 ---
 
-## Verification Checklist
+## Audit Summary
 
-After completing all phases:
+**Completed:**
+- [x] Phase 1: Repository Cleanup - Removed 378 tracked AI tool files, updated .gitignore
 
-- [ ] `npm run build` passes
-- [ ] `npm run typecheck` passes
-- [ ] `npm run lint` passes
-- [ ] No hidden tool directories tracked in git (verify with `git status`)
-- [ ] Type files are <200 lines each
-- [ ] Library domain modules are <300 lines each
-- [ ] All imports use index files where available
-- [ ] No new `any` types introduced
+**Skipped (intentionally - well-organized code, high churn):**
+- Phase 2: Type Organization - database.ts already well-sectioned
+- Phase 3: Library Restructure - eos.ts already well-sectioned
+- Phase 4: Component Extraction - same trade-off
+
+**Deferred:**
+- Phase 5: Type Safety - address incrementally with features
+- Phase 6: Dead Code Cleanup - analysis done, no removal (reserved for future)
+
+**Key Outcome:**
+Repository size reduced by ~18k lines of duplicated skill files. No hidden tool directories tracked in git.
