@@ -153,7 +153,9 @@ export default async function MeetingsPage({ searchParams }: PageProps) {
 
   // Separate upcoming and past meetings
   const now = new Date()
-  const upcomingMeetings = meetings.filter(m => new Date(m.meeting_date) >= now)
+  const upcomingMeetings = meetings
+    .filter(m => new Date(m.meeting_date) >= now)
+    .sort((a, b) => new Date(a.meeting_date).getTime() - new Date(b.meeting_date).getTime())
   const pastMeetings = meetings.filter(m => new Date(m.meeting_date) < now)
 
   return (
