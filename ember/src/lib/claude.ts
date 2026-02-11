@@ -33,6 +33,7 @@ export interface PrepInput {
     target: number | null
     latest_value: number | null
     goal_direction: string
+    owner_name: string | null
   }>
   todos: Array<{
     title: string
@@ -81,7 +82,7 @@ ${input.metrics.map(m => {
       ? 'ON TARGET'
       : 'MISSED'
     : 'NO DATA'
-  return `- ${m.name}: ${m.latest_value ?? 'N/A'} (target: ${m.target ?? 'N/A'}) [${status}]`
+  return `- ${m.name}: ${m.latest_value ?? 'N/A'} (target: ${m.target ?? 'N/A'}) [${status}] - ${m.owner_name || 'Unassigned'}`
 }).join('\n') || 'No metrics'}
 
 ## Pending To-dos (${input.todos.filter(t => !t.completed).length} total)

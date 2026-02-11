@@ -67,6 +67,7 @@ export async function POST(request: NextRequest, context: RouteContext) {
           target: m.target,
           latest_value: latestEntry?.value ?? null,
           goal_direction: m.goal_direction,
+          owner_name: m.owner?.name || m.owner?.email || null,
         }
       }),
       todos: todos.map(t => ({
