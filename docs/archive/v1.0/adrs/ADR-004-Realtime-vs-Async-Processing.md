@@ -1,9 +1,8 @@
 # ADR-004: Real-time vs Async Processing
 ## Architecture Decision Record
 
-**Status:** Accepted
-**Date:** January 30, 2025
-**Updated:** February 22, 2026 (v2.0 Addendum)
+**Status:** Accepted  
+**Date:** January 30, 2025  
 **Decision Makers:** Rich (Caldera)
 
 ---
@@ -36,8 +35,8 @@ Key tension:
 ### MVP Architecture (Async-First)
 
 ```
-[Meeting Ends]
-    → [Transcript Uploaded]
+[Meeting Ends] 
+    → [Transcript Uploaded] 
     → [Background Job: Process]
     → [Background Job: Generate Insights]
     → [Update Dashboard]
@@ -52,7 +51,7 @@ Key tension:
     → [Real-time buffer (30s chunks)]
     → [Quick analysis: topics, decisions]
     → [Available for queries]
-
+    
 [Meeting Ends]
     → [Full transcript assembled]
     → [Deep analysis: patterns, issues]
@@ -103,6 +102,95 @@ Key tension:
 
 ---
 
+## Implementation Details
+
+### MVP: Background Job System
+
+```typescript
+// Job Queue (using Supabase Edge Functions + pg_cron or similar)
+
+// Job: Process Transcript
+async function processTranscript(transcriptId: string) {
+  const transcript = await getTranscript(transcriptId);
+  const chunks = chunkTranscript(transcript.text);
+  const embeddings = await generateEmbeddings(chunks);
+  await storeChunks(transcriptId, chunks, embeddings);
+  await extractDecisions(transcriptId);
+  await detectIssues(transcriptId);
+  await updateMeetingSummary(transcriptId);
+}
+
+// Job: Generate Insights
+async function generateInsights() {
+  const recentData = await getRecentActivity();
+  const insights = await analyzePatterns(recentData);
+  await storeInsights(insights);
+  await notifyIfUrgent(insights);
+}
+
+// Scheduled: Every hour
+scheduleJob('generate-insights', '0 * * * *', generateInsights);
+```
+
+### Target: Real-time Transcript Buffer
+
+```typescript
+// WebSocket connection to Grain or recording service
+
+interface TranscriptChunk {
+  timestamp: number;
+  speaker: string;
+  text: string;
+}
+
+class MeetingSession {
+  private buffer: TranscriptChunk[] = [];
+  private analysisInterval: NodeJS.Timer;
+  
+  onChunk(chunk: TranscriptChunk) {
+    this.buffer.push(chunk);
+    
+    // Quick analysis every 30 seconds
+    if (this.buffer.length % 10 === 0) {
+      this.quickAnalyze();
+    }
+  }
+  
+  async quickAnalyze() {
+    // Fast: topic detection, decision flagging
+    // Not deep pattern analysis
+  }
+  
+  async onMeetingEnd() {
+    // Full analysis with complete context
+  }
+}
+```
+
+### API Design for Future Real-time
+
+```typescript
+// Design APIs to support both sync and async
+
+// POST /api/transcript - works for both upload and stream
+interface TranscriptInput {
+  meetingId: string;
+  content: string | ReadableStream;
+  isComplete: boolean;
+}
+
+// GET /api/meetings/:id/status - works during and after
+interface MeetingStatus {
+  state: 'live' | 'processing' | 'complete';
+  topics: string[];
+  decisions: Decision[];
+  insights: Insight[];
+  lastUpdated: Date;
+}
+```
+
+---
+
 ## Processing Priorities
 
 When resources are constrained, prioritize:
@@ -114,56 +202,35 @@ When resources are constrained, prioritize:
 
 ---
 
-## v2.0 Addendum (February 22, 2026)
+## Estimated Timeline
 
-### Agent System Implements the Async-First Vision
+| Phase | Features | Timeline |
+|-------|----------|----------|
+| MVP | Upload transcript, async processing, dashboard | Week 1-2 |
+| Hybrid | Near-real-time transcript availability | Week 3-4 |
+| Real-time | Live meeting queries, streaming insights | Month 2+ |
 
-The agent system is the concrete implementation of this ADR's Phase 1 + early Phase 2 approach. The overnight analysis pipeline followed by morning briefings is the async-first pattern in action:
+---
 
-```
-4:00 AM — Overnight batch processing (async)
-    ├── Data ingestion from all sources
-    ├── Advisory agents run analysis
-    └── Outputs written to agent_outputs table
+## Alternatives Considered
 
-6:30 AM — Briefing generation (async)
-    └── EA synthesizes agent outputs + calendar + EOS data
+### Alternative 1: Real-time Only
+- **Description:** Build for live participation from day 1
+- **Rejected because:** Too complex for MVP timeline; delays value delivery
 
-7:00 AM — Briefing delivered to Slack (event-driven)
+### Alternative 2: Async Only (No Real-time Path)
+- **Description:** Commit to post-meeting processing only
+- **Rejected because:** Doesn't match user vision; limits product potential
 
-Throughout day — Command processing (near real-time)
-    └── Partner Slack replies processed within 10 seconds
-```
+### Alternative 3: Third-party Real-time Service
+- **Description:** Use specialized service for real-time processing
+- **Rejected because:** Added cost and complexity; Caldera scale doesn't justify
 
-### Updated Processing Model
+---
 
-| Feature | Current State (v2.0) | Phase |
-|---------|---------------------|-------|
-| Transcript Analysis | Post-meeting multi-agent extraction | Phase 1 ✓ |
-| Chat Responses | Real-time with agent routing | Phase 1 ✓ |
-| Insights Generation | Overnight batch + event-triggered | Phase 1-2 |
-| Slack Notifications | Event-driven (bidirectional) | Phase 2 ✓ |
-| Meeting Participation | Ember UI as data reference during L10 | Phase 1.5 |
-| Morning Briefings | Scheduled overnight → morning delivery | Phase 2 ✓ |
-| Approval Processing | Near real-time via Slack Events API | Phase 2 ✓ |
-| Financial Monitoring | Daily batch from QuickBooks | Phase 1 ✓ |
-| Pipeline Monitoring | Polling + webhooks from HubSpot | Phase 2 ✓ |
+## References
 
-### Implications for Real-time (Phase 3)
-
-The agent architecture is designed to support real-time evolution:
-- The orchestrator's event router can handle real-time triggers (Slack Events, HubSpot webhooks) alongside scheduled batch
-- Agent invocations are stateless — the same agent can be triggered by a schedule or a real-time event
-- The ingestion pipeline supports both Tier 1 (real-time) and Tier 3 (batch) sources
-
-Live meeting participation (Phase 3) would add:
-- WebSocket connection to Grain or recording service
-- Real-time buffer with 30-second chunked analysis (as originally envisioned)
-- Quick-response agent for in-meeting queries
-- Full deep analysis after meeting ends (existing pipeline)
-
-This remains a future phase. The current system delivers substantial value through the async-first approach.
-
-### References
-- ADR-006: Agent Architecture Pattern (orchestrator scheduling)
-- System Design Document §3 (Orchestrator Design, overnight pipeline)
+- PRD: Ember AI Integrator
+- Caldera Partner Interview (January 30, 2025)
+- Supabase Edge Functions documentation
+- Grain API documentation
