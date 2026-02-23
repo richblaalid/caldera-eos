@@ -40,10 +40,11 @@ export function getSlackOAuthUrl(state: string): string {
 
   const scopes = [
     'chat:write',
+    'im:write',        // For opening DM channels (briefing delivery)
     'users:read',
     'users:read.email',
     'channels:read',
-    'groups:read', // For private channels
+    'groups:read',      // For private channels
   ].join(',')
 
   const params = new URLSearchParams({
