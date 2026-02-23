@@ -347,7 +347,7 @@ All 48 tasks completed. See `docs/archive/v1.0/` for original task definitions.
 
 #### 8.18 End-to-End Verification
 
-- [ ] **8.18.1** Run full pipeline manually and verify
+- [x] **8.18.1** Run full pipeline manually and verify
   - Trigger data ingestion manually (Gmail + Calendar + QuickBooks)
   - Trigger overnight analysis (Financial Strategist)
   - Trigger morning briefing generation + delivery
@@ -361,7 +361,7 @@ All 48 tasks completed. See `docs/archive/v1.0/` for original task definitions.
 
 #### 8.19 Data Quality
 
-- [ ] **8.19.1** Seed realistic EOS data for demo
+- [x] **8.19.1** Seed realistic EOS data for demo
   - Ensure Rocks with approaching milestones exist
   - Ensure overdue Todos exist
   - Ensure Scorecard metrics have recent data
@@ -445,6 +445,8 @@ All 48 tasks completed. See `docs/archive/v1.0/` for original task definitions.
 | 2026-02-23 | 8.16.1 | Create overnight analysis cron route | Complete |
 | 2026-02-23 | 8.16.2 | Register overnight analysis cron in vercel.json | Complete |
 | 2026-02-23 | 8.17.1 | Update EA briefing with Financial Strategist outputs | Complete |
+| 2026-02-22 | 8.18.1 | Create pipeline test endpoint | Complete |
+| 2026-02-22 | 8.19.1 | Seed realistic EOS data for demo | Complete |
 
 ---
 
