@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
-import { createServiceClient } from '@/lib/supabase/server'
+import { createClient as createAdminClient } from '@supabase/supabase-js'
 import { createGoogleOAuth2Client } from '@/lib/connectors/google-auth'
 
 // GET /api/agents/auth/google/callback - Exchange code for tokens, store refresh token
@@ -72,11 +72,14 @@ export async function GET(request: Request) {
       )
     }
 
-    // Store refresh token in partner_preferences using service role
-    // (partner_preferences RLS restricts writes to the partner, but
-    //  we need to upsert which may require insert)
-    const serviceClient = await createServiceClient()
-    const { error: upsertError } = await serviceClient
+    // Store refresh token in partner_preferences using admin client
+    // (partner_preferences RLS only allows SELECT/UPDATE for authenticated users,
+    //  so we need service_role to INSERT)
+    const supabaseAdmin = createAdminClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.SUPABASE_SERVICE_ROLE_KEY!
+    )
+    const { error: upsertError } = await supabaseAdmin
       .from('partner_preferences')
       .upsert({
         organization_id: membership.organization_id,
