@@ -458,7 +458,7 @@ All 48 tasks completed. See `docs/archive/v1.0/` for original task definitions.
   - **Files:** `ember/src/app/api/agents/auth/hubspot/route.ts`, `ember/src/app/api/agents/auth/hubspot/callback/route.ts`, `ember/supabase/migrations/012_add_hubspot_columns.sql`
   - **Acceptance:** OAuth flow completes, tokens stored in DB
 
-- [ ] **9.3.2** Build HubSpot connector
+- [x] **9.3.2** Build HubSpot connector
   - Create `src/lib/connectors/hubspot-connector.ts`
   - Implements `DataConnector` interface
   - Pulls: active deals (with stage, amount, close date, owner), companies, contacts
@@ -564,6 +564,7 @@ All 48 tasks completed. See `docs/archive/v1.0/` for original task definitions.
 | 2026-02-23 | 9.1.3 | Polish Slack Block Kit formatting | Complete |
 | 2026-02-23 | 9.2.1 | Enrich Financial Strategist output | Complete |
 | 2026-02-23 | 9.3.1 | Install HubSpot SDK and create OAuth flow | Complete |
+| 2026-02-23 | 9.3.2 | Build HubSpot connector | Complete |
 
 ---
 

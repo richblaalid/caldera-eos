@@ -123,7 +123,7 @@ export interface AgentRunInsert {
 // =============================================
 
 export type DataSource = 'gmail' | 'calendar' | 'quickbooks' | 'slack' | 'hubspot' | 'gusto' | 'grain'
-export type DataType = 'email' | 'calendar_event' | 'invoice' | 'payment' | 'message' | 'transcript' | 'financial_report'
+export type DataType = 'email' | 'calendar_event' | 'invoice' | 'payment' | 'message' | 'transcript' | 'financial_report' | 'deal' | 'contact' | 'company'
 
 export interface IngestedData {
   id: string
@@ -238,6 +238,8 @@ export interface PartnerPreferences {
   google_history_id: string | null
   quickbooks_refresh_token: string | null
   quickbooks_realm_id: string | null
+  hubspot_refresh_token: string | null
+  hubspot_portal_id: string | null
   config: Record<string, unknown>
   created_at: string
   updated_at: string
@@ -256,6 +258,8 @@ export interface PartnerPreferencesInsert {
   google_history_id?: string | null
   quickbooks_refresh_token?: string | null
   quickbooks_realm_id?: string | null
+  hubspot_refresh_token?: string | null
+  hubspot_portal_id?: string | null
   config?: Record<string, unknown>
 }
 
