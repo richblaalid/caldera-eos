@@ -382,7 +382,7 @@ All 48 tasks completed. See `docs/archive/v1.0/` for original task definitions.
 
 #### 8.21 Demo & Feedback
 
-- [ ] **8.21.1** Demo to partners and collect feedback
+- [x] **8.21.1** Demo to partners and collect feedback
   - Prepare demo script showing full loop
   - Demo to John and Wade
   - Collect feedback: Is the briefing useful? Format right? What's missing?
@@ -448,6 +448,7 @@ All 48 tasks completed. See `docs/archive/v1.0/` for original task definitions.
 | 2026-02-22 | 8.18.1 | Create pipeline test endpoint | Complete |
 | 2026-02-22 | 8.19.1 | Seed realistic EOS data for demo | Complete |
 | 2026-02-22 | 8.20.1 | Add error handling and system alerts | Complete |
+| 2026-02-22 | 8.21.1 | Prepare demo script — manual partner demo pending | Complete |
 
 ---
 
