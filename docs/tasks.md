@@ -438,7 +438,7 @@ All 48 tasks completed. See `docs/archive/v1.0/` for original task definitions.
 
 #### 9.2 Financial Strategist Enrichment
 
-- [ ] **9.2.1** Enrich Financial Strategist output for briefing integration
+- [x] **9.2.1** Enrich Financial Strategist output for briefing integration
   - Include specific dollar amounts in analysis summary (not just "margins are concerning")
   - Add week-over-week trend indicators (↑↓→) for key financial metrics
   - Generate a one-line "Financial headline" for Tier 1 or Tier 2
@@ -562,6 +562,7 @@ All 48 tasks completed. See `docs/archive/v1.0/` for original task definitions.
 | 2026-02-23 | 9.1.1 | Enhance EA briefing data assembly | Complete |
 | 2026-02-23 | 9.1.2 | Improve briefing prompt engineering | Complete |
 | 2026-02-23 | 9.1.3 | Polish Slack Block Kit formatting | Complete |
+| 2026-02-23 | 9.2.1 | Enrich Financial Strategist output | Complete |
 
 ---
 

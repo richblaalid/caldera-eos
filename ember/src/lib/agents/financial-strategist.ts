@@ -18,27 +18,34 @@ const THRESHOLDS = {
 }
 
 const financialAnalysisSchema = z.object({
-  summary: z.string().describe('2-3 sentence executive summary of financial health'),
+  headline: z.string().describe('One-line financial headline for the briefing, e.g. "Cash flow healthy but AR aging on 2 clients needs attention"'),
+
+  summary: z.string().describe('2-3 sentence executive summary of financial health with specific dollar amounts'),
 
   margin_analysis: z.array(z.object({
     client_name: z.string(),
     revenue: z.number(),
     estimated_margin_pct: z.number(),
     trend: z.enum(['improving', 'stable', 'declining']),
-    note: z.string().describe('Brief insight about this client margin'),
+    trend_indicator: z.string().describe('↑ ↓ or → indicating week-over-week direction'),
+    wow_change_pct: z.number().nullable().describe('Week-over-week change in margin percentage, null if no prior data'),
+    note: z.string().describe('Brief insight about this client margin with specific dollar amounts'),
   })).describe('Margin by client analysis'),
 
   ar_aging_alerts: z.array(z.object({
     client_name: z.string(),
     amount_due: z.number(),
     days_outstanding: z.number(),
-    recommendation: z.string(),
+    risk_level: z.enum(['low', 'medium', 'high', 'critical']).describe('low: <30d, medium: 30-45d, high: 45-60d, critical: >60d'),
+    recommendation: z.string().describe('Specific next step with owner name if applicable'),
   })).describe('AR aging alerts for overdue invoices'),
 
   cash_flow_assessment: z.object({
     total_receivable: z.number(),
     total_recent_payments: z.number(),
     net_position: z.enum(['healthy', 'watch', 'concern']),
+    runway_note: z.string().describe('How many weeks/months of runway at current burn, or general cash position note'),
+    trend_indicator: z.string().describe('↑ ↓ or → indicating week-over-week direction'),
     note: z.string(),
   }).describe('Cash flow health assessment'),
 
@@ -46,14 +53,16 @@ const financialAnalysisSchema = z.object({
     top_client_name: z.string(),
     top_client_pct: z.number(),
     is_above_threshold: z.boolean(),
+    trend_indicator: z.string().describe('↑ ↓ or → indicating whether concentration is improving or worsening'),
     recommendation: z.string(),
   }).describe('Revenue concentration risk analysis'),
 
   eos_actions: z.array(z.object({
     type: z.enum(['create_issue', 'update_scorecard']),
     title: z.string(),
-    detail: z.string(),
+    detail: z.string().describe('Include specific data points (dollar amounts, percentages, dates) and recommended next step'),
     priority: z.enum(['high', 'medium', 'low']),
+    data_points: z.array(z.string()).describe('Key numbers supporting this action, e.g. ["$45K overdue", "62 days outstanding"]'),
   })).describe('Recommended EOS actions (Issues to create, Scorecard updates)'),
 })
 
@@ -121,7 +130,7 @@ If no financial data is available, still provide assessment based on any availab
       await createFinancialIssue(
         organizationId,
         `AR Alert: ${arAlert.client_name} — ${arAlert.days_outstanding} days outstanding ($${arAlert.amount_due.toLocaleString()})`,
-        arAlert.recommendation,
+        `Risk level: ${arAlert.risk_level.toUpperCase()}\n\n${arAlert.recommendation}`,
       )
       issuesCreated++
     }
@@ -129,10 +138,13 @@ If no financial data is available, still provide assessment based on any availab
 
   for (const margin of analysis.margin_analysis) {
     if (margin.estimated_margin_pct < THRESHOLDS.minMarginPct) {
+      const trendInfo = margin.wow_change_pct !== null
+        ? ` (${margin.trend_indicator} ${margin.wow_change_pct > 0 ? '+' : ''}${margin.wow_change_pct}% WoW)`
+        : ''
       await createFinancialIssue(
         organizationId,
-        `Low Margin Alert: ${margin.client_name} at ${margin.estimated_margin_pct}%`,
-        margin.note,
+        `Low Margin Alert: ${margin.client_name} at ${margin.estimated_margin_pct}%${trendInfo}`,
+        `Revenue: $${margin.revenue.toLocaleString()} | Trend: ${margin.trend}\n\n${margin.note}`,
       )
       issuesCreated++
     }
@@ -141,8 +153,8 @@ If no financial data is available, still provide assessment based on any availab
   if (analysis.concentration_risk.is_above_threshold) {
     await createFinancialIssue(
       organizationId,
-      `Revenue Concentration: ${analysis.concentration_risk.top_client_name} at ${analysis.concentration_risk.top_client_pct}%`,
-      analysis.concentration_risk.recommendation,
+      `Revenue Concentration: ${analysis.concentration_risk.top_client_name} at ${analysis.concentration_risk.top_client_pct}% ${analysis.concentration_risk.trend_indicator}`,
+      `Threshold: ${THRESHOLDS.maxConcentrationPct}%\n\n${analysis.concentration_risk.recommendation}`,
     )
     issuesCreated++
   }
@@ -155,7 +167,7 @@ If no financial data is available, still provide assessment based on any availab
       output_type: action.type === 'create_issue' ? 'issue' : 'recommendation',
       title: action.title,
       summary: action.detail,
-      content: { type: action.type, priority: action.priority, detail: action.detail },
+      content: { type: action.type, priority: action.priority, detail: action.detail, data_points: action.data_points },
       trust_zone: 2,
       status: 'pending_review',
     }

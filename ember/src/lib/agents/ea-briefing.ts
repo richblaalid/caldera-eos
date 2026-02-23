@@ -524,30 +524,32 @@ function buildBriefingPrompt(data: {
     const fi = data.financialInsights
     const fiSections: string[] = []
 
+    if (fi.headline) fiSections.push(`**Headline: ${fi.headline}**`)
     if (fi.summary) fiSections.push(`Summary: ${fi.summary}`)
 
-    const arAlerts = fi.ar_aging_alerts as Array<{ client_name: string; days_outstanding: number; amount_due: number }> | undefined
+    const arAlerts = fi.ar_aging_alerts as Array<{ client_name: string; days_outstanding: number; amount_due: number; risk_level: string }> | undefined
     if (arAlerts && arAlerts.length > 0) {
       fiSections.push('AR Alerts:\n' + arAlerts.map(a =>
-        `- ${a.client_name}: $${a.amount_due.toLocaleString()} — ${a.days_outstanding} days outstanding`
+        `- [${a.risk_level.toUpperCase()}] ${a.client_name}: $${a.amount_due.toLocaleString()} — ${a.days_outstanding} days outstanding`
       ).join('\n'))
     }
 
-    const marginAnalysis = fi.margin_analysis as Array<{ client_name: string; effective_margin: number }> | undefined
+    const marginAnalysis = fi.margin_analysis as Array<{ client_name: string; revenue: number; estimated_margin_pct: number; trend_indicator: string; wow_change_pct: number | null }> | undefined
     if (marginAnalysis && marginAnalysis.length > 0) {
-      fiSections.push('Client Margins:\n' + marginAnalysis.map(m =>
-        `- ${m.client_name}: ${m.effective_margin}% margin`
-      ).join('\n'))
+      fiSections.push('Client Margins:\n' + marginAnalysis.map(m => {
+        const wow = m.wow_change_pct !== null ? ` (${m.wow_change_pct > 0 ? '+' : ''}${m.wow_change_pct}% WoW)` : ''
+        return `- ${m.client_name}: ${m.estimated_margin_pct}% margin ${m.trend_indicator}${wow} — $${m.revenue.toLocaleString()} revenue`
+      }).join('\n'))
     }
 
-    const concentration = fi.concentration_risk as { top_client_name: string; top_client_pct: number; is_above_threshold: boolean } | undefined
+    const concentration = fi.concentration_risk as { top_client_name: string; top_client_pct: number; is_above_threshold: boolean; trend_indicator: string } | undefined
     if (concentration?.is_above_threshold) {
-      fiSections.push(`Concentration Risk: ${concentration.top_client_name} at ${concentration.top_client_pct}% of revenue (threshold: 60%)`)
+      fiSections.push(`Concentration Risk: ${concentration.top_client_name} at ${concentration.top_client_pct}% of revenue ${concentration.trend_indicator} (threshold: 60%)`)
     }
 
-    const cashFlow = fi.cash_flow_assessment as { net_position: string; note: string } | undefined
+    const cashFlow = fi.cash_flow_assessment as { net_position: string; note: string; trend_indicator: string; runway_note: string } | undefined
     if (cashFlow) {
-      fiSections.push(`Cash Flow: ${cashFlow.net_position} — ${cashFlow.note}`)
+      fiSections.push(`Cash Flow: ${cashFlow.net_position} ${cashFlow.trend_indicator} — ${cashFlow.note}\nRunway: ${cashFlow.runway_note}`)
     }
 
     sections.push(`## Financial Insights (Financial Strategist)\n${fiSections.join('\n')}`)
