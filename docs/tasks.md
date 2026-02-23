@@ -277,7 +277,7 @@ All 48 tasks completed. See `docs/archive/v1.0/` for original task definitions.
 
 #### 8.14 QuickBooks Connector
 
-- [ ] **8.14.1** Install QuickBooks dependencies and create OAuth flow
+- [x] **8.14.1** Install QuickBooks dependencies and create OAuth flow
   - `npm install intuit-oauth quickbooks-node-promise` (skip if using mock data)
   - Create `/api/agents/auth/quickbooks/route.ts` + callback
   - Store refresh token in `partner_preferences`
@@ -285,7 +285,7 @@ All 48 tasks completed. See `docs/archive/v1.0/` for original task definitions.
   - **Depends on:** 8.1.1
   - **Acceptance:** OAuth flow completes, tokens stored
 
-- [ ] **8.14.2** Build QuickBooks connector
+- [x] **8.14.2** Build QuickBooks connector
   - Create `src/lib/connectors/quickbooks-connector.ts`
   - Implements `DataConnector` interface
   - `pullFinancialData()` — invoices (90 days), payments (30 days), P&L summary, AR aging
@@ -298,7 +298,7 @@ All 48 tasks completed. See `docs/archive/v1.0/` for original task definitions.
 
 #### 8.15 Financial Strategist Agent
 
-- [ ] **8.15.1** Build Financial Strategist agent
+- [x] **8.15.1** Build Financial Strategist agent
   - Create `src/lib/agents/financial-strategist.ts`
   - `runFinancialAnalysis()` — invoked by overnight cron
   - Queries: QuickBooks data from `ingested_data`, Scorecard metrics, existing Issues
@@ -312,7 +312,7 @@ All 48 tasks completed. See `docs/archive/v1.0/` for original task definitions.
 
 #### 8.16 Overnight Analysis Pipeline
 
-- [ ] **8.16.1** Create overnight analysis cron route
+- [x] **8.16.1** Create overnight analysis cron route
   - Create `/api/agents/cron/overnight-analysis/route.ts`
   - `CRON_SECRET` verification
   - Runs QuickBooks data ingestion (daily pull)
@@ -322,7 +322,7 @@ All 48 tasks completed. See `docs/archive/v1.0/` for original task definitions.
   - **Depends on:** 8.14.2 (or mock data), 8.15.1
   - **Acceptance:** Pipeline runs end-to-end, outputs stored
 
-- [ ] **8.16.2** Register overnight analysis cron in vercel.json
+- [x] **8.16.2** Register overnight analysis cron in vercel.json
   - Add `"/api/agents/cron/overnight-analysis"` with schedule `"0 9 * * *"` (4:00 AM ET)
   - **Files:** `ember/vercel.json`
   - **Depends on:** 8.16.1
@@ -330,7 +330,7 @@ All 48 tasks completed. See `docs/archive/v1.0/` for original task definitions.
 
 #### 8.17 EA Integration with Financial Strategist
 
-- [ ] **8.17.1** Update EA briefing to include Financial Strategist outputs
+- [x] **8.17.1** Update EA briefing to include Financial Strategist outputs
   - Update `ea-briefing.ts` to query `agent_outputs` for Financial Strategist's recent analysis
   - Include financial alerts in Tier 1 (urgent) when thresholds breached
   - Include financial highlights in Tier 2 (business section)
@@ -435,10 +435,16 @@ All 48 tasks completed. See `docs/archive/v1.0/` for original task definitions.
 | 2026-02-22 | 8.9.1 | Create morning briefing cron route | Complete |
 | 2026-02-22 | 8.9.2 | Register morning briefing cron in vercel.json | Complete |
 | 2026-02-22 | 8.10.1 | Create Slack events webhook route | Complete |
-| 2026-02-22 | 8.10.2 | Deploy and configure Slack Events API | Blocked — requires deployment first |
+| 2026-02-23 | 8.10.2 | Deploy and configure Slack Events API | Complete |
 | 2026-02-22 | 8.11.1 | Build natural language command parser | Complete |
 | 2026-02-22 | 8.12.1 | Build command executor | Complete |
 | 2026-02-22 | 8.13.1 | Implement emoji reaction approvals | Complete |
+| 2026-02-23 | 8.14.1 | Install QuickBooks dependencies and create OAuth flow | Complete |
+| 2026-02-23 | 8.14.2 | Build QuickBooks connector | Complete |
+| 2026-02-23 | 8.15.1 | Build Financial Strategist agent | Complete |
+| 2026-02-23 | 8.16.1 | Create overnight analysis cron route | Complete |
+| 2026-02-23 | 8.16.2 | Register overnight analysis cron in vercel.json | Complete |
+| 2026-02-23 | 8.17.1 | Update EA briefing with Financial Strategist outputs | Complete |
 
 ---
 
