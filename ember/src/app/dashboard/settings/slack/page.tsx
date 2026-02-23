@@ -175,7 +175,7 @@ export default function SlackSettingsPage() {
           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
           </svg>
-          Back to Checkup
+          Back to Integrations
         </Link>
         <h1 className="text-2xl font-semibold text-foreground">Slack Integration</h1>
         <p className="text-muted-foreground mt-1">

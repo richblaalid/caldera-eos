@@ -39,7 +39,7 @@ export async function GET() {
     // Get Slack status
     const { data: slackSettings } = await serviceClient
       .from('slack_settings')
-      .select('bot_token, team_name')
+      .select('bot_token, channel_name, is_active')
       .eq('organization_id', orgId)
       .single()
 
@@ -58,7 +58,7 @@ export async function GET() {
         key: 'slack',
         connected: !!slackSettings?.bot_token,
         lastSync: null,
-        details: slackSettings?.team_name ? `Workspace: ${slackSettings.team_name}` : undefined,
+        details: slackSettings?.channel_name ? `Channel: #${slackSettings.channel_name}` : undefined,
       },
       {
         name: 'HubSpot',
