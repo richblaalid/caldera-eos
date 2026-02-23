@@ -4,10 +4,12 @@ import { createClient } from '@supabase/supabase-js'
 
 export const dynamic = 'force-dynamic'
 
-const supabaseAdmin = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-)
+function getSupabaseAdmin() {
+  return createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!
+  )
+}
 
 /**
  * Verify Slack request signature using HMAC-SHA256.
@@ -38,11 +40,21 @@ function verifySlackSignature(
 // Receives Slack Events API webhooks (DM messages, reactions, etc.)
 export async function POST(request: NextRequest) {
   const body = await request.text()
-  const payload = JSON.parse(body)
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  let payload: any
+  try {
+    payload = JSON.parse(body)
+  } catch {
+    return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 })
+  }
 
   // Handle URL verification challenge (no signature check needed)
   if (payload.type === 'url_verification') {
-    return NextResponse.json({ challenge: payload.challenge })
+    return new Response(payload.challenge as string, {
+      status: 200,
+      headers: { 'Content-Type': 'text/plain' },
+    })
   }
 
   // Verify request signature
@@ -98,7 +110,7 @@ async function handleDirectMessage(
   const { executeCommand } = await import('@/lib/agents/command-executor')
 
   // Look up partner by slack_user_id
-  const { data: profile } = await supabaseAdmin
+  const { data: profile } = await getSupabaseAdmin()
     .from('profiles')
     .select('id, organization_id')
     .eq('slack_user_id', event.user)
@@ -111,7 +123,7 @@ async function handleDirectMessage(
 
   // Find the active briefing for threading context
   const today = new Date().toISOString().split('T')[0]
-  const { data: briefing } = await supabaseAdmin
+  const { data: briefing } = await getSupabaseAdmin()
     .from('briefings')
     .select('id, slack_message_ts, slack_channel_id')
     .eq('partner_id', profile.id)
@@ -153,7 +165,7 @@ async function handleReactionAdded(
   const { handleReaction } = await import('@/lib/agents/command-executor')
 
   // Look up partner
-  const { data: profile } = await supabaseAdmin
+  const { data: profile } = await getSupabaseAdmin()
     .from('profiles')
     .select('id, organization_id')
     .eq('slack_user_id', event.user)
