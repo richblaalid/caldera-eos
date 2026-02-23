@@ -121,7 +121,7 @@ All 48 tasks completed. See `docs/archive/v1.0/` for original task definitions.
 
 #### 8.6 Agent Runtime
 
-- [ ] **8.6.1** Create agent runtime core
+- [x] **8.6.1** Create agent runtime core
   - Create `src/lib/agents/agent-runtime.ts`
   - `invokeAgent(invocation)` — loads agent definition from DB, assembles context, calls Claude, processes output
   - Context assembly: queries `ingested_data` + EOS tables based on agent's configured data sources
@@ -131,7 +131,7 @@ All 48 tasks completed. See `docs/archive/v1.0/` for original task definitions.
   - **Depends on:** 8.1.1, 8.1.3
   - **Acceptance:** Runtime can invoke an agent and produce structured output
 
-- [ ] **8.6.2** Create prompt manager
+- [x] **8.6.2** Create prompt manager
   - Create `src/lib/agents/prompt-manager.ts`
   - `buildSystemPrompt(agentDef, context)` — assembles persona + shared strategic directive + domain data + task
   - Shared strategic directive as constant (from PRD Section 6.2)
@@ -142,7 +142,7 @@ All 48 tasks completed. See `docs/archive/v1.0/` for original task definitions.
 
 #### 8.7 EA Briefing Logic
 
-- [ ] **8.7.1** Build EA briefing generator
+- [x] **8.7.1** Build EA briefing generator
   - Create `src/lib/agents/ea-briefing.ts`
   - `generateBriefing(partnerId)` — orchestrates full briefing generation
   - Queries: today's calendar events, recent emails (24h from `ingested_data`), overdue/upcoming EOS items (Rocks, Todos, Scorecard), agent outputs from overnight runs
@@ -154,7 +154,7 @@ All 48 tasks completed. See `docs/archive/v1.0/` for original task definitions.
 
 #### 8.8 Slack Briefing Delivery
 
-- [ ] **8.8.1** Install @slack/web-api and create Slack connector
+- [x] **8.8.1** Install @slack/web-api and create Slack connector
   - `npm install @slack/web-api`
   - Create `src/lib/connectors/slack-connector.ts` — WebClient wrapper
   - Refactor existing `src/lib/slack.ts` to import from connector (thin re-export, no breaking changes)
@@ -162,7 +162,7 @@ All 48 tasks completed. See `docs/archive/v1.0/` for original task definitions.
   - **Depends on:** 8.1.3
   - **Acceptance:** WebClient works, existing Slack functionality unbroken
 
-- [ ] **8.8.2** Build Slack Block Kit briefing formatter
+- [x] **8.8.2** Build Slack Block Kit briefing formatter
   - Create `src/lib/agents/slack-briefing.ts`
   - `formatBriefingBlocks(briefing)` — converts three-tier briefing to Slack Block Kit JSON
   - Tier 1 items: red emoji, bold text, numbered for quick reference
@@ -173,7 +173,7 @@ All 48 tasks completed. See `docs/archive/v1.0/` for original task definitions.
   - **Depends on:** 8.7.1
   - **Acceptance:** Block Kit output renders correctly in Slack
 
-- [ ] **8.8.3** Build briefing delivery function
+- [x] **8.8.3** Build briefing delivery function
   - Add `deliverBriefing(partnerId, briefing)` to `slack-briefing.ts`
   - Posts to partner's Slack DM channel (looks up from `profiles.slack_user_id`)
   - Stores `slack_message_ts` and `slack_channel_id` in `briefings` table for threading replies later
@@ -183,7 +183,7 @@ All 48 tasks completed. See `docs/archive/v1.0/` for original task definitions.
 
 #### 8.9 Morning Briefing Cron
 
-- [ ] **8.9.1** Create morning briefing cron route
+- [x] **8.9.1** Create morning briefing cron route
   - Create `/api/agents/cron/morning-briefing/route.ts`
   - `CRON_SECRET` verification
   - For each partner with preferences: run data ingestion → generate briefing → deliver via Slack
@@ -192,7 +192,7 @@ All 48 tasks completed. See `docs/archive/v1.0/` for original task definitions.
   - **Depends on:** 8.7.1, 8.8.3
   - **Acceptance:** Cron route generates and delivers briefing
 
-- [ ] **8.9.2** Register morning briefing cron in vercel.json
+- [x] **8.9.2** Register morning briefing cron in vercel.json
   - Add `"/api/agents/cron/morning-briefing"` with schedule `"30 11 * * 1-5"` (6:30 AM ET weekdays)
   - **Files:** `ember/vercel.json`
   - **Depends on:** 8.9.1
@@ -426,6 +426,14 @@ All 48 tasks completed. See `docs/archive/v1.0/` for original task definitions.
 | 2026-02-22 | 8.4.1 | Create Google OAuth consent and callback routes | Complete |
 | 2026-02-22 | 8.5.1 | Create data ingestion cron route | Complete |
 | 2026-02-22 | 8.5.2 | Register data ingestion cron in vercel.json | Complete |
+| 2026-02-22 | 8.6.1 | Create agent runtime core | Complete |
+| 2026-02-22 | 8.6.2 | Create prompt manager | Complete |
+| 2026-02-22 | 8.7.1 | Build EA briefing generator | Complete |
+| 2026-02-22 | 8.8.1 | Install @slack/web-api and create Slack connector | Complete |
+| 2026-02-22 | 8.8.2 | Build Slack Block Kit briefing formatter | Complete |
+| 2026-02-22 | 8.8.3 | Build briefing delivery function | Complete |
+| 2026-02-22 | 8.9.1 | Create morning briefing cron route | Complete |
+| 2026-02-22 | 8.9.2 | Register morning briefing cron in vercel.json | Complete |
 
 ---
 
