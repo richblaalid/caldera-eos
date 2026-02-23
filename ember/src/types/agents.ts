@@ -238,8 +238,6 @@ export interface PartnerPreferences {
   google_history_id: string | null
   quickbooks_refresh_token: string | null
   quickbooks_realm_id: string | null
-  hubspot_refresh_token: string | null
-  hubspot_portal_id: string | null
   config: Record<string, unknown>
   created_at: string
   updated_at: string
@@ -258,8 +256,6 @@ export interface PartnerPreferencesInsert {
   google_history_id?: string | null
   quickbooks_refresh_token?: string | null
   quickbooks_realm_id?: string | null
-  hubspot_refresh_token?: string | null
-  hubspot_portal_id?: string | null
   config?: Record<string, unknown>
 }
 

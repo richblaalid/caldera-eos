@@ -1,38 +1,32 @@
 import { Client } from '@hubspot/api-client'
 import type { DataConnector, ConnectorPullParams, ConnectorResult, ConnectorRecord, ConnectorError } from './types'
 
-const HUBSPOT_CLIENT_ID = process.env.HUBSPOT_CLIENT_ID!
-const HUBSPOT_CLIENT_SECRET = process.env.HUBSPOT_CLIENT_SECRET!
-
 /**
- * HubSpot connector that pulls deals, contacts, and companies.
- * Implements DataConnector interface for the data ingestion pipeline.
+ * HubSpot connector using a Private App access token.
+ * Pulls deals, contacts, and companies for the data ingestion pipeline.
+ *
+ * Setup: Create a Private App in HubSpot with these scopes:
+ *   - crm.objects.deals.read
+ *   - crm.objects.contacts.read
+ *   - crm.objects.companies.read
+ *   - crm.objects.owners.read
+ *
+ * Set HUBSPOT_ACCESS_TOKEN in your environment.
  */
 export const hubspotConnector: DataConnector = {
   source: 'hubspot',
 
   async pull(params: ConnectorPullParams): Promise<ConnectorResult> {
-    const { config } = params
-    const refreshToken = config.hubspot_refresh_token as string
-
-    if (!refreshToken) {
-      return { records: [], errors: [{ code: 'NO_TOKEN', message: 'No HubSpot credentials', recoverable: false }] }
+    const accessToken = process.env.HUBSPOT_ACCESS_TOKEN
+    if (!accessToken) {
+      return { records: [], errors: [{ code: 'NO_TOKEN', message: 'HUBSPOT_ACCESS_TOKEN not configured', recoverable: false }] }
     }
 
+    // Ignore params.config — token comes from env, not per-partner DB
+    void params
+
+    const client = new Client({ accessToken })
     const errors: ConnectorError[] = []
-
-    // Refresh the access token
-    let client: Client
-    let newRefreshToken: string | undefined
-    try {
-      const result = await refreshAccessToken(refreshToken)
-      client = result.client
-      newRefreshToken = result.newRefreshToken
-    } catch (error: unknown) {
-      const err = error as { message?: string }
-      return { records: [], errors: [{ code: 'TOKEN_REFRESH_FAILED', message: err.message || 'HubSpot token refresh failed', recoverable: true }] }
-    }
-
     const records: ConnectorRecord[] = []
 
     // Pull active deals
@@ -68,31 +62,8 @@ export const hubspotConnector: DataConnector = {
       errors.push({ code: 'CONTACTS_FETCH_FAILED', message: err.message || 'Contacts fetch failed', recoverable: true })
     }
 
-    return {
-      records,
-      syncState: newRefreshToken ? { hubspot_refresh_token: newRefreshToken } : undefined,
-      errors,
-    }
+    return { records, errors }
   },
-}
-
-async function refreshAccessToken(refreshToken: string): Promise<{ client: Client; newRefreshToken?: string }> {
-  const client = new Client()
-  const tokenResponse = await client.oauth.tokensApi.create(
-    'refresh_token',
-    undefined,
-    undefined,
-    HUBSPOT_CLIENT_ID,
-    HUBSPOT_CLIENT_SECRET,
-    refreshToken
-  )
-
-  client.setAccessToken(tokenResponse.accessToken)
-
-  return {
-    client,
-    newRefreshToken: tokenResponse.refreshToken !== refreshToken ? tokenResponse.refreshToken : undefined,
-  }
 }
 
 const DEAL_PROPERTIES = [

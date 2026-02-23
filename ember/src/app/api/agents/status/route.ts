@@ -31,7 +31,7 @@ export async function GET() {
     // Get partner preferences (tokens)
     const { data: prefs } = await serviceClient
       .from('partner_preferences')
-      .select('google_refresh_token, quickbooks_refresh_token, quickbooks_realm_id, hubspot_refresh_token, hubspot_portal_id')
+      .select('google_refresh_token, quickbooks_refresh_token, quickbooks_realm_id')
       .eq('organization_id', orgId)
       .eq('partner_id', user.id)
       .single()
@@ -63,9 +63,9 @@ export async function GET() {
       {
         name: 'HubSpot',
         key: 'hubspot',
-        connected: !!prefs?.hubspot_refresh_token,
+        connected: !!process.env.HUBSPOT_ACCESS_TOKEN,
         lastSync: lastSyncBySource.hubspot || null,
-        details: prefs?.hubspot_portal_id ? `Portal: ${prefs.hubspot_portal_id}` : undefined,
+        details: 'Private App (env-configured)',
       },
       {
         name: 'QuickBooks',

@@ -28,7 +28,7 @@ export async function GET(request: NextRequest) {
     // Get all partners with any connector tokens
     const { data: partners, error: fetchError } = await supabaseAdmin
       .from('partner_preferences')
-      .select('partner_id, organization_id, google_refresh_token, google_history_id, hubspot_refresh_token, hubspot_portal_id')
+      .select('partner_id, organization_id, google_refresh_token, google_history_id')
 
     if (fetchError) {
       console.error('Failed to fetch partner preferences:', fetchError)
@@ -54,8 +54,6 @@ export async function GET(request: NextRequest) {
       const config = {
         google_refresh_token: partner.google_refresh_token,
         google_history_id: partner.google_history_id,
-        hubspot_refresh_token: partner.hubspot_refresh_token,
-        hubspot_portal_id: partner.hubspot_portal_id,
       }
 
       // Run Gmail connector (graceful — failure doesn't block other connectors)
@@ -107,29 +105,20 @@ export async function GET(request: NextRequest) {
         }
       }
 
-      // Run HubSpot connector (once per org — HubSpot data is org-wide)
+      // Run HubSpot connector (once per org — uses env-based token, not per-partner)
       let hubspotRecords: ConnectorRecord[] = []
-      if (partner.hubspot_refresh_token && !hubspotProcessedOrgs.has(partner.organization_id)) {
+      if (process.env.HUBSPOT_ACCESS_TOKEN && !hubspotProcessedOrgs.has(partner.organization_id)) {
         hubspotProcessedOrgs.add(partner.organization_id)
         try {
           const hubspotResult = await hubspotConnector.pull({
             organizationId: partner.organization_id,
             partnerId: partner.partner_id,
-            config,
+            config: {},
           })
 
           hubspotRecords = hubspotResult.records
           if (hubspotResult.errors.length > 0) {
             results.errors.push(...hubspotResult.errors.map(e => `HubSpot(${partner.organization_id}): ${e.message}`))
-          }
-
-          // Update refresh token if rotated
-          if (hubspotResult.syncState?.hubspot_refresh_token) {
-            await supabaseAdmin
-              .from('partner_preferences')
-              .update({ hubspot_refresh_token: hubspotResult.syncState.hubspot_refresh_token as string })
-              .eq('partner_id', partner.partner_id)
-              .eq('organization_id', partner.organization_id)
           }
         } catch (hsError: unknown) {
           const err = hsError as { message?: string }

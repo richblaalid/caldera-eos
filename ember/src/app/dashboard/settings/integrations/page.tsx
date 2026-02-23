@@ -34,7 +34,7 @@ const CONNECTOR_META: Record<string, { label: string; description: string; color
     label: 'HubSpot',
     description: 'Sales pipeline, deals, contacts, and companies',
     color: '#FF7A59',
-    authUrl: '/api/agents/auth/hubspot',
+    authUrl: '', // Private App — configured via environment variable
   },
   quickbooks: {
     label: 'QuickBooks',
@@ -187,7 +187,7 @@ export default function IntegrationsPage() {
                           </Link>
                         )}
                       </>
-                    ) : (
+                    ) : meta.authUrl ? (
                       <a
                         href={meta.authUrl}
                         className="px-4 py-2 text-sm font-medium text-white rounded-lg transition-colors"
@@ -195,6 +195,10 @@ export default function IntegrationsPage() {
                       >
                         Connect
                       </a>
+                    ) : (
+                      <span className="text-sm text-muted-foreground">
+                        Not configured
+                      </span>
                     )}
                   </div>
                 </div>
