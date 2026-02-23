@@ -208,7 +208,7 @@ All 48 tasks completed. See `docs/archive/v1.0/` for original task definitions.
 
 #### 8.10 Slack Events API Handler
 
-- [ ] **8.10.1** Create Slack events webhook route
+- [x] **8.10.1** Create Slack events webhook route
   - Create `/api/agents/events/slack/route.ts`
   - Slack request signature verification (manual HMAC, not Bolt)
   - URL verification challenge handler (responds to Slack's `url_verification` event)
@@ -229,7 +229,7 @@ All 48 tasks completed. See `docs/archive/v1.0/` for original task definitions.
 
 #### 8.11 Command Parser
 
-- [ ] **8.11.1** Build natural language command parser
+- [x] **8.11.1** Build natural language command parser
   - Create `src/lib/agents/command-parser.ts`
   - `parseCommand(text, briefingContext)` — uses Haiku to extract structured commands
   - Supported commands (Week 1):
@@ -245,7 +245,7 @@ All 48 tasks completed. See `docs/archive/v1.0/` for original task definitions.
 
 #### 8.12 Command Execution
 
-- [ ] **8.12.1** Build command executor
+- [x] **8.12.1** Build command executor
   - Create `src/lib/agents/command-executor.ts`
   - `executeCommand(command, partnerId)` — routes parsed commands to handlers
   - Approval/reject/defer: update `agent_outputs` status field
@@ -258,7 +258,7 @@ All 48 tasks completed. See `docs/archive/v1.0/` for original task definitions.
 
 #### 8.13 Reaction Handling
 
-- [ ] **8.13.1** Implement emoji reaction approvals
+- [x] **8.13.1** Implement emoji reaction approvals
   - Handle `reaction_added` events from Slack
   - Map reactions to commands: `:white_check_mark:` → approve, `:pause_button:` → defer, `:x:` → reject
   - Identify which briefing item was reacted to (match message_ts to briefing)
@@ -434,6 +434,11 @@ All 48 tasks completed. See `docs/archive/v1.0/` for original task definitions.
 | 2026-02-22 | 8.8.3 | Build briefing delivery function | Complete |
 | 2026-02-22 | 8.9.1 | Create morning briefing cron route | Complete |
 | 2026-02-22 | 8.9.2 | Register morning briefing cron in vercel.json | Complete |
+| 2026-02-22 | 8.10.1 | Create Slack events webhook route | Complete |
+| 2026-02-22 | 8.10.2 | Deploy and configure Slack Events API | Blocked — requires deployment first |
+| 2026-02-22 | 8.11.1 | Build natural language command parser | Complete |
+| 2026-02-22 | 8.12.1 | Build command executor | Complete |
+| 2026-02-22 | 8.13.1 | Implement emoji reaction approvals | Complete |
 
 ---
 
