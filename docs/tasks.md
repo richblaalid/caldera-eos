@@ -468,7 +468,7 @@ All 48 tasks completed. See `docs/archive/v1.0/` for original task definitions.
   - **Depends on:** 9.3.1
   - **Acceptance:** Connector pulls HubSpot deals/contacts and writes to `ingested_data`
 
-- [ ] **9.3.3** Add HubSpot to data ingestion cron
+- [x] **9.3.3** Add HubSpot to data ingestion cron
   - Extend data ingestion cron to run HubSpot connector (30-min polling, separate from Gmail/Calendar 15-min)
   - Graceful skip if no HubSpot tokens stored
   - **Files:** `ember/src/app/api/agents/cron/data-ingestion/route.ts`
@@ -565,6 +565,7 @@ All 48 tasks completed. See `docs/archive/v1.0/` for original task definitions.
 | 2026-02-23 | 9.2.1 | Enrich Financial Strategist output | Complete |
 | 2026-02-23 | 9.3.1 | Install HubSpot SDK and create OAuth flow | Complete |
 | 2026-02-23 | 9.3.2 | Build HubSpot connector | Complete |
+| 2026-02-23 | 9.3.3 | Add HubSpot to data ingestion cron | Complete |
 
 ---
 
