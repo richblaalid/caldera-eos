@@ -30,21 +30,21 @@ All 48 tasks completed. See `docs/archive/v1.0/` for original task definitions.
 
 #### 8.1 Database & Scaffolding
 
-- [ ] **8.1.1** Create agent system database migration
+- [x] **8.1.1** Create agent system database migration
   - Create `supabase/migrations/011_create_agent_tables.sql`
   - Tables: `agent_definitions`, `agent_outputs`, `agent_runs`, `ingested_data`, `briefings`, `partner_preferences`
   - RLS policies: `agent_outputs` org-scoped, `briefings` partner-scoped, `partner_preferences` partner-scoped
   - **Files:** `ember/supabase/migrations/011_create_agent_tables.sql`
   - **Acceptance:** Migration runs successfully, all 6 tables exist with RLS enabled
 
-- [ ] **8.1.2** Seed agent definitions and partner preferences
+- [x] **8.1.2** Seed agent definitions and partner preferences
   - Seed `agent_definitions` with EA persona (from PRD Section 7.1) and Financial Strategist persona (Section 7.2)
   - Seed `partner_preferences` for Rich (briefing_time: 07:00, timezone: America/New_York)
   - **Files:** `ember/supabase/migrations/011_create_agent_tables.sql` (seed data in same migration)
   - **Depends on:** 8.1.1
   - **Acceptance:** Two agent definitions and one partner preference row exist
 
-- [ ] **8.1.3** Create agent system directory structure and shared types
+- [x] **8.1.3** Create agent system directory structure and shared types
   - Create directories: `src/lib/agents/`, `src/lib/connectors/`, `src/app/api/agents/`
   - Create `src/types/agents.ts` with TypeScript types matching all 6 new tables
   - Create `src/lib/connectors/types.ts` with `DataConnector` interface
@@ -53,14 +53,14 @@ All 48 tasks completed. See `docs/archive/v1.0/` for original task definitions.
 
 #### 8.2 Gmail Connector
 
-- [ ] **8.2.1** Install googleapis and create Google OAuth2 client utility
+- [x] **8.2.1** Install googleapis and create Google OAuth2 client utility
   - `npm install googleapis`
   - Create `src/lib/connectors/google-auth.ts` — OAuth2 client factory using stored refresh tokens from `partner_preferences`
   - **Files:** `ember/src/lib/connectors/google-auth.ts`, `ember/package.json`
   - **Depends on:** 8.1.3
   - **Acceptance:** OAuth2 client initializes with refresh token from DB
 
-- [ ] **8.2.2** Build Gmail connector
+- [x] **8.2.2** Build Gmail connector
   - Create `src/lib/connectors/gmail-connector.ts`
   - Implements `DataConnector` interface
   - `history.list()` incremental sync with `historyId` tracking (stored in `partner_preferences`)
@@ -74,7 +74,7 @@ All 48 tasks completed. See `docs/archive/v1.0/` for original task definitions.
 
 #### 8.3 Calendar Connector
 
-- [ ] **8.3.1** Build Calendar connector
+- [x] **8.3.1** Build Calendar connector
   - Create `src/lib/connectors/calendar-connector.ts`
   - Implements `DataConnector` interface
   - `events.list()` polling for next 7 days
@@ -87,7 +87,7 @@ All 48 tasks completed. See `docs/archive/v1.0/` for original task definitions.
 
 #### 8.4 Google OAuth Flow
 
-- [ ] **8.4.1** Create Google OAuth consent and callback routes
+- [x] **8.4.1** Create Google OAuth consent and callback routes
   - Create `/api/agents/auth/google/route.ts` — initiates OAuth consent requesting `gmail.readonly` + `calendar.readonly` scopes
   - Create `/api/agents/auth/google/callback/route.ts` — exchanges code for tokens, stores refresh token in `partner_preferences`
   - Separate from existing Supabase Google OAuth (which only handles auth)
@@ -97,7 +97,7 @@ All 48 tasks completed. See `docs/archive/v1.0/` for original task definitions.
 
 #### 8.5 Data Ingestion Cron
 
-- [ ] **8.5.1** Create data ingestion cron route
+- [x] **8.5.1** Create data ingestion cron route
   - Create `/api/agents/cron/data-ingestion/route.ts`
   - `CRON_SECRET` verification
   - Runs Gmail + Calendar connectors for each partner with stored tokens
@@ -107,7 +107,7 @@ All 48 tasks completed. See `docs/archive/v1.0/` for original task definitions.
   - **Depends on:** 8.2.2, 8.3.1
   - **Acceptance:** Cron route callable, runs both connectors, logs results
 
-- [ ] **8.5.2** Register data ingestion cron in vercel.json
+- [x] **8.5.2** Register data ingestion cron in vercel.json
   - Add `"/api/agents/cron/data-ingestion"` with schedule `"*/15 * * * *"` (every 15 min)
   - **Files:** `ember/vercel.json`
   - **Depends on:** 8.5.1
@@ -417,7 +417,15 @@ All 48 tasks completed. See `docs/archive/v1.0/` for original task definitions.
 
 | Date | Task ID | Description | Status |
 |------|---------|-------------|--------|
-| | | | |
+| 2026-02-22 | 8.1.1 | Create agent system database migration | Complete |
+| 2026-02-22 | 8.1.2 | Seed agent definitions and partner preferences | Complete |
+| 2026-02-22 | 8.1.3 | Create directory structure and shared types | Complete |
+| 2026-02-22 | 8.2.1 | Install googleapis and create Google OAuth2 client | Complete |
+| 2026-02-22 | 8.2.2 | Build Gmail connector | Complete |
+| 2026-02-22 | 8.3.1 | Build Calendar connector | Complete |
+| 2026-02-22 | 8.4.1 | Create Google OAuth consent and callback routes | Complete |
+| 2026-02-22 | 8.5.1 | Create data ingestion cron route | Complete |
+| 2026-02-22 | 8.5.2 | Register data ingestion cron in vercel.json | Complete |
 
 ---
 

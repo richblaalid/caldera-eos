@@ -14,7 +14,7 @@ export const gmailConnector: DataConnector = {
   source: 'gmail',
 
   async pull(params: ConnectorPullParams): Promise<ConnectorResult> {
-    const { organizationId, config } = params
+    const { config } = params
     const refreshToken = config.google_refresh_token as string
     const lastHistoryId = config.google_history_id as string | undefined
 
