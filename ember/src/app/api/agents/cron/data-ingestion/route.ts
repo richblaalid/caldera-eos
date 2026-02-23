@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { gmailConnector } from '@/lib/connectors/gmail-connector'
 import { calendarConnector } from '@/lib/connectors/calendar-connector'
+import { hubspotConnector } from '@/lib/connectors/hubspot-connector'
 import type { ConnectorRecord } from '@/lib/connectors/types'
 
 export const dynamic = 'force-dynamic'
@@ -24,11 +25,10 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    // Get all partners with Google refresh tokens
+    // Get all partners with any connector tokens
     const { data: partners, error: fetchError } = await supabaseAdmin
       .from('partner_preferences')
       .select('partner_id, organization_id, google_refresh_token, google_history_id')
-      .not('google_refresh_token', 'is', null)
 
     if (fetchError) {
       console.error('Failed to fetch partner preferences:', fetchError)
@@ -36,15 +36,19 @@ export async function GET(request: NextRequest) {
     }
 
     if (!partners || partners.length === 0) {
-      return NextResponse.json({ message: 'No partners with Google tokens configured', ingested: 0 })
+      return NextResponse.json({ message: 'No partners configured', ingested: 0 })
     }
 
     const results = {
       partners_processed: 0,
       gmail_records: 0,
       calendar_records: 0,
+      hubspot_records: 0,
       errors: [] as string[],
     }
+
+    // Track which orgs have already run HubSpot (avoid duplicate runs per org)
+    const hubspotProcessedOrgs = new Set<string>()
 
     for (const partner of partners) {
       const config = {
@@ -52,53 +56,78 @@ export async function GET(request: NextRequest) {
         google_history_id: partner.google_history_id,
       }
 
-      // Run Gmail connector (graceful — failure doesn't block calendar)
+      // Run Gmail connector (graceful — failure doesn't block other connectors)
       let gmailRecords: ConnectorRecord[] = []
-      try {
-        const gmailResult = await gmailConnector.pull({
-          organizationId: partner.organization_id,
-          partnerId: partner.partner_id,
-          config,
-        })
+      if (partner.google_refresh_token) {
+        try {
+          const gmailResult = await gmailConnector.pull({
+            organizationId: partner.organization_id,
+            partnerId: partner.partner_id,
+            config,
+          })
 
-        gmailRecords = gmailResult.records
-        if (gmailResult.errors.length > 0) {
-          results.errors.push(...gmailResult.errors.map(e => `Gmail(${partner.partner_id}): ${e.message}`))
-        }
+          gmailRecords = gmailResult.records
+          if (gmailResult.errors.length > 0) {
+            results.errors.push(...gmailResult.errors.map(e => `Gmail(${partner.partner_id}): ${e.message}`))
+          }
 
-        // Update historyId if we got a new one
-        if (gmailResult.syncState?.google_history_id) {
-          await supabaseAdmin
-            .from('partner_preferences')
-            .update({ google_history_id: gmailResult.syncState.google_history_id as string })
-            .eq('partner_id', partner.partner_id)
-            .eq('organization_id', partner.organization_id)
+          // Update historyId if we got a new one
+          if (gmailResult.syncState?.google_history_id) {
+            await supabaseAdmin
+              .from('partner_preferences')
+              .update({ google_history_id: gmailResult.syncState.google_history_id as string })
+              .eq('partner_id', partner.partner_id)
+              .eq('organization_id', partner.organization_id)
+          }
+        } catch (gmailError: unknown) {
+          const err = gmailError as { message?: string }
+          results.errors.push(`Gmail(${partner.partner_id}): ${err.message || 'Connector crashed'}`)
         }
-      } catch (gmailError: unknown) {
-        const err = gmailError as { message?: string }
-        results.errors.push(`Gmail(${partner.partner_id}): ${err.message || 'Connector crashed'}`)
       }
 
-      // Run Calendar connector (graceful — failure doesn't block gmail)
+      // Run Calendar connector
       let calendarRecords: ConnectorRecord[] = []
-      try {
-        const calendarResult = await calendarConnector.pull({
-          organizationId: partner.organization_id,
-          partnerId: partner.partner_id,
-          config,
-        })
+      if (partner.google_refresh_token) {
+        try {
+          const calendarResult = await calendarConnector.pull({
+            organizationId: partner.organization_id,
+            partnerId: partner.partner_id,
+            config,
+          })
 
-        calendarRecords = calendarResult.records
-        if (calendarResult.errors.length > 0) {
-          results.errors.push(...calendarResult.errors.map(e => `Calendar(${partner.partner_id}): ${e.message}`))
+          calendarRecords = calendarResult.records
+          if (calendarResult.errors.length > 0) {
+            results.errors.push(...calendarResult.errors.map(e => `Calendar(${partner.partner_id}): ${e.message}`))
+          }
+        } catch (calError: unknown) {
+          const err = calError as { message?: string }
+          results.errors.push(`Calendar(${partner.partner_id}): ${err.message || 'Connector crashed'}`)
         }
-      } catch (calError: unknown) {
-        const err = calError as { message?: string }
-        results.errors.push(`Calendar(${partner.partner_id}): ${err.message || 'Connector crashed'}`)
+      }
+
+      // Run HubSpot connector (once per org — uses env-based token, not per-partner)
+      let hubspotRecords: ConnectorRecord[] = []
+      if (process.env.HUBSPOT_ACCESS_TOKEN && !hubspotProcessedOrgs.has(partner.organization_id)) {
+        hubspotProcessedOrgs.add(partner.organization_id)
+        try {
+          const hubspotResult = await hubspotConnector.pull({
+            organizationId: partner.organization_id,
+            partnerId: partner.partner_id,
+            config: {},
+          })
+
+          hubspotRecords = hubspotResult.records
+          if (hubspotResult.errors.length > 0) {
+            results.errors.push(...hubspotResult.errors.map(e => `HubSpot(${partner.organization_id}): ${e.message}`))
+          }
+        } catch (hsError: unknown) {
+          const err = hsError as { message?: string }
+          results.errors.push(`HubSpot(${partner.organization_id}): ${err.message || 'Connector crashed'}`)
+        }
       }
 
       // Persist all records to ingested_data
-      const allRecords = [...gmailRecords, ...calendarRecords]
+      const allRecords = [...gmailRecords, ...calendarRecords, ...hubspotRecords]
       if (allRecords.length > 0) {
         const insertError = await persistRecords(allRecords, partner.organization_id)
         if (insertError) {
@@ -108,6 +137,7 @@ export async function GET(request: NextRequest) {
 
       results.gmail_records += gmailRecords.length
       results.calendar_records += calendarRecords.length
+      results.hubspot_records += hubspotRecords.length
       results.partners_processed++
     }
 
