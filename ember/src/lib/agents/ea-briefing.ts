@@ -42,12 +42,13 @@ export async function generateBriefing(
   const today = new Date().toISOString().split('T')[0]
 
   // Gather all data sources in parallel
-  const [calendarEvents, recentEmails, eosData, agentOutputs, financialInsights, ownerNames] = await Promise.all([
+  const [calendarEvents, recentEmails, eosData, agentOutputs, financialInsights, pipelineData, ownerNames] = await Promise.all([
     getCalendarEvents(organizationId),
     getRecentEmails(organizationId),
     getEOSData(organizationId),
     getPendingAgentOutputs(organizationId),
     getFinancialInsights(organizationId),
+    getPipelineData(organizationId),
     getOwnerNames(organizationId),
   ])
 
@@ -58,6 +59,7 @@ export async function generateBriefing(
     eosData,
     agentOutputs,
     financialInsights,
+    pipelineData,
     ownerNames,
     today,
   })
@@ -407,6 +409,33 @@ async function getFinancialInsights(organizationId: string) {
   return data[0].content as Record<string, unknown>
 }
 
+interface PipelineData {
+  deals: Array<Record<string, unknown>>
+  totalPipelineValue: number
+  closingSoon: Array<Record<string, unknown>>
+  overdueDeals: Array<Record<string, unknown>>
+}
+
+async function getPipelineData(organizationId: string): Promise<PipelineData | null> {
+  const { data } = await supabaseAdmin
+    .from('ingested_data')
+    .select('payload')
+    .eq('organization_id', organizationId)
+    .eq('source', 'hubspot')
+    .eq('data_type', 'deal')
+    .order('source_timestamp', { ascending: false })
+    .limit(100)
+
+  if (!data || data.length === 0) return null
+
+  const deals = data.map(d => d.payload as Record<string, unknown>)
+  const totalPipelineValue = deals.reduce((sum, d) => sum + ((d.amount as number) || 0), 0)
+  const closingSoon = deals.filter(d => d.is_closing_soon)
+  const overdueDeals = deals.filter(d => d.is_overdue)
+
+  return { deals, totalPipelineValue, closingSoon, overdueDeals }
+}
+
 // ============================================
 // Prompt builder
 // ============================================
@@ -417,6 +446,7 @@ function buildBriefingPrompt(data: {
   eosData: EOSData
   agentOutputs: Array<Record<string, unknown>>
   financialInsights: Record<string, unknown> | null
+  pipelineData: PipelineData | null
   ownerNames: Map<string, string>
   today: string
 }): string {
@@ -555,6 +585,41 @@ function buildBriefingPrompt(data: {
     sections.push(`## Financial Insights (Financial Strategist)\n${fiSections.join('\n')}`)
   }
 
+  // Sales Pipeline (HubSpot)
+  if (data.pipelineData) {
+    const pd = data.pipelineData
+    const pipelineSections: string[] = []
+
+    pipelineSections.push(`Total Pipeline: $${pd.totalPipelineValue.toLocaleString()} across ${pd.deals.length} deals`)
+
+    if (pd.closingSoon.length > 0) {
+      const closing = pd.closingSoon.map(d =>
+        `- ${d.deal_name}: $${((d.amount as number) || 0).toLocaleString()} (closes ${d.close_date}, stage: ${d.stage})`
+      ).join('\n')
+      pipelineSections.push(`Closing This Week (${pd.closingSoon.length}):\n${closing}`)
+    }
+
+    if (pd.overdueDeals.length > 0) {
+      const overdue = pd.overdueDeals.map(d =>
+        `- ${d.deal_name}: $${((d.amount as number) || 0).toLocaleString()} (was due ${d.close_date}, ${Math.abs(d.days_until_close as number)} days overdue)`
+      ).join('\n')
+      pipelineSections.push(`Overdue Close Dates (${pd.overdueDeals.length}):\n${overdue}`)
+    }
+
+    // Top deals by value
+    const topDeals = [...pd.deals]
+      .sort((a, b) => ((b.amount as number) || 0) - ((a.amount as number) || 0))
+      .slice(0, 5)
+      .map(d => {
+        const daysLeft = d.days_until_close as number | null
+        const dueInfo = daysLeft !== null ? (daysLeft < 0 ? `${Math.abs(daysLeft)}d overdue` : `${daysLeft}d left`) : 'no close date'
+        return `- ${d.deal_name}: $${((d.amount as number) || 0).toLocaleString()} — ${d.stage} (${dueInfo})`
+      }).join('\n')
+    pipelineSections.push(`Top Deals by Value:\n${topDeals}`)
+
+    sections.push(`## Sales Pipeline (HubSpot)\n${pipelineSections.join('\n')}`)
+  }
+
   // Agent outputs
   if (data.agentOutputs.length > 0) {
     const outputs = data.agentOutputs
@@ -568,8 +633,8 @@ function buildBriefingPrompt(data: {
 ${sections.join('\n\n')}
 
 Instructions:
-- Tier 1 (Urgent, 0-3 items): Items needing action TODAY. Include: overdue EOS items, critical emails needing response, meetings with external attendees requiring prep, financial threshold breaches (AR > 45 days, margin < 30%, concentration > 60%), Rocks that are off-track with milestones overdue.
-- Tier 2 (Business, 3-7 items): Calendar overview (today and upcoming), EOS status updates (Rocks progress, Scorecard trends, To-do completion rate), financial highlights, agent insights, important-but-not-urgent context.
+- Tier 1 (Urgent, 0-3 items): Items needing action TODAY. Include: overdue EOS items, critical emails needing response, meetings with external attendees requiring prep, financial threshold breaches (AR > 45 days, margin < 30%, concentration > 60%), Rocks that are off-track with milestones overdue, deals closing today or with overdue close dates.
+- Tier 2 (Business, 3-7 items): Calendar overview (today and upcoming), EOS status updates (Rocks progress, Scorecard trends, To-do completion rate), financial highlights, pipeline summary (total value, deals closing soon, top deals), agent insights, important-but-not-urgent context.
 - Tier 3 (FYI, 0-3 items): Lower-priority items, upcoming deadlines that aren't urgent yet, informational context.
 - Include specific names, dollar amounts, dates, percentages, and trends (↑↓→). Never say "some items" or "several issues" — be exact.
 - For Rocks, mention milestone progress and days until due.

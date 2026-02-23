@@ -475,7 +475,7 @@ All 48 tasks completed. See `docs/archive/v1.0/` for original task definitions.
   - **Depends on:** 9.3.2
   - **Acceptance:** HubSpot data flows into `ingested_data` on cron schedule
 
-- [ ] **9.3.4** Add pipeline data to EA briefing
+- [x] **9.3.4** Add pipeline data to EA briefing
   - Query HubSpot deals from `ingested_data` in briefing data assembly
   - Add pipeline summary to Tier 2 (total pipeline value, deals closing this week, stalled deals)
   - Add urgent deal alerts to Tier 1 (deals closing today, overdue follow-ups)
@@ -566,6 +566,7 @@ All 48 tasks completed. See `docs/archive/v1.0/` for original task definitions.
 | 2026-02-23 | 9.3.1 | Install HubSpot SDK and create OAuth flow | Complete |
 | 2026-02-23 | 9.3.2 | Build HubSpot connector | Complete |
 | 2026-02-23 | 9.3.3 | Add HubSpot to data ingestion cron | Complete |
+| 2026-02-23 | 9.3.4 | Add pipeline data to EA briefing | Complete |
 
 ---
 
