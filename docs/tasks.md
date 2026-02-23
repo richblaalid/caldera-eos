@@ -417,7 +417,7 @@ All 48 tasks completed. See `docs/archive/v1.0/` for original task definitions.
   - **Files:** `ember/src/lib/agents/ea-briefing.ts`
   - **Acceptance:** Briefing context includes richer EOS data across multiple dimensions
 
-- [ ] **9.1.2** Improve briefing prompt engineering
+- [x] **9.1.2** Improve briefing prompt engineering
   - Add Caldera-specific context to the EA prompt (company profile, partner roles, strategic priorities)
   - Make briefing items actionable ("Reply 'approve 3' to approve" → specific suggested actions)
   - Reduce generic filler, increase specificity (dollar amounts, client names, dates)
@@ -560,6 +560,7 @@ All 48 tasks completed. See `docs/archive/v1.0/` for original task definitions.
 | 2026-02-22 | 8.20.1 | Add error handling and system alerts | Complete |
 | 2026-02-22 | 8.21.1 | Prepare demo script — manual partner demo pending | Complete |
 | 2026-02-23 | 9.1.1 | Enhance EA briefing data assembly | Complete |
+| 2026-02-23 | 9.1.2 | Improve briefing prompt engineering | Complete |
 
 ---
 
