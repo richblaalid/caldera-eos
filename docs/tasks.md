@@ -400,6 +400,116 @@ All 48 tasks completed. See `docs/archive/v1.0/` for original task definitions.
 
 ---
 
+## Phase 9: Agent System — Week 2 (Briefing Excellence + HubSpot)
+
+**Plan:** `docs/plans/phase2-impactful-agents.md`
+**Goal:** Transform the morning briefing from a demo into a tool Rich relies on daily. Get HubSpot pipeline data flowing. Build a settings page for connector management.
+
+### Week 2, Days 1-2: Briefing Excellence
+
+#### 9.1 Improve EA Briefing Quality
+
+- [x] **9.1.1** Enhance EA briefing data assembly
+  - Expand calendar lookahead from 1 day to 7 days (with today prioritized)
+  - Add Scorecard trend data (last 4 weeks, highlight consecutive misses)
+  - Add Rock milestone progress (% complete, days until due)
+  - Include To-do completion rate (last 2 weeks)
+  - **Files:** `ember/src/lib/agents/ea-briefing.ts`
+  - **Acceptance:** Briefing context includes richer EOS data across multiple dimensions
+
+- [ ] **9.1.2** Improve briefing prompt engineering
+  - Add Caldera-specific context to the EA prompt (company profile, partner roles, strategic priorities)
+  - Make briefing items actionable ("Reply 'approve 3' to approve" → specific suggested actions)
+  - Reduce generic filler, increase specificity (dollar amounts, client names, dates)
+  - Add partner role awareness (Rich sees cross-functional view, financial emphasis)
+  - **Files:** `ember/src/lib/agents/prompt-manager.ts`, `ember/src/lib/agents/ea-briefing.ts`
+  - **Depends on:** 9.1.1
+  - **Acceptance:** Briefing items are specific, actionable, and Caldera-contextualized
+
+- [ ] **9.1.3** Polish Slack Block Kit formatting
+  - Improve scannability: shorter text per item, clearer hierarchy
+  - Add deep links to Ember dashboard for items that need detailed review
+  - Add time-of-day greeting ("Good morning, Rich")
+  - Add brief "What Ember did overnight" summary (data pulled, analyses run)
+  - Compact agent work queue with inline approve/reject hints
+  - **Files:** `ember/src/lib/agents/slack-briefing.ts`
+  - **Depends on:** 9.1.2
+  - **Acceptance:** Briefing is scannable in <60 seconds, actions are obvious
+
+#### 9.2 Financial Strategist Enrichment
+
+- [ ] **9.2.1** Enrich Financial Strategist output for briefing integration
+  - Include specific dollar amounts in analysis summary (not just "margins are concerning")
+  - Add week-over-week trend indicators (↑↓→) for key financial metrics
+  - Generate a one-line "Financial headline" for Tier 1 or Tier 2
+  - Improve Issue creation with richer context (data points, recommended next step)
+  - **Files:** `ember/src/lib/agents/financial-strategist.ts`, `ember/src/lib/agents/ea-briefing.ts`
+  - **Acceptance:** Financial insights in briefing include concrete numbers and trend direction
+
+### Week 2, Days 3-5: HubSpot Integration
+
+#### 9.3 HubSpot Connector
+
+- [ ] **9.3.1** Install HubSpot SDK and create OAuth flow
+  - `npm install @hubspot/api-client`
+  - Create `/api/agents/auth/hubspot/route.ts` — OAuth consent flow requesting `crm.objects.deals.read`, `crm.objects.contacts.read`, `crm.objects.companies.read` scopes
+  - Create `/api/agents/auth/hubspot/callback/route.ts` — Token exchange, store refresh token in `partner_preferences`
+  - Add `hubspot_refresh_token` and `hubspot_portal_id` columns to `partner_preferences` (migration 012)
+  - **Files:** `ember/src/app/api/agents/auth/hubspot/route.ts`, `ember/src/app/api/agents/auth/hubspot/callback/route.ts`, `ember/supabase/migrations/012_add_hubspot_columns.sql`
+  - **Acceptance:** OAuth flow completes, tokens stored in DB
+
+- [ ] **9.3.2** Build HubSpot connector
+  - Create `src/lib/connectors/hubspot-connector.ts`
+  - Implements `DataConnector` interface
+  - Pulls: active deals (with stage, amount, close date, owner), companies, contacts
+  - Pipeline stage mapping and deal velocity calculation
+  - Normalize to `ingested_data` format with entity extraction
+  - **Files:** `ember/src/lib/connectors/hubspot-connector.ts`
+  - **Depends on:** 9.3.1
+  - **Acceptance:** Connector pulls HubSpot deals/contacts and writes to `ingested_data`
+
+- [ ] **9.3.3** Add HubSpot to data ingestion cron
+  - Extend data ingestion cron to run HubSpot connector (30-min polling, separate from Gmail/Calendar 15-min)
+  - Graceful skip if no HubSpot tokens stored
+  - **Files:** `ember/src/app/api/agents/cron/data-ingestion/route.ts`
+  - **Depends on:** 9.3.2
+  - **Acceptance:** HubSpot data flows into `ingested_data` on cron schedule
+
+- [ ] **9.3.4** Add pipeline data to EA briefing
+  - Query HubSpot deals from `ingested_data` in briefing data assembly
+  - Add pipeline summary to Tier 2 (total pipeline value, deals closing this week, stalled deals)
+  - Add urgent deal alerts to Tier 1 (deals closing today, overdue follow-ups)
+  - **Files:** `ember/src/lib/agents/ea-briefing.ts`
+  - **Depends on:** 9.3.3
+  - **Acceptance:** Morning briefing includes HubSpot pipeline summary
+
+#### 9.4 Settings & Integrations Page
+
+- [ ] **9.4.1** Build integrations settings page
+  - Create `/dashboard/settings/integrations/page.tsx`
+  - Show connector status cards: Google (Gmail + Calendar), Slack, HubSpot, QuickBooks
+  - Each card shows: connected/disconnected, last sync time, connect/disconnect button
+  - Connect buttons link to respective OAuth flows
+  - **Files:** `ember/src/app/dashboard/settings/integrations/page.tsx`, `ember/src/components/dashboard/IntegrationCard.tsx`
+  - **Depends on:** 9.3.1
+  - **Acceptance:** Page renders connector status, OAuth flows launchable from UI
+
+- [ ] **9.4.2** Build API route for connector status
+  - Create `/api/agents/status/route.ts` — returns connector status for current user's org
+  - Checks: Google tokens present, Slack bot_token present, HubSpot tokens present, QB tokens present
+  - Returns last ingestion timestamps from `ingested_data`
+  - **Files:** `ember/src/app/api/agents/status/route.ts`
+  - **Depends on:** 9.4.1
+  - **Acceptance:** Status API returns accurate connector state
+
+**Week 2 Checkpoint:**
+- [ ] Rich rates morning briefing 7+/10 for usefulness
+- [ ] HubSpot connector pulls real deal/pipeline data
+- [ ] Pipeline summary appears in morning briefing
+- [ ] Settings page shows connector status and allows OAuth flows
+
+---
+
 ## Task Summary
 
 | Day | Section | Tasks | Focus |
@@ -449,6 +559,7 @@ All 48 tasks completed. See `docs/archive/v1.0/` for original task definitions.
 | 2026-02-22 | 8.19.1 | Seed realistic EOS data for demo | Complete |
 | 2026-02-22 | 8.20.1 | Add error handling and system alerts | Complete |
 | 2026-02-22 | 8.21.1 | Prepare demo script — manual partner demo pending | Complete |
+| 2026-02-23 | 9.1.1 | Enhance EA briefing data assembly | Complete |
 
 ---
 
