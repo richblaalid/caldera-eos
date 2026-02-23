@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { generateBriefing, saveBriefing } from '@/lib/agents/ea-briefing'
 import { deliverBriefing } from '@/lib/agents/slack-briefing'
+import { postSystemAlert } from '@/lib/connectors/slack-connector'
 
 export const dynamic = 'force-dynamic'
 export const maxDuration = 60
@@ -94,12 +95,41 @@ export async function GET(request: NextRequest) {
 
     console.log('Morning briefing complete:', results)
 
+    // Alert on errors
+    if (results.errors.length > 0) {
+      await postSystemAlert(
+        partners[0].organization_id,
+        'Morning Briefing Errors',
+        results.errors.map(e => `• ${e}`).join('\n'),
+        results.briefings_delivered === 0 ? 'error' : 'warning'
+      )
+    }
+
     return NextResponse.json({
       message: 'Morning briefing complete',
       ...results,
     })
   } catch (error) {
     console.error('Morning briefing cron error:', error)
+
+    // Try to alert on catastrophic failure
+    try {
+      const { data: fallbackOrg } = await supabaseAdmin
+        .from('partner_preferences')
+        .select('organization_id')
+        .limit(1)
+        .single()
+      if (fallbackOrg) {
+        const err = error as { message?: string }
+        await postSystemAlert(
+          fallbackOrg.organization_id,
+          'Morning Briefing Pipeline Failed',
+          `Catastrophic error: ${err.message || 'Unknown error'}`,
+          'error'
+        )
+      }
+    } catch { /* ignore alert failure */ }
+
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 }

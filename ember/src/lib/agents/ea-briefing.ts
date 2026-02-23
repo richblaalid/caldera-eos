@@ -42,11 +42,12 @@ export async function generateBriefing(
   const today = new Date().toISOString().split('T')[0]
 
   // Gather all data sources in parallel
-  const [calendarEvents, recentEmails, eosData, agentOutputs] = await Promise.all([
+  const [calendarEvents, recentEmails, eosData, agentOutputs, financialInsights] = await Promise.all([
     getCalendarEvents(organizationId),
     getRecentEmails(organizationId),
     getEOSData(organizationId),
     getPendingAgentOutputs(organizationId),
+    getFinancialInsights(organizationId),
   ])
 
   // Build the user prompt with all available data
@@ -55,6 +56,7 @@ export async function generateBriefing(
     recentEmails,
     eosData,
     agentOutputs,
+    financialInsights,
     today,
   })
 
@@ -246,6 +248,25 @@ async function getPendingAgentOutputs(organizationId: string) {
   }))
 }
 
+async function getFinancialInsights(organizationId: string) {
+  const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString()
+
+  // Get the most recent Financial Strategist analysis
+  const { data } = await supabaseAdmin
+    .from('agent_outputs')
+    .select('title, summary, content')
+    .eq('organization_id', organizationId)
+    .eq('agent_id', 'financial-strategist')
+    .eq('output_type', 'analysis')
+    .gte('created_at', oneDayAgo)
+    .order('created_at', { ascending: false })
+    .limit(1)
+
+  if (!data || data.length === 0) return null
+
+  return data[0].content as Record<string, unknown>
+}
+
 // ============================================
 // Prompt builder
 // ============================================
@@ -255,6 +276,7 @@ function buildBriefingPrompt(data: {
   recentEmails: Array<Record<string, unknown>>
   eosData: EOSData
   agentOutputs: Array<Record<string, unknown>>
+  financialInsights: Record<string, unknown> | null
   today: string
 }): string {
   const sections: string[] = []
@@ -303,6 +325,33 @@ function buildBriefingPrompt(data: {
     sections.push(`## Open Issues for IDS\n${issues}`)
   }
 
+  // Financial insights from Financial Strategist
+  if (data.financialInsights) {
+    const fi = data.financialInsights
+    const fiSections: string[] = []
+
+    if (fi.summary) fiSections.push(`Summary: ${fi.summary}`)
+
+    const arAlerts = fi.ar_aging_alerts as Array<{ client_name: string; days_outstanding: number; amount_due: number }> | undefined
+    if (arAlerts && arAlerts.length > 0) {
+      fiSections.push('AR Alerts:\n' + arAlerts.map(a =>
+        `- ${a.client_name}: $${a.amount_due.toLocaleString()} — ${a.days_outstanding} days outstanding`
+      ).join('\n'))
+    }
+
+    const concentration = fi.concentration_risk as { top_client_name: string; top_client_pct: number; is_above_threshold: boolean } | undefined
+    if (concentration?.is_above_threshold) {
+      fiSections.push(`Concentration Risk: ${concentration.top_client_name} at ${concentration.top_client_pct}% of revenue`)
+    }
+
+    const cashFlow = fi.cash_flow_assessment as { net_position: string; note: string } | undefined
+    if (cashFlow) {
+      fiSections.push(`Cash Flow: ${cashFlow.net_position} — ${cashFlow.note}`)
+    }
+
+    sections.push(`## Financial Insights (Financial Strategist)\n${fiSections.join('\n')}`)
+  }
+
   // Agent outputs
   if (data.agentOutputs.length > 0) {
     const outputs = data.agentOutputs
@@ -316,8 +365,9 @@ function buildBriefingPrompt(data: {
 ${sections.join('\n\n')}
 
 Instructions:
-- Tier 1 (Urgent): Items needing action TODAY. Include overdue EOS items, critical emails, meetings with client attendees requiring prep.
-- Tier 2 (Business): Calendar overview, EOS status updates, agent insights, important but not urgent emails.
+- Tier 1 (Urgent): Items needing action TODAY. Include overdue EOS items, critical emails, meetings with client attendees requiring prep, financial threshold breaches (AR > 45 days, margin < 30%, concentration > 60%).
+- Tier 2 (Business): Calendar overview, EOS status updates, financial highlights, agent insights, important but not urgent emails.
 - Tier 3 (Industry): Lower-priority items, industry context, informational items.
+- Financial insights from the Financial Strategist should be prominently featured — AR alerts and threshold breaches go in Tier 1, cash flow and margin analysis in Tier 2.
 - Be specific — include names, dates, and numbers. Don't be vague.`
 }
