@@ -450,7 +450,7 @@ All 48 tasks completed. See `docs/archive/v1.0/` for original task definitions.
 
 #### 9.3 HubSpot Connector
 
-- [ ] **9.3.1** Install HubSpot SDK and create OAuth flow
+- [x] **9.3.1** Install HubSpot SDK and create OAuth flow
   - `npm install @hubspot/api-client`
   - Create `/api/agents/auth/hubspot/route.ts` — OAuth consent flow requesting `crm.objects.deals.read`, `crm.objects.contacts.read`, `crm.objects.companies.read` scopes
   - Create `/api/agents/auth/hubspot/callback/route.ts` — Token exchange, store refresh token in `partner_preferences`
@@ -563,6 +563,7 @@ All 48 tasks completed. See `docs/archive/v1.0/` for original task definitions.
 | 2026-02-23 | 9.1.2 | Improve briefing prompt engineering | Complete |
 | 2026-02-23 | 9.1.3 | Polish Slack Block Kit formatting | Complete |
 | 2026-02-23 | 9.2.1 | Enrich Financial Strategist output | Complete |
+| 2026-02-23 | 9.3.1 | Install HubSpot SDK and create OAuth flow | Complete |
 
 ---
 
