@@ -1,416 +1,415 @@
 # Ember: Task List
 
 ## Overview
-Executable task list for building Ember MVP. Each task includes acceptance criteria and dependencies.
+Executable task list for Ember. Phase 1-7 covers the original MVP (complete). Phase 8+ covers the Agent System (PRD v2.0).
 
 ---
 
-## Phase 1: Foundation (Days 1-2)
+## Phases 1-7: EOS Platform MVP (Complete)
 
-**Goal:** Core infrastructure and basic UI
+All 48 tasks completed. See `docs/archive/v1.0/` for original task definitions.
 
-### Day 1: Setup & Auth
-
-- [x] **1.1.1** Create Next.js project with TypeScript
-  - Create Next.js 14 App Router project with TypeScript, Tailwind, ESLint
-  - Configure project structure per ADR-005
-  - **Acceptance:** `npm run dev` starts successfully
-
-- [x] **1.1.2** Configure Supabase project and auth
-  - Create Supabase project (or use existing)
-  - Enable Google OAuth provider
-  - Configure redirect URLs
-  - **Acceptance:** Supabase dashboard shows project configured
-
-- [x] **1.1.3** Implement Google OAuth flow and protected routes
-  - Install @supabase/ssr package
-  - Create Supabase server/client utilities
-  - Build login page with Google OAuth button
-  - Add middleware for route protection
-  - **Acceptance:** Users can log in with Google, protected routes redirect to login
-
-- [x] **1.1.4** Basic profile storage and display
-  - Create profiles table trigger for new users
-  - Display user info in header after login
-  - **Acceptance:** Logged-in user sees their name/email
-
-- [x] **1.1.5** Configure Tailwind styling and design tokens
-  - Set up color palette (Caldera/Ember theme)
-  - Configure typography scale
-  - Add custom utility classes
-  - **Acceptance:** Design tokens documented in tailwind.config.ts
-
-- [x] **1.1.6** Initial Vercel deployment
-  - Connect repository to Vercel
-  - Configure environment variables
-  - Deploy to production
-  - **Acceptance:** App accessible at vercel.app URL
-
-**Day 1 Checkpoint:** Users can log in with Google, see authenticated state
-
-### Day 2: Database & Basic Layout
-
-- [x] **1.2.1** Run migrations for core database tables
-  - Create all tables from ADR-005 schema
-  - Enable pgvector extension
-  - Set up Row Level Security policies
-  - **Acceptance:** All tables exist with RLS enabled
-
-- [x] **1.2.2** Configure Supabase client for frontend and API
-  - Create typed Supabase client with database types
-  - Generate TypeScript types from schema
-  - Set up client for Server Components and API routes
-  - **Acceptance:** Type-safe database queries work
-
-- [x] **1.2.3** Build dashboard layout with navigation and sidebar
-  - Create app shell with header, sidebar, main content
-  - Add navigation links for all EOS sections
-  - Mobile-responsive layout
-  - **Acceptance:** Dashboard shell renders with navigation
-
-- [x] **1.2.4** Create Button, Card, Input, Modal component primitives
-  - Build reusable UI components
-  - Apply Ember design tokens
-  - Add loading and disabled states
-  - **Acceptance:** Components documented and reusable
-
-**Phase 1 Checkpoint:** Authenticated dashboard shell with navigation deployed
+| Phase | Description | Tasks | Status |
+|-------|-------------|-------|--------|
+| Phase 1 | Foundation (Auth, DB, Layout) | 10 | Complete |
+| Phase 2 | V/TO + Rocks | 9 | Complete |
+| Phase 3 | Scorecard + Issues | 8 | Complete |
+| Phase 4 | To-dos + L10 Prep | 9 | Complete |
+| Phase 5 | Transcript Ingestion | 9 | Complete |
+| Phase 6 | EOS Coaching Layer | 7 | Complete |
+| Phase 7 | Polish + Launch | 6 | Complete (except 7.2.2-7.2.5 deferred) |
 
 ---
 
-## Phase 2: V/TO + Rocks (Days 3-4)
+## Phase 8: Agent System — Week 1
 
-**Goal:** Track the core EOS components
+**Plan:** `docs/plans/week1-agent-system.md`
+**Goal:** Ship EA + Financial Strategist agents with daily briefing → Slack interaction → approval workflow loop.
 
-### Day 3: V/TO Management
+### Day 1: Foundation + Data Ingestion
 
-- [x] **2.1.1** Finalize V/TO JSONB data structure
-  - Define complete V/TO schema with all sections
-  - Create TypeScript types
-  - **Acceptance:** VTO type matches EOS standard
+#### 8.1 Database & Scaffolding
 
-- [x] **2.1.2** Build V/TO API routes (CRUD)
-  - GET /api/eos/vto - retrieve current V/TO
-  - PUT /api/eos/vto - update V/TO
-  - Version history tracking
-  - **Acceptance:** API endpoints working with validation
+- [x] **8.1.1** Create agent system database migration
+  - Create `supabase/migrations/011_create_agent_tables.sql`
+  - Tables: `agent_definitions`, `agent_outputs`, `agent_runs`, `ingested_data`, `briefings`, `partner_preferences`
+  - RLS policies: `agent_outputs` org-scoped, `briefings` partner-scoped, `partner_preferences` partner-scoped
+  - **Files:** `ember/supabase/migrations/011_create_agent_tables.sql`
+  - **Acceptance:** Migration runs successfully, all 6 tables exist with RLS enabled
 
-- [x] **2.1.3** Create V/TO display page
-  - Read-only view of all V/TO sections
-  - Organized by EOS component
-  - **Acceptance:** Full V/TO visible on dashboard
+- [x] **8.1.2** Seed agent definitions and partner preferences
+  - Seed `agent_definitions` with EA persona (from PRD Section 7.1) and Financial Strategist persona (Section 7.2)
+  - Seed `partner_preferences` for Rich (briefing_time: 07:00, timezone: America/New_York)
+  - **Files:** `ember/supabase/migrations/011_create_agent_tables.sql` (seed data in same migration)
+  - **Depends on:** 8.1.1
+  - **Acceptance:** Two agent definitions and one partner preference row exist
 
-- [x] **2.1.4** Implement V/TO edit mode
-  - Inline editing for each section
-  - Auto-save with debounce
-  - Optimistic updates
-  - **Acceptance:** V/TO editable with auto-save
+- [x] **8.1.3** Create agent system directory structure and shared types
+  - Create directories: `src/lib/agents/`, `src/lib/connectors/`, `src/app/api/agents/`
+  - Create `src/types/agents.ts` with TypeScript types matching all 6 new tables
+  - Create `src/lib/connectors/types.ts` with `DataConnector` interface
+  - **Files:** `ember/src/types/agents.ts`, `ember/src/lib/connectors/types.ts`
+  - **Acceptance:** Types compile, directory structure exists
 
-**Day 3 Checkpoint:** V/TO visible and editable in dashboard
+#### 8.2 Gmail Connector
 
-### Day 4: Rocks Tracking
+- [x] **8.2.1** Install googleapis and create Google OAuth2 client utility
+  - `npm install googleapis`
+  - Create `src/lib/connectors/google-auth.ts` — OAuth2 client factory using stored refresh tokens from `partner_preferences`
+  - **Files:** `ember/src/lib/connectors/google-auth.ts`, `ember/package.json`
+  - **Depends on:** 8.1.3
+  - **Acceptance:** OAuth2 client initializes with refresh token from DB
 
-- [x] **2.2.1** Build Rocks API routes (CRUD, status updates)
-  - Full CRUD for Rocks
-  - Status transition validation
-  - **Acceptance:** Rocks API complete
+- [x] **8.2.2** Build Gmail connector
+  - Create `src/lib/connectors/gmail-connector.ts`
+  - Implements `DataConnector` interface
+  - `history.list()` incremental sync with `historyId` tracking (stored in `partner_preferences`)
+  - Full sync fallback when historyId expires (404)
+  - Email classification via Haiku: client/prospect/vendor/internal/newsletter
+  - Entity extraction: people, companies, action items
+  - Writes normalized records to `ingested_data` table
+  - **Files:** `ember/src/lib/connectors/gmail-connector.ts`
+  - **Depends on:** 8.2.1
+  - **Acceptance:** Connector pulls emails and writes classified records to `ingested_data`
 
-- [x] **2.2.2** Create Rocks list view
-  - Current quarter Rocks with status badges
-  - Filter by owner, status
-  - **Acceptance:** Rocks list renders with filtering
+#### 8.3 Calendar Connector
 
-- [x] **2.2.3** Build Rock detail view
-  - Milestones, notes, history
-  - Progress updates
-  - **Acceptance:** Rock details fully visible
+- [x] **8.3.1** Build Calendar connector
+  - Create `src/lib/connectors/calendar-connector.ts`
+  - Implements `DataConnector` interface
+  - `events.list()` polling for next 7 days
+  - Attendee matching against known contacts
+  - Event type classification: client_meeting/internal/l10/1on1
+  - Writes to `ingested_data` table
+  - **Files:** `ember/src/lib/connectors/calendar-connector.ts`
+  - **Depends on:** 8.2.1 (shared Google auth)
+  - **Acceptance:** Connector pulls calendar events and writes classified records to `ingested_data`
 
-- [x] **2.2.4** Implement status workflow
-  - On-track, Off-track, Complete states
-  - Visual status indicators
-  - **Acceptance:** Status changes work with UI feedback
+#### 8.4 Google OAuth Flow
 
-- [x] **2.2.5** Add owner assignment
-  - Link Rocks to partners
-  - Owner dropdown in forms
-  - **Acceptance:** Rocks assigned to owners
+- [x] **8.4.1** Create Google OAuth consent and callback routes
+  - Create `/api/agents/auth/google/route.ts` — initiates OAuth consent requesting `gmail.readonly` + `calendar.readonly` scopes
+  - Create `/api/agents/auth/google/callback/route.ts` — exchanges code for tokens, stores refresh token in `partner_preferences`
+  - Separate from existing Supabase Google OAuth (which only handles auth)
+  - **Files:** `ember/src/app/api/agents/auth/google/route.ts`, `ember/src/app/api/agents/auth/google/callback/route.ts`
+  - **Depends on:** 8.1.1, 8.2.1
+  - **Acceptance:** OAuth flow completes, refresh token stored in DB
 
-**Phase 2 Checkpoint:** V/TO and Quarterly Rocks tracked with status and owners
+#### 8.5 Data Ingestion Cron
 
----
+- [x] **8.5.1** Create data ingestion cron route
+  - Create `/api/agents/cron/data-ingestion/route.ts`
+  - `CRON_SECRET` verification
+  - Runs Gmail + Calendar connectors for each partner with stored tokens
+  - Skips partners without Google tokens (graceful no-op)
+  - Writes results to `ingested_data`
+  - **Files:** `ember/src/app/api/agents/cron/data-ingestion/route.ts`
+  - **Depends on:** 8.2.2, 8.3.1
+  - **Acceptance:** Cron route callable, runs both connectors, logs results
 
-## Phase 3: Scorecard + Issues (Days 5-6)
+- [x] **8.5.2** Register data ingestion cron in vercel.json
+  - Add `"/api/agents/cron/data-ingestion"` with schedule `"*/15 * * * *"` (every 15 min)
+  - **Files:** `ember/vercel.json`
+  - **Depends on:** 8.5.1
+  - **Acceptance:** `vercel.json` has 3 cron entries (2 existing + 1 new)
 
-**Goal:** Weekly metrics and issue management
-
-### Day 5: Scorecard
-
-- [x] **3.1.1** Build Metrics API (CRUD for metrics and entries)
-  - Create/edit metrics with targets
-  - Weekly entry submission
-  - **Acceptance:** Metrics API complete
-
-- [x] **3.1.2** Create Scorecard weekly grid view
-  - Weeks as columns, metrics as rows
-  - Show targets and actuals
-  - **Acceptance:** Scorecard grid renders
-
-- [x] **3.1.3** Implement data entry interface
-  - Quick entry for weekly values
-  - Batch entry mode
-  - **Acceptance:** Data entry works smoothly
-
-- [x] **3.1.4** Add target indicators
-  - Green/yellow/red visual status
-  - Trend arrows
-  - **Acceptance:** Visual status clear
-
-**Day 5 Checkpoint:** Scorecard tracking with weekly data entry
-
-### Day 6: Issues Management
-
-- [x] **3.2.1** Build Issues API (CRUD, prioritization)
-  - Full CRUD for Issues
-  - Priority ordering
-  - **Acceptance:** Issues API complete
-
-- [x] **3.2.2** Create Issues list view
-  - Sortable, filterable list
-  - Priority indicators
-  - **Acceptance:** Issues list with sorting
-
-- [x] **3.2.3** Implement IDS workflow
-  - Identify, Discuss, Solve states
-  - State transition UI
-  - **Acceptance:** IDS workflow functional
-
-- [x] **3.2.4** Build Issue detail view
-  - Full view with discussion notes
-  - Resolution tracking
-  - **Acceptance:** Issue details complete
-
-**Phase 3 Checkpoint:** Issues tracked with IDS workflow, Scorecard functional
+**Day 1 Checkpoint:** Gmail and Calendar connectors pull data into `ingested_data`. Agent tables exist and are seeded. Google OAuth flow works.
 
 ---
 
-## Phase 4: To-dos + L10 Prep (Days 7-8)
+### Day 2: Morning Briefing V1
 
-**Goal:** Task tracking and meeting preparation
+#### 8.6 Agent Runtime
 
-### Day 7: To-dos
+- [x] **8.6.1** Create agent runtime core
+  - Create `src/lib/agents/agent-runtime.ts`
+  - `invokeAgent(invocation)` — loads agent definition from DB, assembles context, calls Claude, processes output
+  - Context assembly: queries `ingested_data` + EOS tables based on agent's configured data sources
+  - Output processing: writes to `agent_outputs`, logs to `agent_runs`
+  - Model selection based on task type (Sonnet for synthesis, Haiku for parsing)
+  - **Files:** `ember/src/lib/agents/agent-runtime.ts`
+  - **Depends on:** 8.1.1, 8.1.3
+  - **Acceptance:** Runtime can invoke an agent and produce structured output
 
-- [x] **4.1.1** Build To-dos API (CRUD, completion)
-  - Full CRUD for To-dos
-  - Completion toggle
-  - **Acceptance:** To-dos API complete
+- [x] **8.6.2** Create prompt manager
+  - Create `src/lib/agents/prompt-manager.ts`
+  - `buildSystemPrompt(agentDef, context)` — assembles persona + shared strategic directive + domain data + task
+  - Shared strategic directive as constant (from PRD Section 6.2)
+  - Context injection: EOS data summaries, recent ingested data, partner profile
+  - **Files:** `ember/src/lib/agents/prompt-manager.ts`
+  - **Depends on:** 8.6.1
+  - **Acceptance:** System prompts generate correctly with injected context
 
-- [x] **4.1.2** Create To-dos list view
-  - By owner, by due date views
-  - Completion status
-  - **Acceptance:** To-dos list renders
+#### 8.7 EA Briefing Logic
 
-- [x] **4.1.3** Implement quick add interface
-  - Fast to-do creation
-  - Inline add
-  - **Acceptance:** Quick add works
+- [x] **8.7.1** Build EA briefing generator
+  - Create `src/lib/agents/ea-briefing.ts`
+  - `generateBriefing(partnerId)` — orchestrates full briefing generation
+  - Queries: today's calendar events, recent emails (24h from `ingested_data`), overdue/upcoming EOS items (Rocks, Todos, Scorecard), agent outputs from overnight runs
+  - Calls Claude Sonnet with Zod-validated structured output
+  - Returns: `{ tier1_urgent, tier2_business, tier3_industry, agent_work_queue }`
+  - **Files:** `ember/src/lib/agents/ea-briefing.ts`
+  - **Depends on:** 8.6.1, 8.6.2
+  - **Acceptance:** Generates three-tier briefing from available data
 
-- [x] **4.1.4** Add completion tracking
-  - Check off items
-  - Rollover detection for overdue
-  - **Acceptance:** Completion tracking works
+#### 8.8 Slack Briefing Delivery
 
-- [x] **4.1.5** Link to-dos to meetings
-  - Associate to-dos with L10 outcomes
-  - Meeting context visible
-  - **Acceptance:** Meeting links work
+- [x] **8.8.1** Install @slack/web-api and create Slack connector
+  - `npm install @slack/web-api`
+  - Create `src/lib/connectors/slack-connector.ts` — WebClient wrapper
+  - Refactor existing `src/lib/slack.ts` to import from connector (thin re-export, no breaking changes)
+  - **Files:** `ember/src/lib/connectors/slack-connector.ts`, `ember/src/lib/slack.ts`, `ember/package.json`
+  - **Depends on:** 8.1.3
+  - **Acceptance:** WebClient works, existing Slack functionality unbroken
 
-**Day 7 Checkpoint:** To-do tracking with completion
+- [x] **8.8.2** Build Slack Block Kit briefing formatter
+  - Create `src/lib/agents/slack-briefing.ts`
+  - `formatBriefingBlocks(briefing)` — converts three-tier briefing to Slack Block Kit JSON
+  - Tier 1 items: red emoji, bold text, numbered for quick reference
+  - Tier 2 items: categorized by type (calendar, EOS, financial)
+  - Tier 3 items: collapsed/minimal
+  - Agent work queue: numbered items with approve/reject hint
+  - **Files:** `ember/src/lib/agents/slack-briefing.ts`
+  - **Depends on:** 8.7.1
+  - **Acceptance:** Block Kit output renders correctly in Slack
 
-### Day 8: L10 Meeting Prep
+- [x] **8.8.3** Build briefing delivery function
+  - Add `deliverBriefing(partnerId, briefing)` to `slack-briefing.ts`
+  - Posts to partner's Slack DM channel (looks up from `profiles.slack_user_id`)
+  - Stores `slack_message_ts` and `slack_channel_id` in `briefings` table for threading replies later
+  - **Files:** `ember/src/lib/agents/slack-briefing.ts`
+  - **Depends on:** 8.8.1, 8.8.2
+  - **Acceptance:** Briefing posts to Rich's Slack DM, message_ts stored in DB
 
-- [x] **4.2.1** Create meeting data model
-  - Store meeting metadata
-  - Link to prep content
-  - **Acceptance:** Meeting table created
+#### 8.9 Morning Briefing Cron
 
-- [x] **4.2.2** Build AI prep generation
-  - AI generates prep based on current EOS data
-  - Personalized per partner
-  - **Acceptance:** Prep generation works
+- [x] **8.9.1** Create morning briefing cron route
+  - Create `/api/agents/cron/morning-briefing/route.ts`
+  - `CRON_SECRET` verification
+  - For each partner with preferences: run data ingestion → generate briefing → deliver via Slack
+  - Log to `agent_runs`
+  - **Files:** `ember/src/app/api/agents/cron/morning-briefing/route.ts`
+  - **Depends on:** 8.7.1, 8.8.3
+  - **Acceptance:** Cron route generates and delivers briefing
 
-- [x] **4.2.3** Create prep display page
-  - Meeting prep page with all sections
-  - Per-partner view
-  - **Acceptance:** Prep page renders
+- [x] **8.9.2** Register morning briefing cron in vercel.json
+  - Add `"/api/agents/cron/morning-briefing"` with schedule `"30 11 * * 1-5"` (6:30 AM ET weekdays)
+  - **Files:** `ember/vercel.json`
+  - **Depends on:** 8.9.1
+  - **Acceptance:** `vercel.json` has 4 cron entries
 
-- [x] **4.2.4** Set up scheduled job
-  - Generate prep 2 days before L10
-  - Vercel Cron job
-  - **Acceptance:** Scheduled generation works
-
-**Phase 4 Checkpoint:** Auto-generated L10 prep available before meetings
-
----
-
-## Phase 5: Transcript Ingestion (Days 9-10)
-
-**Goal:** Process meeting transcripts for context and insights
-
-### Day 9: Transcript Upload
-
-- [x] **5.1.1** Build file upload interface
-  - Accept .txt, .md transcript files
-  - Drag-and-drop support
-  - **Acceptance:** File upload works
-
-- [x] **5.1.2** Implement text extraction
-  - Parse and clean transcript text
-  - Handle various formats
-  - **Acceptance:** Text extraction works
-
-- [x] **5.1.3** Create transcript storage
-  - Save full transcript and metadata
-  - Link to meeting
-  - **Acceptance:** Transcripts stored
-
-- [x] **5.1.4** Build transcript list view
-  - View all uploaded transcripts
-  - Search and filter
-  - **Acceptance:** Transcript list renders
-
-- [x] **5.1.5** Create transcript detail view
-  - View full text with search
-  - Highlight functionality
-  - **Acceptance:** Transcript detail works
-
-**Day 9 Checkpoint:** Transcripts uploadable and viewable
-
-### Day 10: Transcript Analysis
-
-- [x] **5.2.1** Implement chunking
-  - Split transcripts into searchable chunks
-  - Speaker attribution
-  - **Acceptance:** Chunking works
-
-- [x] **5.2.2** Generate embeddings
-  - Create and store vector embeddings
-  - pgvector integration
-  - **Acceptance:** Embeddings stored
-
-- [x] **5.2.3** Build extraction pipeline
-  - AI extracts decisions, issues, to-dos
-  - Structured output
-  - **Acceptance:** Extraction works
-
-- [x] **5.2.4** Link extractions to EOS
-  - Create Issues/To-dos from extraction
-  - User review before creation
-  - **Acceptance:** Auto-creation works
-
-**Phase 5 Checkpoint:** Transcripts processed, insights extracted
+**Day 2 Checkpoint:** Rich receives formatted morning briefing in Slack DM with calendar, EOS items, and email highlights. Briefing stored in `briefings` table.
 
 ---
 
-## Phase 6: EOS Coaching Layer (Days 11-12)
+### Day 3: Slack Command Processing
 
-**Goal:** AI chat interface for coaching and questions
+> **Note:** Slack Events API settings (Event Subscriptions URL, event types) cannot be saved in the Slack App config until the `/api/agents/events/slack` route is deployed and responding to Slack's URL verification challenge. Deploy the route first, then configure Slack.
 
-### Day 11: Chat Infrastructure
+#### 8.10 Slack Events API Handler
 
-- [x] **6.1.1** Build Chat API
-  - Message handling endpoint
-  - Context retrieval
-  - **Acceptance:** Chat API works
+- [x] **8.10.1** Create Slack events webhook route
+  - Create `/api/agents/events/slack/route.ts`
+  - Slack request signature verification (manual HMAC, not Bolt)
+  - URL verification challenge handler (responds to Slack's `url_verification` event)
+  - Event routing: `message.im` → command processor, `reaction_added` → approval handler
+  - Bot message filtering (ignore own messages via `bot_id` check)
+  - Fire-and-forget pattern: acknowledge within 3 seconds, process asynchronously
+  - **Files:** `ember/src/app/api/agents/events/slack/route.ts`
+  - **Depends on:** 8.8.1
+  - **Acceptance:** Route responds to Slack challenge, receives events, routes correctly
 
-- [x] **6.1.2** Create Chat UI
-  - Message list with streaming
-  - Input with send
-  - **Acceptance:** Chat UI functional
+- [ ] **8.10.2** Deploy and configure Slack Events API
+  - Deploy to Vercel (preview or production)
+  - In Slack App config: enable Event Subscriptions, set Request URL to deployed `/api/agents/events/slack`
+  - Subscribe to events: `message.im`, `reaction_added`, `app_mention`
+  - Reinstall app to workspace
+  - **Depends on:** 8.10.1
+  - **Acceptance:** Slack Events API verified, events flowing to route
 
-- [x] **6.1.3** Implement context retrieval
-  - Pull relevant transcripts and EOS data
-  - Vector similarity search
-  - **Acceptance:** Context retrieved
+#### 8.11 Command Parser
 
-**Day 11 Checkpoint:** Basic chat working
+- [x] **8.11.1** Build natural language command parser
+  - Create `src/lib/agents/command-parser.ts`
+  - `parseCommand(text, briefingContext)` — uses Haiku to extract structured commands
+  - Supported commands (Week 1):
+    - `approve [N]` — mark agent output approved
+    - `reject [N]` / `reject [N] — [reason]` — reject with reason
+    - `defer [N]` / `defer [N] to [day]` — reschedule
+    - `what's the status of [topic]` — ad-hoc query
+    - Free-form questions — route to EA
+  - Returns: `{ command_type, item_numbers, parameters, raw_text }`
+  - **Files:** `ember/src/lib/agents/command-parser.ts`
+  - **Depends on:** 8.1.3
+  - **Acceptance:** Parser correctly classifies test commands
 
-### Day 12: Coaching Intelligence
+#### 8.12 Command Execution
 
-- [x] **6.2.1** Build Ember system prompt
-  - Persona, EOS expertise, Caldera context
-  - Partner profiles
-  - **Acceptance:** System prompt complete
+- [x] **8.12.1** Build command executor
+  - Create `src/lib/agents/command-executor.ts`
+  - `executeCommand(command, partnerId)` — routes parsed commands to handlers
+  - Approval/reject/defer: update `agent_outputs` status field
+  - Status queries: invoke EA with targeted context, respond in Slack thread
+  - Free-form: invoke EA as conversational agent, respond in thread
+  - All responses posted as threaded replies using stored `slack_message_ts` from `briefings`
+  - **Files:** `ember/src/lib/agents/command-executor.ts`
+  - **Depends on:** 8.11.1, 8.6.1, 8.8.1
+  - **Acceptance:** Commands execute correctly, Slack thread replies work
 
-- [x] **6.2.2** Implement RAG pipeline
-  - Retrieve relevant context for questions
-  - Combine with EOS data
-  - **Acceptance:** RAG working
+#### 8.13 Reaction Handling
 
-- [x] **6.2.3** Create coaching prompts
-  - Specific prompts for common scenarios
-  - EOS methodology grounding
-  - **Acceptance:** Coaching prompts work
+- [x] **8.13.1** Implement emoji reaction approvals
+  - Handle `reaction_added` events from Slack
+  - Map reactions to commands: `:white_check_mark:` → approve, `:pause_button:` → defer, `:x:` → reject
+  - Identify which briefing item was reacted to (match message_ts to briefing)
+  - Route through command executor
+  - **Files:** `ember/src/app/api/agents/events/slack/route.ts` (extend), `ember/src/lib/agents/command-executor.ts` (extend)
+  - **Depends on:** 8.10.1, 8.12.1
+  - **Acceptance:** Emoji reactions on briefing items trigger state changes
 
-- [x] **6.2.4** Add private chat storage
-  - User-specific chat history
-  - Row-level security
-  - **Acceptance:** Private chats work
-
-**Phase 6 Checkpoint:** AI chat with EOS coaching and context awareness
+**Day 3 Checkpoint:** Rich replies "approve 3, defer 4 to Wednesday" and gets confirmation. Emoji reactions work. Free-form questions get EA responses in-thread.
 
 ---
 
-## Phase 7: Polish + Launch (Days 13-14)
+### Day 4: Financial Strategist V1
 
-**Goal:** Production-ready for first real L10
+> **Contingency:** If QuickBooks API access is unavailable (wrong QBO plan), seed mock financial data into `ingested_data` and skip 8.14.1-8.14.2. The Financial Strategist agent works the same either way.
 
-### Day 13: Integration & Testing
+#### 8.14 QuickBooks Connector
 
-- [x] **7.1.1** End-to-end testing
-  - Full workflow verification
-  - All features tested
-  - **Acceptance:** E2E tests pass
+- [ ] **8.14.1** Install QuickBooks dependencies and create OAuth flow
+  - `npm install intuit-oauth quickbooks-node-promise` (skip if using mock data)
+  - Create `/api/agents/auth/quickbooks/route.ts` + callback
+  - Store refresh token in `partner_preferences`
+  - **Files:** `ember/src/app/api/agents/auth/quickbooks/route.ts`, `ember/src/app/api/agents/auth/quickbooks/callback/route.ts`, `ember/package.json`
+  - **Depends on:** 8.1.1
+  - **Acceptance:** OAuth flow completes, tokens stored
 
-- [x] **7.1.2** Bug fixes
-  - Address issues from testing
-  - Edge case handling
-  - **Acceptance:** Known bugs fixed
+- [ ] **8.14.2** Build QuickBooks connector
+  - Create `src/lib/connectors/quickbooks-connector.ts`
+  - Implements `DataConnector` interface
+  - `pullFinancialData()` — invoices (90 days), payments (30 days), P&L summary, AR aging
+  - Auto-refresh of hourly tokens
+  - Client mapping: QuickBooks customer names → Caldera client names
+  - Normalize to `ingested_data` format
+  - **Files:** `ember/src/lib/connectors/quickbooks-connector.ts`
+  - **Depends on:** 8.14.1
+  - **Acceptance:** Connector pulls financial data and writes to `ingested_data`
 
-- [x] **7.1.3** Performance optimization
-  - Optimize slow queries
-  - Add caching where needed
-  - **Acceptance:** Performance acceptable
+#### 8.15 Financial Strategist Agent
 
-**Day 13 Checkpoint:** All features working, tests passing
+- [ ] **8.15.1** Build Financial Strategist agent
+  - Create `src/lib/agents/financial-strategist.ts`
+  - `runFinancialAnalysis()` — invoked by overnight cron
+  - Queries: QuickBooks data from `ingested_data`, Scorecard metrics, existing Issues
+  - Produces: margin-by-client analysis, AR aging alerts, cash flow assessment
+  - Output format: structured `agent_outputs` with EOS entity mapping
+  - Zone 1 auto-actions: creates Issues when thresholds breached (margin < 30%, AR > 45 days)
+  - Uses Claude Sonnet for analysis
+  - **Files:** `ember/src/lib/agents/financial-strategist.ts`
+  - **Depends on:** 8.6.1, 8.1.2
+  - **Acceptance:** Agent produces structured financial insights, creates Issues for threshold breaches
 
-### Day 14: Launch Prep
+#### 8.16 Overnight Analysis Pipeline
 
-- [x] **7.2.1** Final deployment
-  - Production environment verified
-  - All env vars set
-  - **Acceptance:** Production deployed
+- [ ] **8.16.1** Create overnight analysis cron route
+  - Create `/api/agents/cron/overnight-analysis/route.ts`
+  - `CRON_SECRET` verification
+  - Runs QuickBooks data ingestion (daily pull)
+  - Invokes Financial Strategist agent
+  - Logs all runs to `agent_runs`
+  - **Files:** `ember/src/app/api/agents/cron/overnight-analysis/route.ts`
+  - **Depends on:** 8.14.2 (or mock data), 8.15.1
+  - **Acceptance:** Pipeline runs end-to-end, outputs stored
 
-- [ ] **7.2.2** Seed data
-  - Import V/TO and historical context
-  - Partner profiles created
-  - **Acceptance:** Initial data loaded
+- [ ] **8.16.2** Register overnight analysis cron in vercel.json
+  - Add `"/api/agents/cron/overnight-analysis"` with schedule `"0 9 * * *"` (4:00 AM ET)
+  - **Files:** `ember/vercel.json`
+  - **Depends on:** 8.16.1
+  - **Acceptance:** `vercel.json` has 5 cron entries
 
-- [ ] **7.2.3** User documentation
-  - Brief user guide
-  - Key workflows documented
-  - **Acceptance:** Docs complete
+#### 8.17 EA Integration with Financial Strategist
 
-- [ ] **7.2.4** Demo walkthrough
-  - Demo with Rich
-  - Gather feedback
-  - **Acceptance:** Demo complete
+- [ ] **8.17.1** Update EA briefing to include Financial Strategist outputs
+  - Update `ea-briefing.ts` to query `agent_outputs` for Financial Strategist's recent analysis
+  - Include financial alerts in Tier 1 (urgent) when thresholds breached
+  - Include financial highlights in Tier 2 (business section)
+  - Include agent-generated Issues in agent work queue section
+  - **Files:** `ember/src/lib/agents/ea-briefing.ts`
+  - **Depends on:** 8.15.1, 8.7.1
+  - **Acceptance:** Morning briefing includes financial insights and auto-generated Issues
 
-- [ ] **7.2.5** Go live
-  - Enable for first L10
-  - Monitor for issues
-  - **Acceptance:** Ember live
+**Day 4 Checkpoint:** Overnight pipeline runs QuickBooks → Financial Strategist → stored outputs. Morning briefing includes financial insights. At least one auto-generated Issue exists.
 
-**Phase 7 Checkpoint:** Ember live and ready for first L10
+---
+
+### Day 5: Integration Test + Demo
+
+#### 8.18 End-to-End Verification
+
+- [ ] **8.18.1** Run full pipeline manually and verify
+  - Trigger data ingestion manually (Gmail + Calendar + QuickBooks)
+  - Trigger overnight analysis (Financial Strategist)
+  - Trigger morning briefing generation + delivery
+  - Verify Slack DM received with all three tiers populated
+  - Test command processing: approve, reject, defer, free-form question
+  - Test reaction-based approvals
+  - Verify `agent_runs` logs populated correctly
+  - Verify `agent_outputs` lifecycle: created → pending_review → approved/rejected
+  - **Depends on:** All Day 1-4 tasks
+  - **Acceptance:** Full loop works without manual intervention
+
+#### 8.19 Data Quality
+
+- [ ] **8.19.1** Seed realistic EOS data for demo
+  - Ensure Rocks with approaching milestones exist
+  - Ensure overdue Todos exist
+  - Ensure Scorecard metrics have recent data
+  - Ensure briefing has meaningful content across all three tiers
+  - Verify email and calendar classification accuracy
+  - **Depends on:** 8.18.1
+  - **Acceptance:** Briefing contains compelling, realistic content
+
+#### 8.20 Bug Fixes & Polish
+
+- [ ] **8.20.1** Fix integration issues and add error handling
+  - Fix bugs found during integration testing
+  - Optimize Block Kit formatting (readability, link formatting)
+  - Add graceful degradation when a connector fails (skip, don't crash)
+  - Add `#ember-system` Slack channel alert when overnight pipeline fails
+  - **Depends on:** 8.18.1
+  - **Acceptance:** Pipeline handles connector failures gracefully, system alerts work
+
+#### 8.21 Demo & Feedback
+
+- [ ] **8.21.1** Demo to partners and collect feedback
+  - Prepare demo script showing full loop
+  - Demo to John and Wade
+  - Collect feedback: Is the briefing useful? Format right? What's missing?
+  - Document feedback as Issues or Week 2 adjustments
+  - **Depends on:** 8.19.1, 8.20.1
+  - **Acceptance:** Partners have seen the system, feedback documented
+
+**Day 5 Acceptance Criteria (from PRD):**
+- [ ] Rich receives a useful morning briefing in Slack by 7:00 AM
+- [ ] Rich can reply in natural language and the system responds appropriately
+- [ ] At least one Financial Strategist insight appears in the briefing
+- [ ] EOS data (Rock deadlines, overdue To-dos) appears in the briefing
+- [ ] The system creates at least one L10 Issue draft from Financial Strategist analysis
+- [ ] John and Wade have seen the system and provided feedback
+
+---
+
+## Task Summary
+
+| Day | Section | Tasks | Focus |
+|-----|---------|-------|-------|
+| Day 1 | 8.1-8.5 | 9 | DB, types, Gmail/Calendar connectors, Google OAuth, ingestion cron |
+| Day 2 | 8.6-8.9 | 8 | Agent runtime, EA briefing, Slack delivery, morning cron |
+| Day 3 | 8.10-8.13 | 5 | Slack events, command parser, executor, reactions |
+| Day 4 | 8.14-8.17 | 6 | QuickBooks, Financial Strategist, overnight pipeline, EA integration |
+| Day 5 | 8.18-8.21 | 4 | E2E testing, data quality, polish, demo |
+| **Total** | | **32** | |
 
 ---
 
@@ -418,68 +417,36 @@ Executable task list for building Ember MVP. Each task includes acceptance crite
 
 | Date | Task ID | Description | Status |
 |------|---------|-------------|--------|
-| 2026-01-31 | 1.1.1 | Create Next.js project with TypeScript | Complete |
-| 2026-01-31 | 1.1.2 | Configure Supabase project and auth | Complete |
-| 2026-01-31 | 1.1.3 | Implement Google OAuth flow and protected routes | Complete |
-| 2026-01-31 | 1.1.4 | Basic profile storage and display | Complete |
-| 2026-01-31 | 1.1.5 | Configure Tailwind styling and design tokens | Complete |
-| 2026-01-31 | 1.1.6 | Initial Vercel deployment | Complete |
-| 2026-01-31 | 1.2.1 | Run migrations for core database tables | Complete |
-| 2026-01-31 | 1.2.2 | Configure Supabase client for frontend and API | Complete |
-| 2026-01-31 | 1.2.3 | Build dashboard layout with navigation and sidebar | Complete |
-| 2026-01-31 | 1.2.4 | Create Button, Card, Input, Modal component primitives | Complete |
-| 2026-01-31 | 2.1.1 | Finalize V/TO JSONB data structure | Complete |
-| 2026-01-31 | 2.1.2 | Build V/TO API routes (CRUD) | Complete |
-| 2026-01-31 | 2.1.3 | Create V/TO display page | Complete |
-| 2026-01-31 | 2.1.4 | Implement V/TO edit mode | Complete |
-| 2026-01-31 | 2.2.1 | Build Rocks API routes (CRUD, status updates) | Complete |
-| 2026-01-31 | 2.2.2 | Create Rocks list view | Complete |
-| 2026-01-31 | 2.2.3 | Build Rock detail view | Complete |
-| 2026-01-31 | 2.2.4 | Implement status workflow | Complete |
-| 2026-01-31 | 2.2.5 | Add owner assignment | Complete |
-| 2026-01-31 | 3.1.1 | Build Metrics API (CRUD for metrics and entries) | Complete |
-| 2026-01-31 | 3.1.2 | Create Scorecard weekly grid view | Complete |
-| 2026-01-31 | 3.1.3 | Implement data entry interface | Complete |
-| 2026-01-31 | 3.1.4 | Add target indicators | Complete |
-| 2026-01-31 | 3.2.1 | Build Issues API (CRUD, prioritization) | Complete |
-| 2026-01-31 | 3.2.2 | Create Issues list view | Complete |
-| 2026-01-31 | 3.2.3 | Implement IDS workflow | Complete |
-| 2026-01-31 | 3.2.4 | Build Issue detail view | Complete |
-| 2026-01-31 | 4.1.1 | Build To-dos API (CRUD, completion) | Complete |
-| 2026-01-31 | 4.1.2 | Create To-dos list view | Complete |
-| 2026-01-31 | 4.1.3 | Implement quick add interface | Complete |
-| 2026-01-31 | 4.1.4 | Add completion tracking | Complete |
-| 2026-01-31 | 4.1.5 | Link to-dos to meetings | Complete |
-| 2026-01-31 | 4.2.1 | Create meeting data model | Complete |
-| 2026-01-31 | 4.2.2 | Build AI prep generation | Complete |
-| 2026-01-31 | 4.2.3 | Create prep display page | Complete |
-| 2026-01-31 | 4.2.4 | Set up scheduled job | Complete |
-| 2026-01-31 | 5.1.1 | Build file upload interface | Complete |
-| 2026-01-31 | 5.1.2 | Implement text extraction | Complete |
-| 2026-01-31 | 5.1.3 | Create transcript storage | Complete |
-| 2026-01-31 | 5.1.4 | Build transcript list view | Complete |
-| 2026-01-31 | 5.1.5 | Create transcript detail view | Complete |
-| 2026-01-31 | 5.2.1 | Implement chunking | Complete |
-| 2026-01-31 | 5.2.2 | Generate embeddings | Complete |
-| 2026-01-31 | 5.2.3 | Build extraction pipeline | Complete |
-| 2026-01-31 | 5.2.4 | Link extractions to EOS | Complete |
-| 2026-01-31 | 6.1.1 | Build Chat API | Complete |
-| 2026-01-31 | 6.1.2 | Create Chat UI | Complete |
-| 2026-01-31 | 6.1.3 | Implement context retrieval | Complete |
-| 2026-01-31 | 6.2.1 | Build Ember system prompt | Complete |
-| 2026-01-31 | 6.2.2 | Implement RAG pipeline | Complete |
-| 2026-01-31 | 6.2.3 | Create coaching prompts | Complete |
-| 2026-01-31 | 6.2.4 | Add private chat storage | Complete |
-| 2026-01-31 | 7.1.1 | End-to-end testing | Complete |
-| 2026-01-31 | 7.1.2 | Bug fixes - lint errors, unused imports | Complete |
-| 2026-01-31 | 7.1.3 | Performance optimization - indexes verified | Complete |
-| 2026-01-31 | 7.2.1 | Final deployment - Vercel production | Complete |
+| 2026-02-22 | 8.1.1 | Create agent system database migration | Complete |
+| 2026-02-22 | 8.1.2 | Seed agent definitions and partner preferences | Complete |
+| 2026-02-22 | 8.1.3 | Create directory structure and shared types | Complete |
+| 2026-02-22 | 8.2.1 | Install googleapis and create Google OAuth2 client | Complete |
+| 2026-02-22 | 8.2.2 | Build Gmail connector | Complete |
+| 2026-02-22 | 8.3.1 | Build Calendar connector | Complete |
+| 2026-02-22 | 8.4.1 | Create Google OAuth consent and callback routes | Complete |
+| 2026-02-22 | 8.5.1 | Create data ingestion cron route | Complete |
+| 2026-02-22 | 8.5.2 | Register data ingestion cron in vercel.json | Complete |
+| 2026-02-22 | 8.6.1 | Create agent runtime core | Complete |
+| 2026-02-22 | 8.6.2 | Create prompt manager | Complete |
+| 2026-02-22 | 8.7.1 | Build EA briefing generator | Complete |
+| 2026-02-22 | 8.8.1 | Install @slack/web-api and create Slack connector | Complete |
+| 2026-02-22 | 8.8.2 | Build Slack Block Kit briefing formatter | Complete |
+| 2026-02-22 | 8.8.3 | Build briefing delivery function | Complete |
+| 2026-02-22 | 8.9.1 | Create morning briefing cron route | Complete |
+| 2026-02-22 | 8.9.2 | Register morning briefing cron in vercel.json | Complete |
+| 2026-02-22 | 8.10.1 | Create Slack events webhook route | Complete |
+| 2026-02-22 | 8.10.2 | Deploy and configure Slack Events API | Blocked — requires deployment first |
+| 2026-02-22 | 8.11.1 | Build natural language command parser | Complete |
+| 2026-02-22 | 8.12.1 | Build command executor | Complete |
+| 2026-02-22 | 8.13.1 | Implement emoji reaction approvals | Complete |
 
 ---
 
 ## Notes
 
-- Tasks should be completed in order within each phase
-- Each phase has a checkpoint that must be verified before proceeding
+- Tasks should be completed in order within each day
+- Each day has a checkpoint that must be verified before proceeding
+- Slack Events API requires deployed endpoint before Slack config (see Day 3 note)
+- QuickBooks connector has mock data contingency if API unavailable
 - Update this file as tasks are completed
 - Add blockers and notes in the Task Log

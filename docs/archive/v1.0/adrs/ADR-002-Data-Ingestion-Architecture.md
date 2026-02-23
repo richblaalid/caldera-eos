@@ -1,9 +1,8 @@
 # ADR-002: Data Ingestion Architecture
 ## Architecture Decision Record
 
-**Status:** Accepted
-**Date:** January 30, 2025
-**Updated:** February 22, 2026 (v2.0 Addendum)
+**Status:** Accepted  
+**Date:** January 30, 2025  
 **Decision Makers:** Rich (Caldera)
 
 ---
@@ -108,7 +107,7 @@ Key considerations:
 1. **Receive:** File upload or API fetch
 2. **Parse:** Extract text, speaker labels, timestamps
 3. **Chunk:** Split into ~500 token chunks with overlap
-4. **Embed:** Generate embeddings via OpenAI API
+4. **Embed:** Generate embeddings via Claude/OpenAI API
 5. **Store:** Full transcript + chunks + embeddings in Supabase
 6. **Index:** Update meeting metadata and relationships
 
@@ -126,6 +125,22 @@ Key considerations:
 1. **MVP:** Manual CSV upload with standardized format
 2. **Parse:** Extract revenue, utilization, cash flow
 3. **Store:** Time-series table for trend analysis
+
+---
+
+## API Requirements
+
+### Slack API
+- Scopes: `channels:history`, `channels:read`, `chat:write`, `im:write`
+- Endpoints: `conversations.history`, `chat.postMessage`
+
+### HubSpot API
+- Scopes: `crm.objects.deals.read`, `crm.objects.contacts.read`
+- Endpoints: Deals, Activities
+
+### Grain API (Future)
+- Endpoints: Recordings list, transcript fetch
+- Webhook: Real-time transcript streaming
 
 ---
 
@@ -179,80 +194,29 @@ CREATE TABLE hubspot_deals (
 
 ---
 
-## v2.0 Addendum (February 22, 2026)
+## Alternatives Considered
 
-### Expanded to Centralized Ingestion Pipeline
+### Alternative 1: Grain-Only Integration
+- **Description:** Rely solely on Grain for all meeting data
+- **Rejected because:** User indicated Grain is not guaranteed; need flexibility
 
-The original decision established the right principles (multi-source, flexible, vector-enabled). The agent system implements this as a **centralized ingestion pipeline** where all external data flows through dedicated connectors into a unified `ingested_data` table. Agents read from local data rather than calling external APIs directly.
+### Alternative 2: Dedicated Vector Database (Pinecone)
+- **Description:** Use Pinecone for all vector storage
+- **Rejected because:** Additional service complexity; pgvector sufficient at Caldera scale
 
-### Ingestion Tiers (Replacing MVP/Future Split)
+### Alternative 3: Real-Time Everything
+- **Description:** All integrations via webhooks/events from day 1
+- **Rejected because:** Increases complexity; polling is fine for MVP
 
-The original "MVP Method / Future Method" columns are now replaced by a tiered freshness model:
+### Alternative 4: Manual Entry Only
+- **Description:** All data entered by users, no integrations
+- **Rejected because:** Creates friction; users already have data in other systems
 
-**Tier 1 — Real-Time (seconds to minutes):**
-- Slack messages via Events API *(original "Future" — now implemented)*
-- HubSpot deal stage changes via webhooks
+---
 
-**Tier 2 — Near Real-Time (every 15-30 minutes):**
-- Gmail via API polling with history ID tracking *(new source)*
-- Google Calendar via API polling *(new source)*
-- HubSpot activities via polling
+## References
 
-**Tier 3 — Batch (daily or weekly):**
-- QuickBooks via API *(replaces CSV upload for financial data)*
-- Gusto via API *(new source)*
-- Google Drive on-demand + daily scan *(new source)*
-- Grain via API/webhook *(replaces manual upload as primary method)*
-
-### Unified Data Schema
-
-The original schema defined per-source tables (slack_messages, hubspot_deals). The agent system adds a unified `ingested_data` table that normalizes all sources:
-
-```sql
-CREATE TABLE ingested_data (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  org_id UUID REFERENCES organizations(id),
-  source TEXT NOT NULL,              -- 'slack', 'gmail', 'hubspot', 'quickbooks', etc.
-  source_id TEXT NOT NULL,           -- Original ID from source system
-  data_type TEXT NOT NULL,           -- 'message', 'email', 'deal', 'invoice', etc.
-  payload JSONB NOT NULL,            -- Normalized data
-  raw_payload JSONB,                 -- Original API response (debugging)
-  entities JSONB DEFAULT '{}',       -- Extracted: people, companies, amounts
-  relevance_tags TEXT[] DEFAULT '{}',-- Agent-relevant tags
-  embedding VECTOR(1536),
-  ingested_at TIMESTAMPTZ DEFAULT NOW(),
-  source_timestamp TIMESTAMPTZ,
-  processed_by TEXT[] DEFAULT '{}',  -- Which agents have consumed this
-  UNIQUE(org_id, source, source_id)
-);
-```
-
-The per-source tables (transcripts, transcript_chunks, slack_messages, hubspot_deals) are **preserved** for their specific use cases. The unified table provides a cross-source search layer that agents use for discovery.
-
-### Connector Architecture (New)
-
-Each source has a dedicated connector module implementing a common interface:
-
-```typescript
-interface DataConnector {
-  source: string;
-  pull(): Promise<IngestedItem[]>;
-  normalize(raw: any): IngestedItem;
-  extractEntities(item: IngestedItem): EntitySet;
-  tagRelevance(item: IngestedItem): string[];
-}
-```
-
-Connectors live in `/lib/connectors/` and are invoked by the orchestrator on their configured schedules.
-
-### Implementation Priority
-
-| Week | Connectors |
-|------|-----------|
-| 1 | Gmail, Google Calendar, QuickBooks, bidirectional Slack |
-| 2 | HubSpot, Grain, extended Slack (channel reading) |
-| 3 | Google Drive, Gusto |
-
-### References
-- ADR-006: Agent Architecture Pattern (how agents consume ingested data)
-- Integration Documentation (service-by-service implementation details)
+- PRD: Ember AI Integrator
+- Supabase pgvector documentation
+- Slack API documentation
+- HubSpot API documentation

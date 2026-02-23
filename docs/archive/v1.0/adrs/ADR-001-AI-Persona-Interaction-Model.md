@@ -1,9 +1,8 @@
 # ADR-001: AI Persona & Interaction Model
 ## Architecture Decision Record
 
-**Status:** Accepted
-**Date:** January 30, 2025
-**Updated:** February 22, 2026 (v2.0 Addendum)
+**Status:** Accepted  
+**Date:** January 30, 2025  
 **Decision Makers:** Rich (Caldera)
 
 ---
@@ -86,6 +85,26 @@ Options range from a passive tool interface to an active AI persona that behaves
 
 ---
 
+## Alternatives Considered
+
+### Alternative 1: Dashboard-Only Tool
+- **Description:** Traditional SaaS interface, users come to it
+- **Rejected because:** Passive tools get ignored; doesn't match "Integrator" vision
+
+### Alternative 2: Slack Bot Only
+- **Description:** Everything through Slack commands and responses
+- **Rejected because:** Too limited for V/TO management, Scorecard tracking, complex interfaces
+
+### Alternative 3: Anonymous AI (No Persona)
+- **Description:** AI assistant without distinct identity
+- **Rejected because:** Reduces engagement; harder to build accountability relationship
+
+### Alternative 4: Aggressive Accountability (Always Direct)
+- **Description:** AI immediately calls out issues without escalation
+- **Rejected because:** Would damage trust; needs to build relationship first
+
+---
+
 ## Implementation Notes
 
 1. **Prompt Engineering:** Develop a core "Ember personality prompt" that:
@@ -108,44 +127,8 @@ Options range from a passive tool interface to an active AI persona that behaves
 
 ---
 
-## v2.0 Addendum (February 22, 2026)
+## References
 
-### Evolution: Single Persona, Multiple Advisory Capabilities
-
-The agent system introduces six specialized AI agents (1 EA + 5 advisors). This does **not** replace the single Ember persona — it enriches it.
-
-**Ember remains the unified identity.** When a partner interacts with the system, they're talking to Ember. The advisory agents operate behind the scenes as specialized capabilities that power Ember's responses. When Rich asks a financial question, the Financial Strategist's analysis informs Ember's response, but it's Ember speaking.
-
-**Why not separate named personas?** Three reasons:
-1. Adoption — partners built a relationship with Ember as a fourth partner. Introducing five more "people" fragments that relationship.
-2. Simplicity — John in particular needs one entity to interact with, not six.
-3. Coherence — when the EA synthesizes insights from multiple advisors into a morning briefing, it should feel like one voice, not a committee.
-
-**How agents surface their identity when it matters:** In the morning briefing and detailed analysis, the EA attributes insights to their domain: "Your Financial Strategist analysis shows margin declining on Client B" or "From a marketing perspective, competitor X launched a new positioning." This gives Rich visibility into which advisory lens generated an insight without creating separate personalities.
-
-### Slack Becomes Primary (see ADR-007)
-
-The original decision identified five channels (Dashboard, Chat, Slack DMs, Slack Group, Meeting). In v2.0, Slack is elevated to the **primary** interaction surface for routine operations:
-
-- Morning briefings delivered via Slack DM
-- Approvals processed via Slack replies and reactions
-- Natural language commands parsed from Slack messages
-- Deep work (analysis, document review, EOS data management) stays in Ember UI
-
-This shift is driven by adoption concerns — particularly for John, who won't proactively open a web application but is already in Slack all day.
-
-### Channel-Specific Persona Adaptation (updated)
-
-| Channel | Persona Adaptation |
-|---------|-------------------|
-| Slack DM (briefing) | Chief of staff: opinionated, concise, action-oriented |
-| Slack DM (command response) | Efficient executor: confirms, routes, reports |
-| Slack shared channels | Professional advisor: factual, attributed insights |
-| Ember Chat | Coach and strategist: deeper reasoning, Socratic |
-| Ember Dashboard | Data-driven: metrics, trends, visualizations |
-| L10 Meeting | Facilitator: structured, EOS-disciplined, time-aware |
-
-### References
-- ADR-007: Slack-First Interaction Model (detailed Slack design)
-- ADR-006: Agent Architecture Pattern (how agents are structured)
-- ADR-009: EOS Process Integration (escalation implementation)
+- PRD: Ember AI Integrator
+- Caldera Partner Interview (January 30, 2025)
+- Traction by Gino Wickman (Integrator role definition)

@@ -1,9 +1,8 @@
 # ADR-003: Privacy & Access Model
 ## Architecture Decision Record
 
-**Status:** Accepted
-**Date:** January 30, 2025
-**Updated:** February 22, 2026 (v2.0 Addendum)
+**Status:** Accepted  
+**Date:** January 30, 2025  
 **Decision Makers:** Rich (Caldera)
 
 ---
@@ -124,7 +123,7 @@ Private chats are for preparation, not secrecy:
 ```
 Users
 ├── rich@caldera.com → Full access, private chat
-├── john@caldera.com → Full access, private chat
+├── john@caldera.com → Full access, private chat  
 └── wade@caldera.com → Full access, private chat
 
 Dashboard Data → Shared view for all
@@ -145,7 +144,7 @@ CREATE TABLE chat_messages (
 
 -- Messages only visible to owner via RLS
 ALTER TABLE chat_messages ENABLE ROW LEVEL SECURITY;
-CREATE POLICY chat_owner ON chat_messages
+CREATE POLICY chat_owner ON chat_messages 
   FOR ALL USING (user_id = auth.uid());
 ```
 
@@ -191,109 +190,28 @@ If Ember detects something in private chat that seems urgent:
 
 ---
 
-## v2.0 Addendum (February 22, 2026)
+## Alternatives Considered
 
-### Three-Zone Trust Model
+### Alternative 1: Fully Private Individual Dashboards
+- **Description:** Each partner sees only their own data
+- **Rejected because:** Contradicts transparency principle; creates information silos
 
-The agent system refines the original binary (autonomous / requires approval) into three zones with more granularity:
+### Alternative 2: Role-Based Permissions
+- **Description:** Different access levels based on role (e.g., Integrator sees more)
+- **Rejected because:** Equal partnership; no hierarchy in access
 
-**Zone 1 — Autonomous (no approval needed):**
+### Alternative 3: No Private Chat
+- **Description:** Everything shared by default, no private conversations
+- **Rejected because:** Removes psychological safety; reduces adoption
 
-| Action Category | Examples |
-|----------------|----------|
-| Internal analysis and research | Margin calculations, trend analysis, pattern detection |
-| Internal research | Competitor research, market analysis, technology scanning |
-| Data synthesis | Combining data from multiple sources into reports |
-| Draft creation | SOW drafts, email drafts, proposal drafts, meeting prep |
-| EOS data creation | Creating Issues, To-dos, Scorecard entries (flagged as agent-generated) |
-| Internal notifications | Slack messages to partners, reminders, alerts, briefings |
-| Recommendation generation | Prioritized action lists, strategic recommendations |
+### Alternative 4: AI Can Message Team with Approval
+- **Description:** Ember could post to team Slack with partner approval
+- **Rejected because:** Adds complexity; not needed for MVP; focus on leadership first
 
-**Zone 2 — Approval Required (agent prepares, human decides):**
+---
 
-| Action Category | Approval Method |
-|----------------|----------------|
-| External communication (emails, social posts) | Slack approval + Ember review |
-| Proposal/SOW submission | Explicit Slack approval |
-| Meeting scheduling with external parties | Slack approval with calendar preview |
-| Content publishing | Slack approval + full review |
-| EOS data modification (changing existing Rocks, targets) | Slack confirmation |
-| Escalation beyond partners | Explicit Slack approval |
+## References
 
-**Zone 3 — Prohibited (never, even with approval):**
-
-| Action Category | Rationale |
-|----------------|-----------|
-| Financial transactions | Human-only in Gusto/QuickBooks |
-| Access control changes | Sharing documents, permissions, granting access |
-| Employment actions | Hiring, firing, formal HR — human-only |
-| Legal commitments | Signing contracts, agreeing to terms |
-| Credential management | Passwords, API keys |
-| Permanent data deletion | Any business data |
-
-This three-zone model is consistent with the original decision's intent but adds the precision needed for an agent system that takes more varied actions than the original chat-only interface.
-
-### Personal vs. Shared Agent Scopes
-
-The original model defined two scopes: shared (dashboard, EOS data) and private (chat). The agent system adds a third dimension — **personal agent outputs**:
-
-| Scope | Content | Visibility |
-|-------|---------|-----------|
-| Shared (org-level) | EOS data, advisory agent insights, shared dashboards | All three partners |
-| Personal (user-level) | EA briefings, approval queue, personal task priorities | Individual partner only |
-| Private (existing) | Chat conversations with Ember | Individual partner only |
-
-The EA's morning briefings, task prioritization, and approval queue are personal to each partner. Advisory agent outputs (financial analysis, competitive intelligence, etc.) are shared across all partners — consistent with the original transparency-as-default principle.
-
-### Approval Workflow (Detailed Implementation)
-
-The original decision described a simple confirm-in-chat flow. The agent system implements a more robust workflow:
-
-```
-Agent completes work → writes to agent_outputs (status='pending_review')
-    │
-    ▼
-EA surfaces in briefing or Slack notification
-    │
-    ├── Partner replies "approve" / ✅ → status='approved' → execute
-    ├── Partner replies "modify" + instructions → revision cycle
-    ├── Partner replies "defer" + date → status='deferred' → re-surface later
-    └── Partner replies "reject" / ❌ → status='rejected' → logged
-```
-
-**Stale approval escalation:**
-- 24 hours: Re-surface in next briefing
-- 48 hours: Escalate urgency
-- 72 hours: Flag for L10
-- 7 days: Auto-expire with notification
-
-### Audit Trail (Enhanced)
-
-```sql
-CREATE TABLE agent_outputs (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  org_id UUID REFERENCES organizations(id),
-  agent_id TEXT NOT NULL,
-  output_type TEXT NOT NULL,
-  title TEXT NOT NULL,
-  content JSONB NOT NULL,
-  trust_zone INTEGER NOT NULL,        -- 1 or 2
-  status TEXT DEFAULT 'pending',
-  target_partner UUID,
-  approved_by UUID,
-  approved_at TIMESTAMPTZ,
-  execution_result JSONB,
-  created_at TIMESTAMPTZ DEFAULT NOW(),
-  expires_at TIMESTAMPTZ
-);
-```
-
-This replaces the simpler `audit_log` table with a richer structure that tracks the full lifecycle of every agent action.
-
-### Future Trust Escalation
-
-As trust builds, specific Zone 2 actions could be promoted to Zone 1 based on approval rates. For example, if follow-up email drafts are approved 95% of the time without changes, Rich could choose to auto-send certain categories. This is always a deliberate human decision, never automatic.
-
-### References
-- ADR-006: Agent Architecture Pattern (agent governance details)
-- ADR-007: Slack-First Interaction Model (approval via Slack)
+- PRD: Ember AI Integrator
+- Caldera Partner Interview (January 30, 2025)
+- Supabase Row Level Security documentation

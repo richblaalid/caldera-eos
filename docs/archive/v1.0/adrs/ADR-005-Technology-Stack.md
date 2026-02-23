@@ -1,9 +1,8 @@
 # ADR-005: Technology Stack
 ## Architecture Decision Record
 
-**Status:** Accepted
-**Date:** January 30, 2025
-**Updated:** February 22, 2026 (v2.0 Addendum)
+**Status:** Accepted  
+**Date:** January 30, 2025  
 **Decision Makers:** Rich (Caldera)
 
 ---
@@ -142,152 +141,220 @@ Supabase provides: PostgreSQL + pgvector + Auth + Real-time + Storage in one pla
 
 ---
 
-## v2.0 Addendum (February 22, 2026)
+## Implementation Details
 
-### Stack Validation
-
-After 13 months of development, the original technology choices have proven sound. The core stack is unchanged. The agent system is built entirely within the existing architecture — no new infrastructure services required.
-
-### Additions to the Stack
-
-| Layer | Addition | Purpose |
-|-------|---------|---------|
-| AI Models | Claude Sonnet 4 + Claude Haiku 4.5 | Cost-optimized model selection per task (see below) |
-| External APIs | Google APIs (Gmail, Calendar, Drive) | Data ingestion for EA and agents |
-| External APIs | QuickBooks Online API | Financial data for Financial Strategist |
-| External APIs | Gusto API | Payroll data for Financial Strategist |
-| External APIs | Grain API / MCP | Meeting transcript ingestion |
-| Slack | Events API + Interactive Components | Bidirectional Slack (was write-only) |
-
-### Multi-Model Strategy (New)
-
-The original decision used Claude API as a single model. The agent system introduces model selection based on task complexity and cost:
-
-| Task Type | Model | Rationale |
-|-----------|-------|-----------|
-| Strategic analysis, complex reasoning | Claude Opus 4 | Highest quality for nuanced strategy |
-| Document generation, reports | Claude Sonnet 4 | Good quality at lower cost |
-| Data extraction, normalization | Claude Sonnet 4 | Structured output tasks |
-| Slack command parsing | Claude Haiku 4.5 | Fast, cheap, focused parsing |
-| Embedding generation | OpenAI text-embedding-3-small | Already in stack |
-| Morning briefing synthesis | Claude Sonnet 4 | Balances quality and daily cost |
-
-**Estimated daily API cost (steady state):** $15-30/day for 6 agents running daily cycles with ad-hoc invocations.
-
-### Extended Project Structure
+### Project Structure
 
 ```
 /ember
-├── /app
-│   ├── /api
-│   │   ├── /chat              # Existing chat endpoints
-│   │   ├── /transcripts       # Existing transcript processing
-│   │   ├── /eos               # Existing EOS endpoints (34+ routes)
-│   │   ├── /integrations      # Existing Slack posting
-│   │   └── /agents            # NEW: Agent system
-│   │       ├── /orchestrator  # Central dispatcher
-│   │       ├── /cron          # Scheduled agent invocations
-│   │       ├── /ea            # Executive Assistant endpoints
-│   │       ├── /financial     # Financial Strategist
-│   │       ├── /marketing     # Marketing Strategist
-│   │       ├── /bizdev        # BD Strategist
-│   │       ├── /operations    # Operations Architect
-│   │       ├── /innovation    # Product Innovation Officer
-│   │       └── /events        # Webhook handlers (Slack, HubSpot, Grain)
-│   ├── /dashboard             # Existing dashboard pages
-│   ├── /chat                  # Existing chat interface
-│   └── /(dashboard)/agents    # NEW: Agent UI pages
-│       ├── /activity          # Agent activity feed
-│       ├── /approvals         # Approval queue
-│       ├── /insights          # Advisory dashboards
-│       └── /config            # Agent configuration
-├── /components
-├── /lib
-│   ├── supabase.ts
-│   ├── claude.ts
-│   ├── embeddings.ts
-│   ├── eos.ts
-│   ├── /agents                # NEW: Agent runtime
-│   │   ├── agent-runtime.ts
-│   │   ├── prompt-manager.ts
-│   │   ├── tool-registry.ts
-│   │   └── command-parser.ts
-│   └── /connectors            # NEW: Data ingestion
-│       ├── gmail-connector.ts
-│       ├── calendar-connector.ts
-│       ├── slack-connector.ts
-│       ├── hubspot-connector.ts
-│       ├── quickbooks-connector.ts
-│       ├── gusto-connector.ts
-│       ├── grain-connector.ts
-│       └── drive-connector.ts
-├── /types
-└── /supabase
-    └── /migrations
+├── /app                    # Next.js App Router
+│   ├── /api               # API routes
+│   │   ├── /chat          # Chat endpoints
+│   │   ├── /transcripts   # Transcript processing
+│   │   ├── /eos           # Rocks, Issues, Scorecard
+│   │   └── /integrations  # Slack, HubSpot
+│   ├── /dashboard         # Main dashboard pages
+│   ├── /chat              # Chat interface
+│   └── layout.tsx         # Root layout with auth
+├── /components            # React components
+├── /lib                   # Shared utilities
+│   ├── supabase.ts       # Supabase client
+│   ├── claude.ts         # Claude API wrapper
+│   ├── embeddings.ts     # Vector operations
+│   └── eos.ts            # EOS data operations
+├── /types                 # TypeScript types
+└── /supabase             # Supabase config
+    └── /migrations       # Database migrations
 ```
 
-### New Environment Variables
-
-```env
-# Existing (unchanged)
-NEXT_PUBLIC_SUPABASE_URL=
-NEXT_PUBLIC_SUPABASE_ANON_KEY=
-SUPABASE_SERVICE_ROLE_KEY=
-ANTHROPIC_API_KEY=
-OPENAI_API_KEY=
-SLACK_BOT_TOKEN=
-SLACK_SIGNING_SECRET=
-SLACK_CLIENT_ID=
-SLACK_CLIENT_SECRET=
-
-# New (agent system)
-GOOGLE_CLIENT_ID=
-GOOGLE_CLIENT_SECRET=
-GOOGLE_REDIRECT_URI=
-HUBSPOT_CLIENT_ID=
-HUBSPOT_CLIENT_SECRET=
-HUBSPOT_APP_ID=
-QUICKBOOKS_CLIENT_ID=
-QUICKBOOKS_CLIENT_SECRET=
-QUICKBOOKS_REALM_ID=
-QUICKBOOKS_ENVIRONMENT=          # 'sandbox' or 'production'
-GUSTO_CLIENT_ID=
-GUSTO_CLIENT_SECRET=
-GRAIN_API_KEY=
-
-# Agent configuration
-AGENT_BRIEFING_TIMEZONE=America/New_York
-AGENT_BRIEFING_TIME=07:00
-AGENT_OVERNIGHT_START=04:00
-AGENT_DEFAULT_MODEL=claude-sonnet-4-20250514
-AGENT_PREMIUM_MODEL=claude-opus-4-20250514
-AGENT_FAST_MODEL=claude-haiku-4-5-20251001
-```
-
-### Vercel Cron Additions
+### Key Dependencies
 
 ```json
 {
-  "crons": [
-    { "path": "/api/agents/cron/morning-briefing", "schedule": "30 6 * * 1-5" },
-    { "path": "/api/agents/cron/overnight-analysis", "schedule": "0 4 * * *" },
-    { "path": "/api/agents/cron/data-ingestion", "schedule": "*/15 * * * *" },
-    { "path": "/api/agents/cron/weekly-reports", "schedule": "0 6 * * 1" },
-    { "path": "/api/agents/cron/eos-nudges", "schedule": "0 9 * * 1-5" },
-    { "path": "/api/agents/cron/l10-prep", "schedule": "0 7 * * *" }
-  ]
+  "dependencies": {
+    "next": "^14.0.0",
+    "@supabase/supabase-js": "^2.0.0",
+    "@anthropic-ai/sdk": "^0.10.0",
+    "@slack/bolt": "^3.0.0",
+    "tailwindcss": "^3.0.0",
+    "zod": "^3.0.0",
+    "date-fns": "^2.0.0"
+  }
 }
 ```
 
-### Vercel Serverless Considerations
+### Environment Variables
 
-Long-running agent tasks may exceed Vercel's default 10-second function timeout. Mitigations:
-- Use Vercel Pro plan (60-second timeout) or Enterprise (custom)
-- Break complex agent runs into chained invocations
-- Heavy processing (overnight analysis) uses background function patterns
-- Monitor execution times and optimize prompt efficiency
+```env
+# Supabase
+NEXT_PUBLIC_SUPABASE_URL=
+NEXT_PUBLIC_SUPABASE_ANON_KEY=
+SUPABASE_SERVICE_ROLE_KEY=
 
-### References
-- ADR-008: Extend Ember Platform (why agent system lives inside Ember)
-- System Design Document (full technical architecture)
-- Integration Documentation (service-by-service API details)
+# Claude
+ANTHROPIC_API_KEY=
+
+# Slack
+SLACK_BOT_TOKEN=
+SLACK_SIGNING_SECRET=
+
+# HubSpot
+HUBSPOT_API_KEY=
+
+# App
+NEXTAUTH_SECRET=
+```
+
+---
+
+## Database Schema (Core Tables)
+
+```sql
+-- Users (managed by Supabase Auth)
+-- Extended with profile
+
+CREATE TABLE profiles (
+  id UUID REFERENCES auth.users PRIMARY KEY,
+  email TEXT UNIQUE,
+  name TEXT,
+  role TEXT, -- 'partner'
+  created_at TIMESTAMP DEFAULT NOW()
+);
+
+-- EOS: V/TO
+CREATE TABLE vto (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  version INT,
+  core_values JSONB,
+  core_focus JSONB,
+  ten_year_target JSONB,
+  marketing_strategy JSONB,
+  three_year_picture JSONB,
+  one_year_plan JSONB,
+  issues JSONB,
+  updated_at TIMESTAMP DEFAULT NOW()
+);
+
+-- EOS: Rocks
+CREATE TABLE rocks (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  title TEXT NOT NULL,
+  owner_id UUID REFERENCES profiles(id),
+  quarter TEXT, -- 'Q1 2025'
+  status TEXT, -- 'on_track', 'off_track', 'complete'
+  milestones JSONB,
+  created_at TIMESTAMP DEFAULT NOW(),
+  updated_at TIMESTAMP DEFAULT NOW()
+);
+
+-- EOS: Issues
+CREATE TABLE issues (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  title TEXT NOT NULL,
+  description TEXT,
+  priority INT,
+  status TEXT, -- 'open', 'discussed', 'solved'
+  source TEXT, -- 'manual', 'transcript', 'insight'
+  source_id UUID,
+  created_at TIMESTAMP DEFAULT NOW()
+);
+
+-- EOS: To-dos
+CREATE TABLE todos (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  title TEXT NOT NULL,
+  owner_id UUID REFERENCES profiles(id),
+  due_date DATE,
+  completed BOOLEAN DEFAULT FALSE,
+  meeting_id UUID,
+  created_at TIMESTAMP DEFAULT NOW()
+);
+
+-- EOS: Scorecard
+CREATE TABLE scorecard_metrics (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  name TEXT NOT NULL,
+  owner_id UUID REFERENCES profiles(id),
+  target DECIMAL,
+  frequency TEXT -- 'weekly', 'monthly'
+);
+
+CREATE TABLE scorecard_entries (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  metric_id UUID REFERENCES scorecard_metrics(id),
+  value DECIMAL,
+  week_of DATE,
+  created_at TIMESTAMP DEFAULT NOW()
+);
+
+-- Transcripts
+CREATE TABLE transcripts (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  title TEXT,
+  meeting_date TIMESTAMP,
+  participants TEXT[],
+  full_text TEXT,
+  summary TEXT,
+  source TEXT,
+  created_at TIMESTAMP DEFAULT NOW()
+);
+
+CREATE TABLE transcript_chunks (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  transcript_id UUID REFERENCES transcripts(id),
+  content TEXT,
+  speaker TEXT,
+  timestamp_start INT,
+  embedding VECTOR(1536)
+);
+
+-- Chat
+CREATE TABLE chat_messages (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  user_id UUID REFERENCES profiles(id),
+  role TEXT, -- 'user', 'assistant'
+  content TEXT,
+  created_at TIMESTAMP DEFAULT NOW()
+);
+
+-- Insights
+CREATE TABLE insights (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  type TEXT, -- 'pattern', 'suggestion', 'warning'
+  title TEXT,
+  content TEXT,
+  sources JSONB,
+  acknowledged BOOLEAN DEFAULT FALSE,
+  created_at TIMESTAMP DEFAULT NOW()
+);
+```
+
+---
+
+## Alternatives Considered
+
+### Alternative 1: Python Backend (FastAPI)
+- **Description:** Separate Python backend for AI processing
+- **Rejected because:** Adds complexity; Next.js API routes sufficient for scale
+
+### Alternative 2: Self-hosted PostgreSQL + Dedicated Vector DB
+- **Description:** More control over infrastructure
+- **Rejected because:** Ops overhead; Supabase provides unified solution
+
+### Alternative 3: OpenAI Instead of Claude
+- **Description:** Use GPT-4 for AI capabilities
+- **Rejected because:** Team preference for Claude; better long-context handling
+
+### Alternative 4: Railway/Fly.io Hosting
+- **Description:** Alternative serverless platforms
+- **Rejected because:** Vercel has better Next.js integration; team may already use it
+
+---
+
+## References
+
+- PRD: Ember AI Integrator
+- Next.js documentation
+- Supabase documentation
+- Anthropic Claude API documentation
+- Vercel documentation

@@ -1,3 +1,12 @@
+import type {
+  AgentDefinition,
+  AgentOutput, AgentOutputInsert,
+  AgentRun, AgentRunInsert,
+  IngestedData, IngestedDataInsert,
+  Briefing, BriefingInsert,
+  PartnerPreferences, PartnerPreferencesInsert,
+} from './agents'
+
 // =============================================
 // Core Types
 // =============================================
@@ -836,6 +845,71 @@ export interface Database {
         Insert: SlackSettingsInsert
         Update: Partial<SlackSettingsInsert>
         Relationships: []
+      }
+      // Agent System Tables
+      agent_definitions: {
+        Row: AgentDefinition
+        Insert: AgentDefinition // Service-role only, full object required
+        Update: Partial<AgentDefinition>
+        Relationships: []
+      }
+      agent_outputs: {
+        Row: AgentOutput
+        Insert: AgentOutputInsert
+        Update: Partial<AgentOutputInsert>
+        Relationships: [
+          {
+            foreignKeyName: 'agent_outputs_agent_id_fkey'
+            columns: ['agent_id']
+            referencedRelation: 'agent_definitions'
+            referencedColumns: ['id']
+          }
+        ]
+      }
+      agent_runs: {
+        Row: AgentRun
+        Insert: AgentRunInsert
+        Update: Partial<AgentRunInsert>
+        Relationships: [
+          {
+            foreignKeyName: 'agent_runs_agent_id_fkey'
+            columns: ['agent_id']
+            referencedRelation: 'agent_definitions'
+            referencedColumns: ['id']
+          }
+        ]
+      }
+      ingested_data: {
+        Row: IngestedData
+        Insert: IngestedDataInsert
+        Update: Partial<IngestedDataInsert>
+        Relationships: []
+      }
+      briefings: {
+        Row: Briefing
+        Insert: BriefingInsert
+        Update: Partial<BriefingInsert>
+        Relationships: [
+          {
+            foreignKeyName: 'briefings_partner_id_fkey'
+            columns: ['partner_id']
+            referencedRelation: 'profiles'
+            referencedColumns: ['id']
+          }
+        ]
+      }
+      partner_preferences: {
+        Row: PartnerPreferences
+        Insert: PartnerPreferencesInsert
+        Update: Partial<PartnerPreferencesInsert>
+        Relationships: [
+          {
+            foreignKeyName: 'partner_preferences_partner_id_fkey'
+            columns: ['partner_id']
+            referencedRelation: 'profiles'
+            referencedColumns: ['id']
+          }
+        ]
       }
     }
     Views: {
