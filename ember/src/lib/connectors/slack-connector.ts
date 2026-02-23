@@ -86,3 +86,52 @@ export async function openDM(client: WebClient, userId: string): Promise<string 
     return null
   }
 }
+
+/**
+ * Post a system alert to the #ember-system channel.
+ * Used for pipeline failures, connector errors, etc.
+ */
+export async function postSystemAlert(
+  organizationId: string,
+  title: string,
+  details: string,
+  severity: 'error' | 'warning' = 'error'
+): Promise<void> {
+  const channelName = process.env.SLACK_SYSTEM_CHANNEL || 'ember-system'
+
+  try {
+    const client = await getSlackClient(organizationId)
+    if (!client) return
+
+    const icon = severity === 'error' ? ':red_circle:' : ':warning:'
+    const blocks: Record<string, unknown>[] = [
+      {
+        type: 'section',
+        text: {
+          type: 'mrkdwn',
+          text: `${icon} *Ember System Alert*\n*${title}*`,
+        },
+      },
+      {
+        type: 'section',
+        text: { type: 'mrkdwn', text: details },
+      },
+      {
+        type: 'context',
+        elements: [{
+          type: 'mrkdwn',
+          text: `_${new Date().toISOString()}_`,
+        }],
+      },
+    ]
+
+    await client.chat.postMessage({
+      channel: channelName,
+      text: `${severity === 'error' ? 'ERROR' : 'WARNING'}: ${title}`,
+      blocks: blocks as unknown as KnownBlock[],
+    })
+  } catch (error) {
+    // Don't let alert failures cascade — just log
+    console.error('Failed to post system alert:', error)
+  }
+}

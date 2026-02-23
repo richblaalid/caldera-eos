@@ -372,7 +372,7 @@ All 48 tasks completed. See `docs/archive/v1.0/` for original task definitions.
 
 #### 8.20 Bug Fixes & Polish
 
-- [ ] **8.20.1** Fix integration issues and add error handling
+- [x] **8.20.1** Fix integration issues and add error handling
   - Fix bugs found during integration testing
   - Optimize Block Kit formatting (readability, link formatting)
   - Add graceful degradation when a connector fails (skip, don't crash)
@@ -447,6 +447,7 @@ All 48 tasks completed. See `docs/archive/v1.0/` for original task definitions.
 | 2026-02-23 | 8.17.1 | Update EA briefing with Financial Strategist outputs | Complete |
 | 2026-02-22 | 8.18.1 | Create pipeline test endpoint | Complete |
 | 2026-02-22 | 8.19.1 | Seed realistic EOS data for demo | Complete |
+| 2026-02-22 | 8.20.1 | Add error handling and system alerts | Complete |
 
 ---
 

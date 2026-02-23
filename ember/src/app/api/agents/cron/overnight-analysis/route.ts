@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { quickbooksConnector } from '@/lib/connectors/quickbooks-connector'
 import { runFinancialAnalysis } from '@/lib/agents/financial-strategist'
+import { postSystemAlert } from '@/lib/connectors/slack-connector'
 
 export const dynamic = 'force-dynamic'
 export const maxDuration = 120
@@ -133,6 +134,17 @@ export async function GET(request: NextRequest) {
 
     console.log('Overnight analysis complete:', results)
 
+    // Alert on errors
+    const allErrors = [...results.qb_ingestion.errors, ...results.financial_analysis.errors]
+    if (allErrors.length > 0 && firstOrgId) {
+      await postSystemAlert(
+        firstOrgId,
+        'Overnight Analysis Pipeline Errors',
+        allErrors.map(e => `• ${e}`).join('\n'),
+        'warning'
+      )
+    }
+
     return NextResponse.json({
       message: 'Overnight analysis complete',
       duration_ms: durationMs,
@@ -140,6 +152,25 @@ export async function GET(request: NextRequest) {
     })
   } catch (error) {
     console.error('Overnight analysis cron error:', error)
+
+    // Try to alert on catastrophic failure
+    try {
+      const { data: fallbackOrg } = await supabaseAdmin
+        .from('partner_preferences')
+        .select('organization_id')
+        .limit(1)
+        .single()
+      if (fallbackOrg) {
+        const err = error as { message?: string }
+        await postSystemAlert(
+          fallbackOrg.organization_id,
+          'Overnight Analysis Pipeline Failed',
+          `Catastrophic error: ${err.message || 'Unknown error'}`,
+          'error'
+        )
+      }
+    } catch { /* ignore alert failure */ }
+
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 }

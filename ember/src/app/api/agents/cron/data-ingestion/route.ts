@@ -52,39 +52,53 @@ export async function GET(request: NextRequest) {
         google_history_id: partner.google_history_id,
       }
 
-      // Run Gmail connector
-      const gmailResult = await gmailConnector.pull({
-        organizationId: partner.organization_id,
-        partnerId: partner.partner_id,
-        config,
-      })
+      // Run Gmail connector (graceful — failure doesn't block calendar)
+      let gmailRecords: ConnectorRecord[] = []
+      try {
+        const gmailResult = await gmailConnector.pull({
+          organizationId: partner.organization_id,
+          partnerId: partner.partner_id,
+          config,
+        })
 
-      if (gmailResult.errors.length > 0) {
-        results.errors.push(...gmailResult.errors.map(e => `Gmail(${partner.partner_id}): ${e.message}`))
+        gmailRecords = gmailResult.records
+        if (gmailResult.errors.length > 0) {
+          results.errors.push(...gmailResult.errors.map(e => `Gmail(${partner.partner_id}): ${e.message}`))
+        }
+
+        // Update historyId if we got a new one
+        if (gmailResult.syncState?.google_history_id) {
+          await supabaseAdmin
+            .from('partner_preferences')
+            .update({ google_history_id: gmailResult.syncState.google_history_id as string })
+            .eq('partner_id', partner.partner_id)
+            .eq('organization_id', partner.organization_id)
+        }
+      } catch (gmailError: unknown) {
+        const err = gmailError as { message?: string }
+        results.errors.push(`Gmail(${partner.partner_id}): ${err.message || 'Connector crashed'}`)
       }
 
-      // Update historyId if we got a new one
-      if (gmailResult.syncState?.google_history_id) {
-        await supabaseAdmin
-          .from('partner_preferences')
-          .update({ google_history_id: gmailResult.syncState.google_history_id as string })
-          .eq('partner_id', partner.partner_id)
-          .eq('organization_id', partner.organization_id)
-      }
+      // Run Calendar connector (graceful — failure doesn't block gmail)
+      let calendarRecords: ConnectorRecord[] = []
+      try {
+        const calendarResult = await calendarConnector.pull({
+          organizationId: partner.organization_id,
+          partnerId: partner.partner_id,
+          config,
+        })
 
-      // Run Calendar connector
-      const calendarResult = await calendarConnector.pull({
-        organizationId: partner.organization_id,
-        partnerId: partner.partner_id,
-        config,
-      })
-
-      if (calendarResult.errors.length > 0) {
-        results.errors.push(...calendarResult.errors.map(e => `Calendar(${partner.partner_id}): ${e.message}`))
+        calendarRecords = calendarResult.records
+        if (calendarResult.errors.length > 0) {
+          results.errors.push(...calendarResult.errors.map(e => `Calendar(${partner.partner_id}): ${e.message}`))
+        }
+      } catch (calError: unknown) {
+        const err = calError as { message?: string }
+        results.errors.push(`Calendar(${partner.partner_id}): ${err.message || 'Connector crashed'}`)
       }
 
       // Persist all records to ingested_data
-      const allRecords = [...gmailResult.records, ...calendarResult.records]
+      const allRecords = [...gmailRecords, ...calendarRecords]
       if (allRecords.length > 0) {
         const insertError = await persistRecords(allRecords, partner.organization_id)
         if (insertError) {
@@ -92,8 +106,8 @@ export async function GET(request: NextRequest) {
         }
       }
 
-      results.gmail_records += gmailResult.records.length
-      results.calendar_records += calendarResult.records.length
+      results.gmail_records += gmailRecords.length
+      results.calendar_records += calendarRecords.length
       results.partners_processed++
     }
 
