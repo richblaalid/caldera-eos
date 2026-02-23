@@ -115,28 +115,33 @@ export async function deliverBriefing(
   organizationId: string,
   briefingId: string,
   briefing: BriefingInsert
-): Promise<boolean> {
+): Promise<{ success: boolean; error?: string }> {
   // Get partner's Slack user ID
-  const { data: profile } = await supabaseAdmin
+  const { data: profile, error: profileError } = await supabaseAdmin
     .from('profiles')
     .select('slack_user_id')
     .eq('id', partnerId)
     .single()
 
   if (!profile?.slack_user_id) {
-    console.error(`Partner ${partnerId} has no slack_user_id`)
-    return false
+    const msg = `Partner ${partnerId} has no slack_user_id${profileError ? `: ${profileError.message}` : ''}`
+    console.error(msg)
+    return { success: false, error: msg }
   }
 
   // Get Slack client
   const client = await getSlackClient(organizationId)
-  if (!client) return false
+  if (!client) {
+    const msg = `No active Slack bot token for org ${organizationId}`
+    return { success: false, error: msg }
+  }
 
   // Open DM channel
   const channelId = await openDM(client, profile.slack_user_id)
   if (!channelId) {
-    console.error(`Failed to open DM with ${profile.slack_user_id}`)
-    return false
+    const msg = `Failed to open DM with slack_user_id=${profile.slack_user_id}`
+    console.error(msg)
+    return { success: false, error: msg }
   }
 
   // Format and post
@@ -145,12 +150,13 @@ export async function deliverBriefing(
 
   const result = await postBlockMessage(client, channelId, fallbackText, blocks)
   if (!result?.ts) {
-    console.error('Failed to post briefing to Slack')
-    return false
+    const msg = 'Failed to post briefing message to Slack'
+    console.error(msg)
+    return { success: false, error: msg }
   }
 
   // Store message_ts and channel_id for threading
   await markBriefingDelivered(briefingId, result.ts, channelId)
 
-  return true
+  return { success: true }
 }

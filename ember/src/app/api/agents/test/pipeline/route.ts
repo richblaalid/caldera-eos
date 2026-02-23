@@ -95,8 +95,9 @@ export async function GET(request: NextRequest) {
           try {
             const delivered = await deliverBriefing(partnerId, organizationId, briefingId, briefing)
             results.delivery = {
-              status: delivered ? 'success' : 'failed',
-              slack_delivered: delivered,
+              status: delivered.success ? 'success' : 'failed',
+              slack_delivered: delivered.success,
+              ...(delivered.error && { error: delivered.error }),
             }
           } catch (error: unknown) {
             const err = error as { message?: string }

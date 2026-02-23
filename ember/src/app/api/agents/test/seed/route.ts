@@ -26,7 +26,7 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    const orgId = '00000000-0000-0000-0000-000000000001'
+    const orgId = request.nextUrl.searchParams.get('org_id') || '00000000-0000-0000-0000-000000000002'
 
     // Get partner profiles to assign ownership
     const { data: profiles } = await supabaseAdmin

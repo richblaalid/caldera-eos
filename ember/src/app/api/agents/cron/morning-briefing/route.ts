@@ -67,10 +67,10 @@ export async function GET(request: NextRequest) {
           briefing
         )
 
-        if (delivered) {
+        if (delivered.success) {
           results.briefings_delivered++
         } else {
-          results.errors.push(`Slack delivery failed for ${partner.partner_id}`)
+          results.errors.push(`Slack delivery failed for ${partner.partner_id}: ${delivered.error || 'unknown'}`)
         }
 
         results.partners_processed++
