@@ -426,7 +426,7 @@ All 48 tasks completed. See `docs/archive/v1.0/` for original task definitions.
   - **Depends on:** 9.1.1
   - **Acceptance:** Briefing items are specific, actionable, and Caldera-contextualized
 
-- [ ] **9.1.3** Polish Slack Block Kit formatting
+- [x] **9.1.3** Polish Slack Block Kit formatting
   - Improve scannability: shorter text per item, clearer hierarchy
   - Add deep links to Ember dashboard for items that need detailed review
   - Add time-of-day greeting ("Good morning, Rich")
@@ -561,6 +561,7 @@ All 48 tasks completed. See `docs/archive/v1.0/` for original task definitions.
 | 2026-02-22 | 8.21.1 | Prepare demo script — manual partner demo pending | Complete |
 | 2026-02-23 | 9.1.1 | Enhance EA briefing data assembly | Complete |
 | 2026-02-23 | 9.1.2 | Improve briefing prompt engineering | Complete |
+| 2026-02-23 | 9.1.3 | Polish Slack Block Kit formatting | Complete |
 
 ---
 
