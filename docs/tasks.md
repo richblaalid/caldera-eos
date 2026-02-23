@@ -485,7 +485,7 @@ All 48 tasks completed. See `docs/archive/v1.0/` for original task definitions.
 
 #### 9.4 Settings & Integrations Page
 
-- [ ] **9.4.1** Build integrations settings page
+- [x] **9.4.1** Build integrations settings page
   - Create `/dashboard/settings/integrations/page.tsx`
   - Show connector status cards: Google (Gmail + Calendar), Slack, HubSpot, QuickBooks
   - Each card shows: connected/disconnected, last sync time, connect/disconnect button
@@ -494,7 +494,7 @@ All 48 tasks completed. See `docs/archive/v1.0/` for original task definitions.
   - **Depends on:** 9.3.1
   - **Acceptance:** Page renders connector status, OAuth flows launchable from UI
 
-- [ ] **9.4.2** Build API route for connector status
+- [x] **9.4.2** Build API route for connector status
   - Create `/api/agents/status/route.ts` — returns connector status for current user's org
   - Checks: Google tokens present, Slack bot_token present, HubSpot tokens present, QB tokens present
   - Returns last ingestion timestamps from `ingested_data`
@@ -567,6 +567,8 @@ All 48 tasks completed. See `docs/archive/v1.0/` for original task definitions.
 | 2026-02-23 | 9.3.2 | Build HubSpot connector | Complete |
 | 2026-02-23 | 9.3.3 | Add HubSpot to data ingestion cron | Complete |
 | 2026-02-23 | 9.3.4 | Add pipeline data to EA briefing | Complete |
+| 2026-02-23 | 9.4.1 | Build integrations settings page | Complete |
+| 2026-02-23 | 9.4.2 | Build API route for connector status | Complete |
 
 ---
 
