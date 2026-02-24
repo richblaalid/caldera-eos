@@ -3,6 +3,7 @@ import { createClient } from '@supabase/supabase-js'
 import { gmailConnector } from '@/lib/connectors/gmail-connector'
 import { calendarConnector } from '@/lib/connectors/calendar-connector'
 import { hubspotConnector } from '@/lib/connectors/hubspot-connector'
+import { transcriptConnector } from '@/lib/connectors/transcript-connector'
 import type { ConnectorRecord } from '@/lib/connectors/types'
 
 export const dynamic = 'force-dynamic'
@@ -28,7 +29,7 @@ export async function GET(request: NextRequest) {
     // Get all partners with any connector tokens
     const { data: partners, error: fetchError } = await supabaseAdmin
       .from('partner_preferences')
-      .select('partner_id, organization_id, google_refresh_token, google_history_id')
+      .select('partner_id, organization_id, google_refresh_token, google_history_id, grain_last_sync')
 
     if (fetchError) {
       console.error('Failed to fetch partner preferences:', fetchError)
@@ -44,11 +45,13 @@ export async function GET(request: NextRequest) {
       gmail_records: 0,
       calendar_records: 0,
       hubspot_records: 0,
+      transcript_records: 0,
       errors: [] as string[],
     }
 
-    // Track which orgs have already run HubSpot (avoid duplicate runs per org)
+    // Track which orgs have already run org-level connectors (avoid duplicate runs)
     const hubspotProcessedOrgs = new Set<string>()
+    const transcriptProcessedOrgs = new Set<string>()
 
     for (const partner of partners) {
       const config = {
@@ -126,8 +129,38 @@ export async function GET(request: NextRequest) {
         }
       }
 
+      // Run Transcript connector (once per org — reads from transcripts table)
+      let transcriptRecords: ConnectorRecord[] = []
+      if (!transcriptProcessedOrgs.has(partner.organization_id)) {
+        transcriptProcessedOrgs.add(partner.organization_id)
+        try {
+          const transcriptResult = await transcriptConnector.pull({
+            organizationId: partner.organization_id,
+            partnerId: partner.partner_id,
+            config: { grain_last_sync: partner.grain_last_sync },
+          })
+
+          transcriptRecords = transcriptResult.records
+          if (transcriptResult.errors.length > 0) {
+            results.errors.push(...transcriptResult.errors.map(e => `Transcript(${partner.organization_id}): ${e.message}`))
+          }
+
+          // Update grain_last_sync if we got a new timestamp
+          if (transcriptResult.syncState?.grain_last_sync) {
+            await supabaseAdmin
+              .from('partner_preferences')
+              .update({ grain_last_sync: transcriptResult.syncState.grain_last_sync as string })
+              .eq('partner_id', partner.partner_id)
+              .eq('organization_id', partner.organization_id)
+          }
+        } catch (trError: unknown) {
+          const err = trError as { message?: string }
+          results.errors.push(`Transcript(${partner.organization_id}): ${err.message || 'Connector crashed'}`)
+        }
+      }
+
       // Persist all records to ingested_data
-      const allRecords = [...gmailRecords, ...calendarRecords, ...hubspotRecords]
+      const allRecords = [...gmailRecords, ...calendarRecords, ...hubspotRecords, ...transcriptRecords]
       if (allRecords.length > 0) {
         const insertError = await persistRecords(allRecords, partner.organization_id)
         if (insertError) {
@@ -138,6 +171,7 @@ export async function GET(request: NextRequest) {
       results.gmail_records += gmailRecords.length
       results.calendar_records += calendarRecords.length
       results.hubspot_records += hubspotRecords.length
+      results.transcript_records += transcriptRecords.length
       results.partners_processed++
     }
 

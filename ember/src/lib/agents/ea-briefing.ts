@@ -42,13 +42,14 @@ export async function generateBriefing(
   const today = new Date().toISOString().split('T')[0]
 
   // Gather all data sources in parallel
-  const [calendarEvents, recentEmails, eosData, agentOutputs, financialInsights, pipelineData, ownerNames] = await Promise.all([
+  const [calendarEvents, recentEmails, eosData, agentOutputs, financialInsights, pipelineData, transcriptHighlights, ownerNames] = await Promise.all([
     getCalendarEvents(organizationId),
     getRecentEmails(organizationId),
     getEOSData(organizationId),
     getPendingAgentOutputs(organizationId),
     getFinancialInsights(organizationId),
     getPipelineData(organizationId),
+    getTranscriptHighlights(organizationId),
     getOwnerNames(organizationId),
   ])
 
@@ -60,6 +61,7 @@ export async function generateBriefing(
     agentOutputs,
     financialInsights,
     pipelineData,
+    transcriptHighlights,
     ownerNames,
     today,
   })
@@ -436,6 +438,45 @@ async function getPipelineData(organizationId: string): Promise<PipelineData | n
   return { deals, totalPipelineValue, closingSoon, overdueDeals }
 }
 
+interface TranscriptHighlight {
+  meeting_title: string
+  meeting_type: string
+  summary: string
+  key_points: string[]
+  action_items: string[]
+  decisions: string[]
+  source_timestamp: string
+}
+
+async function getTranscriptHighlights(organizationId: string): Promise<TranscriptHighlight[]> {
+  const twoDaysAgo = new Date(Date.now() - 48 * 60 * 60 * 1000).toISOString()
+
+  const { data } = await supabaseAdmin
+    .from('ingested_data')
+    .select('payload, source_timestamp')
+    .eq('organization_id', organizationId)
+    .eq('source', 'grain')
+    .eq('data_type', 'transcript_summary')
+    .gte('source_timestamp', twoDaysAgo)
+    .order('source_timestamp', { ascending: false })
+    .limit(5)
+
+  if (!data || data.length === 0) return []
+
+  return data.map(d => {
+    const p = d.payload as Record<string, unknown>
+    return {
+      meeting_title: (p.meeting_title as string) || 'Untitled',
+      meeting_type: (p.meeting_type as string) || 'unknown',
+      summary: (p.summary as string) || '',
+      key_points: (p.key_points as string[]) || [],
+      action_items: (p.action_items as string[]) || [],
+      decisions: (p.decisions as string[]) || [],
+      source_timestamp: d.source_timestamp || '',
+    }
+  })
+}
+
 // ============================================
 // Prompt builder
 // ============================================
@@ -447,6 +488,7 @@ function buildBriefingPrompt(data: {
   agentOutputs: Array<Record<string, unknown>>
   financialInsights: Record<string, unknown> | null
   pipelineData: PipelineData | null
+  transcriptHighlights: TranscriptHighlight[]
   ownerNames: Map<string, string>
   today: string
 }): string {
@@ -620,6 +662,19 @@ function buildBriefingPrompt(data: {
     sections.push(`## Sales Pipeline (HubSpot)\n${pipelineSections.join('\n')}`)
   }
 
+  // Transcript highlights (yesterday's meetings)
+  if (data.transcriptHighlights.length > 0) {
+    const transcripts = data.transcriptHighlights.map(t => {
+      const parts: string[] = [`### ${t.meeting_title} [${t.meeting_type}]`]
+      if (t.summary) parts.push(`Summary: ${t.summary}`)
+      if (t.key_points.length > 0) parts.push(`Key points:\n${t.key_points.map(k => `  - ${k}`).join('\n')}`)
+      if (t.action_items.length > 0) parts.push(`Action items:\n${t.action_items.map(a => `  - ${a}`).join('\n')}`)
+      if (t.decisions.length > 0) parts.push(`Decisions:\n${t.decisions.map(d => `  - ${d}`).join('\n')}`)
+      return parts.join('\n')
+    }).join('\n\n')
+    sections.push(`## Yesterday's Meetings (${data.transcriptHighlights.length} transcripts)\n${transcripts}`)
+  }
+
   // Agent outputs
   if (data.agentOutputs.length > 0) {
     const outputs = data.agentOutputs
@@ -640,5 +695,6 @@ Instructions:
 - For Rocks, mention milestone progress and days until due.
 - For Scorecard metrics, mention consecutive misses and trend direction.
 - For To-dos, mention the owner name and due date.
-- Financial insights from the Financial Strategist should be prominently featured — AR alerts and threshold breaches in Tier 1, cash flow and margins in Tier 2.`
+- Financial insights from the Financial Strategist should be prominently featured — AR alerts and threshold breaches in Tier 1, cash flow and margins in Tier 2.
+- If transcript highlights are available from yesterday's meetings, incorporate key follow-ups and action items into Tier 1 (if urgent) or Tier 2. Mention specific commitments people made and decisions that affect upcoming work.`
 }
