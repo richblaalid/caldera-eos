@@ -12,7 +12,7 @@ const supabaseAdmin = createClient(
 /**
  * GET /api/agents/test/qbo
  * Debug endpoint to test QuickBooks token validity and data access.
- * Returns detailed diagnostics about the QBO connection.
+ * Tests both the intuit-oauth library AND a direct HTTP refresh call.
  */
 export async function GET(request: NextRequest) {
   try {
@@ -57,7 +57,7 @@ export async function GET(request: NextRequest) {
     results.token_prefix = prefs.quickbooks_refresh_token?.substring(0, 12) + '...'
     results.token_length = prefs.quickbooks_refresh_token?.length
 
-    // Attempt token refresh
+    // ===== TEST 1: intuit-oauth library refresh =====
     try {
       const oauthClient = new OAuthClient({
         clientId: process.env.QUICKBOOKS_CLIENT_ID!,
@@ -74,76 +74,101 @@ export async function GET(request: NextRequest) {
 
       const tokenResponse = await oauthClient.refresh()
       const tokens = tokenResponse.getJson()
-
-      results.token_refresh = 'SUCCESS'
-      results.new_access_token_prefix = tokens.access_token?.substring(0, 12) + '...'
-      results.new_refresh_token_changed = tokens.refresh_token !== prefs.quickbooks_refresh_token
-
-      // Try a simple QBO API call - CompanyInfo
-      const baseUrl = process.env.QUICKBOOKS_ENVIRONMENT === 'sandbox'
-        ? 'https://sandbox-quickbooks.api.intuit.com'
-        : 'https://quickbooks.api.intuit.com'
-
-      const companyInfoUrl = `${baseUrl}/v3/company/${prefs.quickbooks_realm_id}/companyinfo/${prefs.quickbooks_realm_id}`
-      const apiResponse = await fetch(companyInfoUrl, {
-        headers: {
-          Authorization: `Bearer ${tokens.access_token}`,
-          Accept: 'application/json',
-        },
-      })
-
-      if (apiResponse.ok) {
-        const companyData = await apiResponse.json()
-        const info = companyData.CompanyInfo
-        results.api_test = 'SUCCESS'
-        results.company_name = info?.CompanyName
-        results.company_country = info?.Country
-      } else {
-        const errorBody = await apiResponse.text()
-        results.api_test = 'FAILED'
-        results.api_status = apiResponse.status
-        results.api_error = errorBody.substring(0, 500)
-      }
-
-      // Try a simple invoice count
-      const countUrl = `${baseUrl}/v3/company/${prefs.quickbooks_realm_id}/query?query=${encodeURIComponent('SELECT COUNT(*) FROM Invoice')}`
-      const countResponse = await fetch(countUrl, {
-        headers: {
-          Authorization: `Bearer ${tokens.access_token}`,
-          Accept: 'application/json',
-        },
-      })
-
-      if (countResponse.ok) {
-        const countData = await countResponse.json()
-        results.invoice_count = countData.QueryResponse?.totalCount ?? 'unknown'
-      }
-
-      // Save rotated refresh token if changed
-      if (tokens.refresh_token && tokens.refresh_token !== prefs.quickbooks_refresh_token) {
-        await supabaseAdmin
-          .from('partner_preferences')
-          .update({ quickbooks_refresh_token: tokens.refresh_token })
-          .eq('partner_id', prefs.partner_id)
-          .eq('organization_id', prefs.organization_id)
-
-        results.token_rotated = true
-      }
-
+      results.library_refresh = 'SUCCESS'
+      results.library_access_token_length = tokens.access_token?.length
     } catch (error: unknown) {
-      const err = error as {
-        message?: string
-        authResponse?: { json?: unknown; response?: { status?: number; statusText?: string; body?: string } }
-        originalMessage?: string
-        intuit_tid?: string
+      const err = error as { message?: string }
+      results.library_refresh = 'FAILED'
+      results.library_error = err.message
+    }
+
+    // ===== TEST 2: Direct HTTP refresh (bypass intuit-oauth library) =====
+    try {
+      const clientId = process.env.QUICKBOOKS_CLIENT_ID!
+      const clientSecret = process.env.QUICKBOOKS_CLIENT_SECRET!
+      const basicAuth = Buffer.from(`${clientId}:${clientSecret}`).toString('base64')
+
+      const body = new URLSearchParams({
+        grant_type: 'refresh_token',
+        refresh_token: prefs.quickbooks_refresh_token!,
+      })
+
+      const directResponse = await fetch('https://oauth.platform.intuit.com/oauth2/v1/tokens/bearer', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Basic ${basicAuth}`,
+          'Content-Type': 'application/x-www-form-urlencoded',
+          'Accept': 'application/json',
+        },
+        body: body.toString(),
+      })
+
+      const directData = await directResponse.json()
+
+      if (directResponse.ok && directData.access_token) {
+        results.direct_refresh = 'SUCCESS'
+        results.direct_access_token_length = directData.access_token?.length
+        results.direct_refresh_token_changed = directData.refresh_token !== prefs.quickbooks_refresh_token
+        results.direct_expires_in = directData.expires_in
+
+        // If direct worked, try a QBO API call
+        const baseUrl = process.env.QUICKBOOKS_ENVIRONMENT === 'sandbox'
+          ? 'https://sandbox-quickbooks.api.intuit.com'
+          : 'https://quickbooks.api.intuit.com'
+
+        const companyInfoUrl = `${baseUrl}/v3/company/${prefs.quickbooks_realm_id}/companyinfo/${prefs.quickbooks_realm_id}`
+        const apiResponse = await fetch(companyInfoUrl, {
+          headers: {
+            Authorization: `Bearer ${directData.access_token}`,
+            Accept: 'application/json',
+          },
+        })
+
+        if (apiResponse.ok) {
+          const companyData = await apiResponse.json()
+          const info = companyData.CompanyInfo
+          results.api_test = 'SUCCESS'
+          results.company_name = info?.CompanyName
+          results.company_country = info?.Country
+        } else {
+          const errorBody = await apiResponse.text()
+          results.api_test = 'FAILED'
+          results.api_status = apiResponse.status
+          results.api_error = errorBody.substring(0, 500)
+        }
+
+        // Try invoice count
+        const countUrl = `${baseUrl}/v3/company/${prefs.quickbooks_realm_id}/query?query=${encodeURIComponent('SELECT COUNT(*) FROM Invoice')}`
+        const countResponse = await fetch(countUrl, {
+          headers: {
+            Authorization: `Bearer ${directData.access_token}`,
+            Accept: 'application/json',
+          },
+        })
+
+        if (countResponse.ok) {
+          const countData = await countResponse.json()
+          results.invoice_count = countData.QueryResponse?.totalCount ?? 'unknown'
+        }
+
+        // Save the new refresh token
+        if (directData.refresh_token) {
+          await supabaseAdmin
+            .from('partner_preferences')
+            .update({ quickbooks_refresh_token: directData.refresh_token })
+            .eq('partner_id', prefs.partner_id)
+            .eq('organization_id', prefs.organization_id)
+          results.token_saved = true
+        }
+      } else {
+        results.direct_refresh = 'FAILED'
+        results.direct_status = directResponse.status
+        results.direct_error = directData
       }
-      results.token_refresh = 'FAILED'
-      results.error_message = err.message
-      results.error_original = err.originalMessage
-      results.error_intuit_tid = err.intuit_tid
-      results.error_auth_response = err.authResponse?.json
-      results.error_status = err.authResponse?.response?.status
-      results.error_body = err.authResponse?.response?.body
+    } catch (error: unknown) {
+      const err = error as { message?: string }
+      results.direct_refresh = 'ERROR'
+      results.direct_error = err.message
     }
 
     return NextResponse.json(results)
