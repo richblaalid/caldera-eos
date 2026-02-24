@@ -510,16 +510,198 @@ All 48 tasks completed. See `docs/archive/v1.0/` for original task definitions.
 
 ---
 
+## Phase 10: Agent System — Week 3 (Meeting Intelligence + BD Strategist + Nudges)
+
+**Plan:** `docs/plans/phase10-week3-intelligence.md`
+**Goal:** Get meeting transcripts flowing into the pipeline with classification and temporal retrieval, activate the BD Strategist for John, build the proactive nudge system, and wire L10 meeting prep into the agent system.
+
+### Days 1-2: Grain Transcript Ingestion
+
+#### 10.1 Grain Connector
+
+- [ ] **10.1.1** Create Grain connector with meeting classification
+  - Create `src/lib/connectors/grain-connector.ts`
+  - Implements `DataConnector` interface
+  - Uses Grain MCP `list_attended_meetings` to find meetings since last sync
+  - Uses `fetch_meeting_notes` for structured AI summaries (key points, action items, decisions)
+  - Classifies meetings by type: `l10`, `sales_call`, `client_delivery`, `1on1`, `internal`
+  - Classification via title patterns (L10, Level 10) + attendee analysis (internal vs external)
+  - Cross-references Calendar connector data in `ingested_data` for attendee matching
+  - Tags with `relevance_tags`: meeting type + `client:{name}` when applicable
+  - Sets `source_timestamp` to the **meeting date/time** (not sync time)
+  - Stores structured summary payload in `ingested_data` (source: `grain`, data_type: `transcript_summary`)
+  - **Files:** `ember/src/lib/connectors/grain-connector.ts`
+  - **Acceptance:** Connector pulls meetings from Grain, classifies by type, stores tagged summaries in `ingested_data`
+
+- [ ] **10.1.2** Store full transcripts for deep retrieval
+  - Extend Grain connector to also call `fetch_meeting_transcript` for full text
+  - Store full transcript in existing `transcripts` table (not `ingested_data`)
+  - Link transcript to `ingested_data` summary via `grain_meeting_id` in payload
+  - Add `transcript_summary` to `DataType` union in `types/agents.ts`
+  - **Files:** `ember/src/lib/connectors/grain-connector.ts`, `ember/src/types/agents.ts`
+  - **Depends on:** 10.1.1
+  - **Acceptance:** Full transcripts stored in `transcripts` table, linked to classified summaries
+
+- [ ] **10.1.3** Create migration and add Grain to data ingestion cron
+  - Create `supabase/migrations/013_add_grain_sync_column.sql` — add `grain_last_sync` timestamp to `partner_preferences`
+  - Extend `data-ingestion/route.ts` to run Grain connector once per org (similar to HubSpot pattern)
+  - Check `grain_last_sync` to only fetch meetings since last successful sync
+  - Update `grain_last_sync` after successful pull
+  - **Files:** `ember/supabase/migrations/013_add_grain_sync_column.sql`, `ember/src/app/api/agents/cron/data-ingestion/route.ts`
+  - **Depends on:** 10.1.1
+  - **Acceptance:** Grain data flows on 15-minute cron schedule, only new meetings pulled
+
+- [ ] **10.1.4** Add transcript highlights to EA briefing
+  - Update `ea-briefing.ts` to query recent transcript summaries (last 48 hours)
+  - Filter by partner-relevant tags (Rich: `l10, leadership, 1on1`; John: `sales, prospect, client`)
+  - Include key points and action items from recent meetings in briefing context
+  - Add "Yesterday's Meetings" section to Tier 2 briefing items
+  - Use `ORDER BY source_timestamp DESC` with time window filtering
+  - **Files:** `ember/src/lib/agents/ea-briefing.ts`
+  - **Depends on:** 10.1.3
+  - **Acceptance:** Morning briefing includes highlights from previous day's meetings
+
+### Days 3-4: BD Strategist + Pre-Meeting Prep
+
+#### 10.2 BD Strategist Agent
+
+- [ ] **10.2.1** Seed BD Strategist agent definition and John's partner preferences
+  - Create migration `014_seed_bd_strategist.sql`
+  - Seed `agent_definitions` with BD Strategist persona (from PRD Section 7.4 — VP of Partnerships, proactive, opportunity-seeking)
+  - Seed `partner_preferences` for John (briefing_time: 07:30, timezone: America/Chicago, focus_areas: ['sales', 'pipeline', 'clients'])
+  - Seed `partner_preferences` for Wade (briefing_time: 07:00, timezone: America/Chicago, focus_areas: ['delivery', 'engineering', 'clients'])
+  - **Files:** `ember/supabase/migrations/014_seed_bd_strategist.sql`
+  - **Acceptance:** BD Strategist agent definition exists, John and Wade have partner preferences
+
+- [ ] **10.2.2** Build BD Strategist analysis module
+  - Create `src/lib/agents/bd-strategist.ts`
+  - `runPipelineAnalysis(organizationId)` — overnight analysis function
+  - Queries: HubSpot deals from `ingested_data` (last 30 days), recent sales-tagged transcripts (last 30 days), deal stage distribution, velocity metrics
+  - Produces structured output via Zod schema:
+    - `headline`: one-line pipeline summary
+    - `pipeline_health`: total value, deal count, avg velocity, stage distribution
+    - `deals_at_risk`: overdue close dates, stalled deals (no activity 14+ days)
+    - `closing_this_week`: deals with close date within 7 days
+    - `win_loss_summary`: recent closed deals and patterns
+    - `eos_actions`: auto-create Issues for pipeline risks (e.g., stalled high-value deals)
+  - Uses Claude Sonnet for analysis
+  - **Files:** `ember/src/lib/agents/bd-strategist.ts`
+  - **Depends on:** 10.2.1
+  - **Acceptance:** BD Strategist generates structured pipeline analysis from HubSpot data
+
+- [ ] **10.2.3** Add BD Strategist to overnight analysis cron
+  - Extend `overnight-analysis/route.ts` to invoke BD Strategist per organization
+  - Run after Financial Strategist (both feed into morning briefing)
+  - Log to `agent_runs` table
+  - Include BD Strategist outputs in EA briefing assembly
+  - Update `ea-briefing.ts` to query BD Strategist `agent_outputs` and include pipeline insights in Tier 2
+  - **Files:** `ember/src/app/api/agents/cron/overnight-analysis/route.ts`, `ember/src/lib/agents/ea-briefing.ts`
+  - **Depends on:** 10.2.2
+  - **Acceptance:** BD Strategist runs overnight, outputs appear in morning briefing pipeline section
+
+#### 10.3 Pre-Meeting Prep
+
+- [ ] **10.3.1** Build pre-meeting intelligence generator
+  - Create `src/lib/agents/meeting-prep.ts`
+  - `generatePreCallBrief(meetingEvent, organizationId)` — compile context for an upcoming external meeting
+  - Queries per-client data: `relevance_tags @> '{client:{name}}' ORDER BY source_timestamp DESC LIMIT 3`
+  - Assembles: HubSpot deal status, recent email threads with this contact, prior meeting notes, open action items
+  - Generates focused 5-line prep brief via Claude Haiku (fast, cheap — runs per meeting)
+  - Format as Slack Block Kit for DM delivery
+  - **Files:** `ember/src/lib/agents/meeting-prep.ts`
+  - **Depends on:** 10.1.4, 10.2.3
+  - **Acceptance:** Pre-call brief generated with client context from multiple sources
+
+- [ ] **10.3.2** Wire pre-meeting prep into morning briefing cron
+  - Extend `morning-briefing/route.ts` to check for external meetings in next 4 hours
+  - For each external/client meeting, call `generatePreCallBrief()`
+  - Deliver as separate Slack DM to the partner attending (not part of main briefing)
+  - If John has a sales call at 10am, he gets a prep DM at ~7:30am
+  - Match meeting attendees to HubSpot contacts/companies for client identification
+  - **Files:** `ember/src/app/api/agents/cron/morning-briefing/route.ts`, `ember/src/lib/agents/meeting-prep.ts`
+  - **Depends on:** 10.3.1
+  - **Acceptance:** Partners receive pre-call prep DMs before external meetings
+
+### Days 4-5: Nudge System + L10 Prep
+
+#### 10.4 Proactive Nudge System
+
+- [x] **10.4.1** Build nudge engine
+  - Create `src/lib/agents/nudge-engine.ts`
+  - `runNudgeCheck(organizationId)` — evaluates all overdue/stalled EOS items
+  - Detection rules:
+    - Overdue To-dos (past 7-day deadline)
+    - Stalled Rocks (no milestone progress in 2+ weeks)
+    - Missed Scorecard entries (3+ consecutive weeks without entry)
+    - Rock milestones due within 3 days
+  - Three escalation levels per ADR-009:
+    1. Gentle reminder (first occurrence) — Slack DM
+    2. Direct nudge (2nd+ occurrence) — Slack DM with data
+    3. L10 escalation (3rd+ week) — auto-create Issue for group discussion
+  - Track nudge history via `agent_outputs` (type: `alert`) to determine escalation level
+  - Max 1 nudge per item per day, no weekend nudges
+  - **Files:** `ember/src/lib/agents/nudge-engine.ts`
+  - **Acceptance:** Nudge engine detects overdue items and assigns correct escalation level
+
+- [x] **10.4.2** Wire nudge engine into morning briefing cron and deliver via Slack
+  - Extend `morning-briefing/route.ts` to run nudge check before briefing generation
+  - Deliver nudges as individual Slack DMs to each partner (separate from briefing)
+  - Store nudge outputs in `agent_outputs` for history tracking
+  - Format nudges with appropriate tone per escalation level
+  - Include relevant data (days overdue, last update date, completion %)
+  - **Files:** `ember/src/app/api/agents/cron/morning-briefing/route.ts`, `ember/src/lib/agents/nudge-engine.ts`
+  - **Depends on:** 10.4.1
+  - **Acceptance:** Partners receive nudge DMs for overdue items, escalation levels work correctly
+
+#### 10.5 L10 Meeting Prep
+
+- [x] **10.5.1** Build agent-powered L10 prep generator
+  - Create `src/lib/agents/l10-prep.ts`
+  - `generateL10Prep(organizationId)` — comprehensive prep from all agent data
+  - Detect L10 meetings 3 days ahead via `ingested_data` (source: `calendar`, data_type: `calendar_event`, relevance_tags containing `l10`)
+  - Aggregate from all sources:
+    - Rock status (all partners, % complete, days until due)
+    - Scorecard trends (last 4 weeks, highlight consecutive misses)
+    - Open Issues (prioritized by age and urgency)
+    - Financial Strategist headline + key alerts
+    - BD Strategist pipeline summary + deals at risk
+    - To-do completion rate (last 2 weeks)
+    - Action items from last L10 transcript (tracked via `relevance_tags @> '{l10}'`)
+  - Generate structured prep via Claude Sonnet with Zod schema
+  - **Files:** `ember/src/lib/agents/l10-prep.ts`
+  - **Depends on:** 10.1.4, 10.2.3, 10.4.1
+  - **Acceptance:** L10 prep document generated with multi-source data aggregation
+
+- [x] **10.5.2** Wire L10 prep into morning briefing cron and deliver via Slack
+  - Extend `morning-briefing/route.ts` to detect upcoming L10 (within 3 days)
+  - When L10 detected, run `generateL10Prep()` and post to:
+    - Slack channel (`#eos-pulse` or configured channel)
+    - Individual partner DMs with personalized notes (their Rocks, their Todos, their Scorecard metrics)
+  - Run once (not every morning) — track via `agent_outputs` to avoid duplicate prep
+  - Store prep in `agent_outputs` (type: `briefing`, title: `L10 Prep - {date}`)
+  - **Files:** `ember/src/app/api/agents/cron/morning-briefing/route.ts`, `ember/src/lib/agents/l10-prep.ts`
+  - **Depends on:** 10.5.1
+  - **Acceptance:** L10 prep posted to Slack 3 days before scheduled L10
+
+**Phase 10 Checkpoint:**
+- [ ] Grain transcripts flow into pipeline with classification (at least 1 meeting ingested)
+- [ ] BD Strategist generates pipeline health analysis overnight
+- [ ] Partners receive pre-call intelligence briefs before external meetings
+- [ ] Proactive nudges fire for overdue Rocks or Todos with correct escalation
+- [ ] L10 prep document generated 3 days before scheduled L10
+- [ ] Rich's morning briefing includes transcript highlights from previous day's meetings
+- [ ] All queries use temporal filtering (source_timestamp) to prevent stale data
+
+---
+
 ## Task Summary
 
-| Day | Section | Tasks | Focus |
-|-----|---------|-------|-------|
-| Day 1 | 8.1-8.5 | 9 | DB, types, Gmail/Calendar connectors, Google OAuth, ingestion cron |
-| Day 2 | 8.6-8.9 | 8 | Agent runtime, EA briefing, Slack delivery, morning cron |
-| Day 3 | 8.10-8.13 | 5 | Slack events, command parser, executor, reactions |
-| Day 4 | 8.14-8.17 | 6 | QuickBooks, Financial Strategist, overnight pipeline, EA integration |
-| Day 5 | 8.18-8.21 | 4 | E2E testing, data quality, polish, demo |
-| **Total** | | **32** | |
+| Phase | Section | Tasks | Focus |
+|-------|---------|-------|-------|
+| 8 (Week 1) | 8.1-8.21 | 32 | Agent foundation, connectors, briefing, Slack, Financial Strategist |
+| 9 (Week 2) | 9.1-9.4 | 10 | Briefing excellence, HubSpot integration, settings page |
+| 10 (Week 3) | 10.1-10.5 | 12 | Grain transcripts, BD Strategist, pre-meeting prep, nudges, L10 prep |
+| **Total** | | **54** | |
 
 ---
 
