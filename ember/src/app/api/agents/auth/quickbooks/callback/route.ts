@@ -50,6 +50,19 @@ export async function GET(request: Request) {
     const authResponse = await oauthClient.createToken(url.toString())
     const token = authResponse.getJson()
 
+    // Debug: log full token response (no secrets, just structure)
+    console.log('QBO OAuth token exchange result:', JSON.stringify({
+      has_access_token: !!token.access_token,
+      access_token_length: token.access_token?.length,
+      has_refresh_token: !!token.refresh_token,
+      refresh_token_length: token.refresh_token?.length,
+      refresh_token_prefix: token.refresh_token?.substring(0, 12),
+      token_type: token.token_type,
+      expires_in: token.expires_in,
+      x_refresh_token_expires_in: token.x_refresh_token_expires_in,
+      all_keys: Object.keys(token),
+    }))
+
     if (!token.refresh_token) {
       return NextResponse.redirect(
         new URL('/dashboard/settings/integrations?error=qb_no_refresh_token', request.url)
@@ -110,6 +123,30 @@ export async function GET(request: Request) {
           new URL('/dashboard/settings/integrations?error=qb_save_failed', request.url)
         )
       }
+    }
+
+    // Immediately validate: try refreshing the token we just saved
+    try {
+      const verifyClient = createQBOAuthClient()
+      verifyClient.setToken({ access_token: '', refresh_token: token.refresh_token, realmId: realmId || '' })
+      const verifyResponse = await verifyClient.refresh()
+      const verifyTokens = verifyResponse.getJson()
+      console.log('QBO token verification: SUCCESS', {
+        new_refresh_token_changed: verifyTokens.refresh_token !== token.refresh_token,
+      })
+      // Save the rotated refresh token from verification
+      if (verifyTokens.refresh_token && verifyTokens.refresh_token !== token.refresh_token) {
+        await serviceClient
+          .from('partner_preferences')
+          .update({ quickbooks_refresh_token: verifyTokens.refresh_token })
+          .eq('organization_id', membership.organization_id)
+          .eq('partner_id', user.id)
+        console.log('QBO: saved rotated refresh token from verification')
+      }
+    } catch (verifyError: unknown) {
+      const vErr = verifyError as { message?: string }
+      console.error('QBO token verification FAILED immediately after save:', vErr.message)
+      // Still redirect as connected — token was saved, but log the warning
     }
 
     return NextResponse.redirect(
