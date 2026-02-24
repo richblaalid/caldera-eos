@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { quickbooksConnector } from '@/lib/connectors/quickbooks-connector'
 import { runFinancialAnalysis } from '@/lib/agents/financial-strategist'
+import { runPipelineAnalysis } from '@/lib/agents/bd-strategist'
 import { postSystemAlert } from '@/lib/connectors/slack-connector'
 
 export const dynamic = 'force-dynamic'
@@ -39,6 +40,7 @@ export async function GET(request: NextRequest) {
     const results = {
       qb_ingestion: { partners_processed: 0, records_ingested: 0, errors: [] as string[] },
       financial_analysis: { orgs_processed: 0, outputs_created: 0, issues_created: 0, errors: [] as string[] },
+      pipeline_analysis: { orgs_processed: 0, outputs_created: 0, issues_created: 0, errors: [] as string[] },
     }
 
     // Step 1: QuickBooks data ingestion per partner
@@ -111,6 +113,19 @@ export async function GET(request: NextRequest) {
       }
     }
 
+    // Step 3: Run BD Strategist pipeline analysis per organization
+    for (const orgId of allOrgs) {
+      try {
+        const result = await runPipelineAnalysis(orgId)
+        results.pipeline_analysis.outputs_created += result.outputsCreated
+        results.pipeline_analysis.issues_created += result.issuesCreated
+        results.pipeline_analysis.orgs_processed++
+      } catch (error: unknown) {
+        const err = error as { message?: string }
+        results.pipeline_analysis.errors.push(`Org ${orgId}: ${err.message || 'Unknown error'}`)
+      }
+    }
+
     const durationMs = Date.now() - startTime
 
     // Log run to agent_runs
@@ -135,7 +150,7 @@ export async function GET(request: NextRequest) {
     console.log('Overnight analysis complete:', results)
 
     // Alert on errors
-    const allErrors = [...results.qb_ingestion.errors, ...results.financial_analysis.errors]
+    const allErrors = [...results.qb_ingestion.errors, ...results.financial_analysis.errors, ...results.pipeline_analysis.errors]
     if (allErrors.length > 0 && firstOrgId) {
       await postSystemAlert(
         firstOrgId,
