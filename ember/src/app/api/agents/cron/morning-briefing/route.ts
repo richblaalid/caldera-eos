@@ -2,7 +2,8 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { generateBriefing, saveBriefing } from '@/lib/agents/ea-briefing'
 import { deliverBriefing } from '@/lib/agents/slack-briefing'
-import { postSystemAlert } from '@/lib/connectors/slack-connector'
+import { postSystemAlert, getSlackClient, openDM, postBlockMessage } from '@/lib/connectors/slack-connector'
+import { generatePreCallBrief } from '@/lib/agents/meeting-prep'
 
 export const dynamic = 'force-dynamic'
 export const maxDuration = 60
@@ -42,6 +43,7 @@ export async function GET(request: NextRequest) {
       partners_processed: 0,
       briefings_generated: 0,
       briefings_delivered: 0,
+      prep_briefs_sent: 0,
       errors: [] as string[],
     }
 
@@ -71,6 +73,15 @@ export async function GET(request: NextRequest) {
           results.briefings_delivered++
         } else {
           results.errors.push(`Slack delivery failed for ${partner.partner_id}: ${delivered.error || 'unknown'}`)
+        }
+
+        // Generate pre-meeting prep for external meetings in next 4 hours
+        try {
+          const prepsSent = await sendPreMeetingPreps(partner.partner_id, partner.organization_id)
+          results.prep_briefs_sent += prepsSent
+        } catch (prepError: unknown) {
+          const pErr = prepError as { message?: string }
+          results.errors.push(`Pre-meeting prep ${partner.partner_id}: ${pErr.message || 'Unknown error'}`)
         }
 
         results.partners_processed++
@@ -132,4 +143,91 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
+}
+
+/**
+ * Check for external meetings in the next 4 hours and send pre-call intelligence briefs.
+ * Returns the number of prep briefs sent.
+ */
+async function sendPreMeetingPreps(partnerId: string, organizationId: string): Promise<number> {
+  const now = new Date()
+  const fourHoursOut = new Date(now.getTime() + 4 * 60 * 60 * 1000)
+
+  // Get calendar events in the next 4 hours that are external/client meetings
+  const { data: events } = await supabaseAdmin
+    .from('ingested_data')
+    .select('payload, source_timestamp')
+    .eq('organization_id', organizationId)
+    .eq('source', 'calendar')
+    .eq('data_type', 'calendar_event')
+    .gte('source_timestamp', now.toISOString())
+    .lte('source_timestamp', fourHoursOut.toISOString())
+    .order('source_timestamp', { ascending: true })
+    .limit(5)
+
+  if (!events || events.length === 0) return 0
+
+  // Filter to external meetings only
+  const externalEvents = events.filter(e => {
+    const payload = e.payload as Record<string, unknown>
+    const eventType = payload.event_type as string
+    return eventType === 'client_meeting' || eventType === 'external'
+  })
+
+  if (externalEvents.length === 0) return 0
+
+  // Get Slack client and partner's Slack user ID
+  const client = await getSlackClient(organizationId)
+  if (!client) return 0
+
+  const { data: profile } = await supabaseAdmin
+    .from('profiles')
+    .select('slack_user_id')
+    .eq('id', partnerId)
+    .single()
+
+  if (!profile?.slack_user_id) return 0
+
+  const dmChannel = await openDM(client, profile.slack_user_id)
+  if (!dmChannel) return 0
+
+  let sent = 0
+  for (const event of externalEvents) {
+    const payload = event.payload as Record<string, unknown>
+    const calendarEvent = {
+      title: (payload.title as string) || 'Untitled',
+      start: (payload.start as string) || '',
+      attendees: (payload.attendees as string[]) || [],
+      event_type: (payload.event_type as string) || 'client_meeting',
+      location: (payload.location as string) || undefined,
+      conference_link: (payload.conference_link as string) || undefined,
+    }
+
+    const brief = await generatePreCallBrief(calendarEvent, organizationId)
+    if (!brief) continue
+
+    // Format as Slack blocks
+    const blocks: Record<string, unknown>[] = [
+      {
+        type: 'header',
+        text: { type: 'plain_text', text: `📋 Pre-Call Brief: ${brief.meetingTitle}`, emoji: true },
+      },
+      {
+        type: 'context',
+        elements: [
+          { type: 'mrkdwn', text: `*Time:* ${new Date(brief.meetingTime).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })} | *Attendees:* ${brief.attendees.join(', ')}` },
+        ],
+      },
+      { type: 'divider' },
+      {
+        type: 'section',
+        text: { type: 'mrkdwn', text: brief.brief },
+      },
+    ]
+
+    await postBlockMessage(client, dmChannel, `Pre-call brief: ${brief.meetingTitle}`, blocks)
+    sent++
+  }
+
+  return sent
 }
