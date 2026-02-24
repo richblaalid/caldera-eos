@@ -1,4 +1,3 @@
-import OAuthClient from 'intuit-oauth'
 import type { DataConnector, ConnectorPullParams, ConnectorResult, ConnectorRecord, ConnectorError } from './types'
 
 const QBO_BASE_URL = process.env.QUICKBOOKS_ENVIRONMENT === 'sandbox'
@@ -23,32 +22,17 @@ export const quickbooksConnector: DataConnector = {
 
     const errors: ConnectorError[] = []
 
-    // Refresh the access token
+    // Refresh the access token (direct HTTP — intuit-oauth library has a bug with url.parse)
     let accessToken: string
     let newRefreshToken: string | undefined
     try {
-      const oauthClient = createOAuthClient()
-      oauthClient.setToken({ access_token: '', refresh_token: refreshToken, realmId })
-      const tokenResponse = await oauthClient.refresh()
-      const tokens = tokenResponse.getJson()
-      accessToken = tokens.access_token
-      newRefreshToken = tokens.refresh_token
+      const tokenData = await refreshQBOToken(refreshToken)
+      accessToken = tokenData.access_token
+      newRefreshToken = tokenData.refresh_token
     } catch (error: unknown) {
-      // Log full error details for debugging (intuit-oauth wraps the real error)
-      const err = error as { message?: string; authResponse?: { json?: unknown; response?: { status?: number; statusText?: string } }; originalMessage?: string; intuit_tid?: string }
-      const details = {
-        message: err.message,
-        originalMessage: err.originalMessage,
-        authResponse: err.authResponse?.json,
-        status: err.authResponse?.response?.status,
-        intuit_tid: err.intuit_tid,
-        realmId,
-        tokenPrefix: refreshToken?.substring(0, 8) + '...',
-        environment: process.env.QUICKBOOKS_ENVIRONMENT || 'production',
-        clientIdPrefix: process.env.QUICKBOOKS_CLIENT_ID?.substring(0, 8) + '...',
-      }
-      console.error('QBO token refresh failed - full details:', JSON.stringify(details, null, 2))
-      return { records: [], errors: [{ code: 'TOKEN_REFRESH_FAILED', message: `${err.message || 'Token refresh failed'} | env=${details.environment} realm=${realmId} tokenPrefix=${details.tokenPrefix}`, recoverable: true }] }
+      const err = error as { message?: string }
+      console.error('QBO token refresh failed:', err.message)
+      return { records: [], errors: [{ code: 'TOKEN_REFRESH_FAILED', message: err.message || 'Token refresh failed', recoverable: true }] }
     }
 
     const records: ConnectorRecord[] = []
@@ -105,13 +89,37 @@ export const quickbooksConnector: DataConnector = {
   },
 }
 
-function createOAuthClient(): OAuthClient {
-  return new OAuthClient({
-    clientId: process.env.QUICKBOOKS_CLIENT_ID!,
-    clientSecret: process.env.QUICKBOOKS_CLIENT_SECRET!,
-    environment: (process.env.QUICKBOOKS_ENVIRONMENT || 'production') as 'sandbox' | 'production',
-    redirectUri: `${process.env.NEXT_PUBLIC_APP_URL || 'https://caldera-eos.vercel.app'}/api/agents/auth/quickbooks/callback`,
+/**
+ * Refresh a QBO token via direct HTTP POST (bypasses intuit-oauth library
+ * which has a url.parse bug on newer Node.js versions).
+ */
+async function refreshQBOToken(refreshToken: string): Promise<{ access_token: string; refresh_token: string }> {
+  const clientId = process.env.QUICKBOOKS_CLIENT_ID!
+  const clientSecret = process.env.QUICKBOOKS_CLIENT_SECRET!
+  const basicAuth = Buffer.from(`${clientId}:${clientSecret}`).toString('base64')
+
+  const body = new URLSearchParams({
+    grant_type: 'refresh_token',
+    refresh_token: refreshToken,
   })
+
+  const response = await fetch('https://oauth.platform.intuit.com/oauth2/v1/tokens/bearer', {
+    method: 'POST',
+    headers: {
+      'Authorization': `Basic ${basicAuth}`,
+      'Content-Type': 'application/x-www-form-urlencoded',
+      'Accept': 'application/json',
+    },
+    body: body.toString(),
+  })
+
+  const data = await response.json()
+
+  if (!response.ok || !data.access_token) {
+    throw new Error(data.error_description || data.error || `Token refresh failed: ${response.status}`)
+  }
+
+  return { access_token: data.access_token, refresh_token: data.refresh_token }
 }
 
 /**
