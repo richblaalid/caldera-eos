@@ -34,8 +34,21 @@ export const quickbooksConnector: DataConnector = {
       accessToken = tokens.access_token
       newRefreshToken = tokens.refresh_token
     } catch (error: unknown) {
-      const err = error as { message?: string }
-      return { records: [], errors: [{ code: 'TOKEN_REFRESH_FAILED', message: err.message || 'Token refresh failed', recoverable: true }] }
+      // Log full error details for debugging (intuit-oauth wraps the real error)
+      const err = error as { message?: string; authResponse?: { json?: unknown; response?: { status?: number; statusText?: string } }; originalMessage?: string; intuit_tid?: string }
+      const details = {
+        message: err.message,
+        originalMessage: err.originalMessage,
+        authResponse: err.authResponse?.json,
+        status: err.authResponse?.response?.status,
+        intuit_tid: err.intuit_tid,
+        realmId,
+        tokenPrefix: refreshToken?.substring(0, 8) + '...',
+        environment: process.env.QUICKBOOKS_ENVIRONMENT || 'production',
+        clientIdPrefix: process.env.QUICKBOOKS_CLIENT_ID?.substring(0, 8) + '...',
+      }
+      console.error('QBO token refresh failed - full details:', JSON.stringify(details, null, 2))
+      return { records: [], errors: [{ code: 'TOKEN_REFRESH_FAILED', message: `${err.message || 'Token refresh failed'} | env=${details.environment} realm=${realmId} tokenPrefix=${details.tokenPrefix}`, recoverable: true }] }
     }
 
     const records: ConnectorRecord[] = []
