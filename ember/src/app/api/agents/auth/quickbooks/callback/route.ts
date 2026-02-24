@@ -74,23 +74,42 @@ export async function GET(request: Request) {
     }
 
     // Store tokens in partner_preferences
+    // Try UPDATE first (existing row), then INSERT if no row exists
     const serviceClient = await createServiceClient()
-    const { error: upsertError } = await serviceClient
+    const { data: updated, error: updateError } = await serviceClient
       .from('partner_preferences')
-      .upsert({
-        organization_id: membership.organization_id,
-        partner_id: user.id,
+      .update({
         quickbooks_refresh_token: token.refresh_token,
         quickbooks_realm_id: realmId,
-      }, {
-        onConflict: 'organization_id,partner_id',
       })
+      .eq('organization_id', membership.organization_id)
+      .eq('partner_id', user.id)
+      .select('id')
 
-    if (upsertError) {
-      console.error('Failed to save QuickBooks tokens:', upsertError)
+    if (updateError) {
+      console.error('Failed to update QuickBooks tokens:', updateError)
       return NextResponse.redirect(
         new URL('/dashboard/settings/integrations?error=qb_save_failed', request.url)
       )
+    }
+
+    // No existing row — insert a new one
+    if (!updated || updated.length === 0) {
+      const { error: insertError } = await serviceClient
+        .from('partner_preferences')
+        .insert({
+          organization_id: membership.organization_id,
+          partner_id: user.id,
+          quickbooks_refresh_token: token.refresh_token,
+          quickbooks_realm_id: realmId,
+        })
+
+      if (insertError) {
+        console.error('Failed to insert QuickBooks tokens:', insertError)
+        return NextResponse.redirect(
+          new URL('/dashboard/settings/integrations?error=qb_save_failed', request.url)
+        )
+      }
     }
 
     return NextResponse.redirect(
