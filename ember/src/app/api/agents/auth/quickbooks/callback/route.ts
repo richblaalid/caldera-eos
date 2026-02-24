@@ -18,7 +18,7 @@ export async function GET(request: Request) {
     if (error) {
       console.error('QuickBooks OAuth denied:', error)
       return NextResponse.redirect(
-        new URL('/dashboard/settings?error=qb_denied', request.url)
+        new URL('/dashboard/settings/integrations?error=qb_denied', request.url)
       )
     }
 
@@ -26,7 +26,7 @@ export async function GET(request: Request) {
     const state = url.searchParams.get('state')
     if (!state) {
       return NextResponse.redirect(
-        new URL('/dashboard/settings?error=qb_no_state', request.url)
+        new URL('/dashboard/settings/integrations?error=qb_no_state', request.url)
       )
     }
 
@@ -35,13 +35,13 @@ export async function GET(request: Request) {
       stateData = JSON.parse(Buffer.from(state, 'base64url').toString())
     } catch {
       return NextResponse.redirect(
-        new URL('/dashboard/settings?error=qb_invalid_state', request.url)
+        new URL('/dashboard/settings/integrations?error=qb_invalid_state', request.url)
       )
     }
 
     if (stateData.userId !== user.id) {
       return NextResponse.redirect(
-        new URL('/dashboard/settings?error=qb_state_mismatch', request.url)
+        new URL('/dashboard/settings/integrations?error=qb_state_mismatch', request.url)
       )
     }
 
@@ -52,7 +52,7 @@ export async function GET(request: Request) {
 
     if (!token.refresh_token) {
       return NextResponse.redirect(
-        new URL('/dashboard/settings?error=qb_no_refresh_token', request.url)
+        new URL('/dashboard/settings/integrations?error=qb_no_refresh_token', request.url)
       )
     }
 
@@ -69,7 +69,7 @@ export async function GET(request: Request) {
 
     if (!membership) {
       return NextResponse.redirect(
-        new URL('/dashboard/settings?error=no_org', request.url)
+        new URL('/dashboard/settings/integrations?error=no_org', request.url)
       )
     }
 
@@ -89,17 +89,17 @@ export async function GET(request: Request) {
     if (upsertError) {
       console.error('Failed to save QuickBooks tokens:', upsertError)
       return NextResponse.redirect(
-        new URL('/dashboard/settings?error=qb_save_failed', request.url)
+        new URL('/dashboard/settings/integrations?error=qb_save_failed', request.url)
       )
     }
 
     return NextResponse.redirect(
-      new URL('/dashboard/settings?success=quickbooks_connected', request.url)
+      new URL('/dashboard/settings/integrations?success=quickbooks_connected', request.url)
     )
   } catch (error) {
     console.error('QuickBooks OAuth callback error:', error)
     return NextResponse.redirect(
-      new URL('/dashboard/settings?error=qb_unknown', request.url)
+      new URL('/dashboard/settings/integrations?error=qb_unknown', request.url)
     )
   }
 }

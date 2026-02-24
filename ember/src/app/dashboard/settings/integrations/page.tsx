@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { Card, CardContent } from '@/components/ui'
@@ -17,30 +17,34 @@ interface StatusResponse {
   connectors: ConnectorStatus[]
 }
 
-const CONNECTOR_META: Record<string, { label: string; description: string; color: string; authUrl: string }> = {
+const CONNECTOR_META: Record<string, { label: string; description: string; color: string; authUrl: string; disconnectable: boolean }> = {
   google: {
     label: 'Google (Gmail + Calendar)',
     description: 'Email monitoring and calendar events for briefing context',
     color: '#4285F4',
     authUrl: '/api/agents/auth/google',
+    disconnectable: true,
   },
   slack: {
     label: 'Slack',
     description: 'Briefing delivery, commands, and team notifications',
     color: '#4A154B',
     authUrl: '/api/integrations/slack/oauth',
+    disconnectable: true,
   },
   hubspot: {
     label: 'HubSpot',
     description: 'Sales pipeline, deals, contacts, and companies',
     color: '#FF7A59',
     authUrl: '', // Private App — configured via environment variable
+    disconnectable: false,
   },
   quickbooks: {
     label: 'QuickBooks',
     description: 'Invoices, payments, P&L, and AR aging reports',
     color: '#2CA01C',
     authUrl: '/api/agents/auth/quickbooks',
+    disconnectable: true,
   },
 }
 
@@ -59,6 +63,7 @@ export default function IntegrationsPage() {
   const searchParams = useSearchParams()
   const [status, setStatus] = useState<StatusResponse | null>(null)
   const [loading, setLoading] = useState(true)
+  const [disconnecting, setDisconnecting] = useState<string | null>(null)
   const [message, setMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null)
 
   // Check URL params for OAuth results
@@ -79,23 +84,49 @@ export default function IntegrationsPage() {
     }
   }, [searchParams])
 
+  const loadStatus = useCallback(async () => {
+    try {
+      const res = await fetch('/api/agents/status')
+      if (res.ok) {
+        const data = await res.json()
+        setStatus(data)
+      }
+    } catch (err) {
+      console.error('Failed to load connector status:', err)
+    } finally {
+      setLoading(false)
+    }
+  }, [])
+
   // Load connector status
   useEffect(() => {
-    async function loadStatus() {
-      try {
-        const res = await fetch('/api/agents/status')
-        if (res.ok) {
-          const data = await res.json()
-          setStatus(data)
-        }
-      } catch (err) {
-        console.error('Failed to load connector status:', err)
-      } finally {
-        setLoading(false)
-      }
-    }
     loadStatus()
-  }, [])
+  }, [loadStatus])
+
+  async function handleDisconnect(connectorKey: string, label: string) {
+    if (!confirm(`Disconnect ${label}? This will remove the saved credentials.`)) return
+
+    setDisconnecting(connectorKey)
+    try {
+      const res = await fetch('/api/agents/disconnect', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ connector: connectorKey }),
+      })
+
+      if (res.ok) {
+        setMessage({ type: 'success', text: `${label} disconnected.` })
+        await loadStatus()
+      } else {
+        const data = await res.json()
+        setMessage({ type: 'error', text: data.error || 'Failed to disconnect.' })
+      }
+    } catch {
+      setMessage({ type: 'error', text: 'Failed to disconnect. Please try again.' })
+    } finally {
+      setDisconnecting(null)
+    }
+  }
 
   if (loading) {
     return (
@@ -185,6 +216,15 @@ export default function IntegrationsPage() {
                           >
                             Settings
                           </Link>
+                        )}
+                        {meta.disconnectable && (
+                          <button
+                            onClick={() => handleDisconnect(key, meta.label)}
+                            disabled={disconnecting === key}
+                            className="px-3 py-1.5 text-sm text-red-600 dark:text-red-400 border border-red-200 dark:border-red-800 rounded-lg hover:bg-red-50 dark:hover:bg-red-950/20 transition-colors disabled:opacity-50"
+                          >
+                            {disconnecting === key ? 'Disconnecting...' : 'Disconnect'}
+                          </button>
                         )}
                       </>
                     ) : meta.authUrl ? (
