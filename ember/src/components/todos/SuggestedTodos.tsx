@@ -20,7 +20,7 @@ export function SuggestedTodos({ className }: SuggestedTodosProps) {
   useEffect(() => {
     async function fetchSuggestions() {
       try {
-        const res = await fetch('/api/insights/suggestions?type=todo&limit=15')
+        const res = await fetch('/api/insights/suggestions?type=todo&limit=10')
         if (res.ok) {
           const data = await res.json()
           setSuggestions(data.suggestions ?? data)

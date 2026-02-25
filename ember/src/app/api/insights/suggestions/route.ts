@@ -23,7 +23,7 @@ export async function GET(request: NextRequest) {
 
     const suggestionType = request.nextUrl.searchParams.get('type') || 'metric'
     const titlePrefix = TITLE_PREFIXES[suggestionType] || TITLE_PREFIXES.metric
-    const limit = Math.min(parseInt(request.nextUrl.searchParams.get('limit') || '15') || 15, 50)
+    const limit = Math.min(parseInt(request.nextUrl.searchParams.get('limit') || '10') || 10, 50)
     const offset = parseInt(request.nextUrl.searchParams.get('offset') || '0') || 0
 
     // Get total count for pagination info
