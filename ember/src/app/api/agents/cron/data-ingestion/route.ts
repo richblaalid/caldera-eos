@@ -30,7 +30,7 @@ export async function GET(request: NextRequest) {
     // Get all partners with any connector tokens
     const { data: partners, error: fetchError } = await supabaseAdmin
       .from('partner_preferences')
-      .select('partner_id, organization_id, google_refresh_token, google_history_id, grain_last_sync, quickbooks_refresh_token, quickbooks_realm_id')
+      .select('partner_id, organization_id, google_refresh_token, google_history_id, quickbooks_refresh_token, quickbooks_realm_id, config')
 
     if (fetchError) {
       console.error('Failed to fetch partner preferences:', fetchError)
@@ -173,7 +173,7 @@ export async function GET(request: NextRequest) {
           const transcriptResult = await transcriptConnector.pull({
             organizationId: partner.organization_id,
             partnerId: partner.partner_id,
-            config: { grain_last_sync: partner.grain_last_sync },
+            config: { grain_last_sync: (partner.config as Record<string, unknown>)?.grain_last_sync },
           })
 
           transcriptRecords = transcriptResult.records
@@ -181,11 +181,15 @@ export async function GET(request: NextRequest) {
             results.errors.push(...transcriptResult.errors.map(e => `Transcript(${partner.organization_id}): ${e.message}`))
           }
 
-          // Update grain_last_sync if we got a new timestamp
+          // Update grain_last_sync in config JSONB if we got a new timestamp
           if (transcriptResult.syncState?.grain_last_sync) {
+            const updatedConfig = {
+              ...((partner.config as Record<string, unknown>) || {}),
+              grain_last_sync: transcriptResult.syncState.grain_last_sync,
+            }
             await supabaseAdmin
               .from('partner_preferences')
-              .update({ grain_last_sync: transcriptResult.syncState.grain_last_sync as string })
+              .update({ config: updatedConfig })
               .eq('partner_id', partner.partner_id)
               .eq('organization_id', partner.organization_id)
           }
