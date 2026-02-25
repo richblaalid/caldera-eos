@@ -30,8 +30,10 @@ function getDateRange(range: string): { start: Date; end: Date } {
 
   switch (range) {
     case 'this-quarter': {
-      const qStart = new Date(year, Math.floor(month / 3) * 3, 1)
-      return { start: qStart, end: now }
+      const qStartMonth = Math.floor(month / 3) * 3
+      const qStart = new Date(year, qStartMonth, 1)
+      const qEnd = new Date(year, qStartMonth + 3, 0) // last day of quarter
+      return { start: qStart, end: qEnd }
     }
     case 'last-quarter': {
       const currentQStart = Math.floor(month / 3) * 3
@@ -40,7 +42,7 @@ function getDateRange(range: string): { start: Date; end: Date } {
       return { start: lqStart, end: lqEnd }
     }
     case 'ytd': {
-      return { start: new Date(year, 0, 1), end: now }
+      return { start: new Date(year, 0, 1), end: new Date(year, 11, 31) }
     }
     case 'last-year': {
       return { start: new Date(year - 1, 0, 1), end: new Date(year - 1, 11, 31) }
