@@ -22,16 +22,49 @@ function formatDate(date: Date): string {
   return date.toISOString().split('T')[0]
 }
 
-// Generate array of week start dates
-function getWeeks(count: number): string[] {
-  const weeks: string[] = []
+// Get the date range for a named period
+function getDateRange(range: string): { start: Date; end: Date } {
   const now = new Date()
-  const currentWeekStart = getWeekStart(now)
+  const year = now.getFullYear()
+  const month = now.getMonth() // 0-indexed
 
-  for (let i = 0; i < count; i++) {
-    const weekStart = new Date(currentWeekStart)
-    weekStart.setDate(weekStart.getDate() - (i * 7))
-    weeks.push(formatDate(weekStart))
+  switch (range) {
+    case 'this-quarter': {
+      const qStart = new Date(year, Math.floor(month / 3) * 3, 1)
+      return { start: qStart, end: now }
+    }
+    case 'last-quarter': {
+      const currentQStart = Math.floor(month / 3) * 3
+      const lqStart = new Date(year, currentQStart - 3, 1)
+      const lqEnd = new Date(year, currentQStart, 0) // last day of prev quarter
+      return { start: lqStart, end: lqEnd }
+    }
+    case 'ytd': {
+      return { start: new Date(year, 0, 1), end: now }
+    }
+    case 'last-year': {
+      return { start: new Date(year - 1, 0, 1), end: new Date(year - 1, 11, 31) }
+    }
+    case 'trailing-13':
+    default: {
+      const start = new Date(now)
+      start.setDate(start.getDate() - 13 * 7)
+      return { start, end: now }
+    }
+  }
+}
+
+// Generate array of week start dates within a date range (most recent first)
+function getWeeksInRange(range: string): string[] {
+  const { start, end } = getDateRange(range)
+  const weeks: string[] = []
+  const endWeek = getWeekStart(end)
+  const startWeek = getWeekStart(start)
+
+  const current = new Date(endWeek)
+  while (current >= startWeek) {
+    weeks.push(formatDate(current))
+    current.setDate(current.getDate() - 7)
   }
 
   return weeks
@@ -193,15 +226,15 @@ function EmptyState() {
 }
 
 interface PageProps {
-  searchParams: Promise<{ weeks?: string }>
+  searchParams: Promise<{ range?: string }>
 }
 
 export default async function ScorecardPage({ searchParams }: PageProps) {
   const params = await searchParams
-  const weekCount = parseInt(params.weeks || '13', 10) // Default to 13 weeks (quarter)
+  const range = params.range || 'this-quarter'
 
   // Get all weeks we want to display
-  const weeks = getWeeks(weekCount)
+  const weeks = getWeeksInRange(range)
   const weekStart = weeks[weeks.length - 1] // Oldest week
   const weekEnd = weeks[0] // Most recent week
 
@@ -245,7 +278,7 @@ export default async function ScorecardPage({ searchParams }: PageProps) {
           </p>
         </div>
         <div className="flex items-center gap-3">
-          <WeekRangeSelector value={weekCount} />
+          <WeekRangeSelector value={range} />
           <Link
             href="/dashboard/scorecard/entry"
             className="inline-flex items-center justify-center h-10 px-4 text-sm font-medium rounded-lg bg-ember-600 text-white hover:bg-ember-700 transition-colors"
