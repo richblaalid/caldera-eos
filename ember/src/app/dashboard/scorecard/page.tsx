@@ -54,17 +54,17 @@ function getDateRange(range: string): { start: Date; end: Date } {
   }
 }
 
-// Generate array of week start dates within a date range (most recent first)
+// Generate array of week start dates within a date range (chronological: oldest first)
 function getWeeksInRange(range: string): string[] {
   const { start, end } = getDateRange(range)
   const weeks: string[] = []
   const endWeek = getWeekStart(end)
   const startWeek = getWeekStart(start)
 
-  const current = new Date(endWeek)
-  while (current >= startWeek) {
+  const current = new Date(startWeek)
+  while (current <= endWeek) {
     weeks.push(formatDate(current))
-    current.setDate(current.getDate() - 7)
+    current.setDate(current.getDate() + 7)
   }
 
   return weeks
@@ -233,10 +233,10 @@ export default async function ScorecardPage({ searchParams }: PageProps) {
   const params = await searchParams
   const range = params.range || 'this-quarter'
 
-  // Get all weeks we want to display
+  // Get all weeks we want to display (chronological: oldest first)
   const weeks = getWeeksInRange(range)
-  const weekStart = weeks[weeks.length - 1] // Oldest week
-  const weekEnd = weeks[0] // Most recent week
+  const weekStart = weeks[0] // Oldest week
+  const weekEnd = weeks[weeks.length - 1] // Most recent week
 
   // Fetch metrics and entries in parallel
   const [metrics, entries] = await Promise.all([
@@ -352,8 +352,8 @@ export default async function ScorecardPage({ searchParams }: PageProps) {
                   </td>
                   {weeks.map((week, index) => {
                     const entry = entryMap.get(`${metric.id}-${week}`)
-                    // Get previous week's value for trend arrow
-                    const prevWeek = weeks[index + 1]
+                    // Get previous week's value for trend arrow (index-1 = earlier week)
+                    const prevWeek = index > 0 ? weeks[index - 1] : undefined
                     const prevEntry = prevWeek ? entryMap.get(`${metric.id}-${prevWeek}`) : undefined
                     return (
                       <MetricCell
