@@ -2,6 +2,7 @@ import Link from 'next/link'
 import { getMetrics, getAllMetricEntries } from '@/lib/eos'
 import { Card, CardContent } from '@/components/ui'
 import { SuggestedMetrics } from '@/components/scorecard/SuggestedMetrics'
+import { WeekRangeSelector } from '@/components/scorecard/WeekRangeSelector'
 import type { ScorecardMetric, ScorecardEntry, Profile } from '@/types/database'
 
 type MetricWithOwner = ScorecardMetric & { owner: Profile | null }
@@ -244,15 +245,7 @@ export default async function ScorecardPage({ searchParams }: PageProps) {
           </p>
         </div>
         <div className="flex items-center gap-3">
-          <select
-            defaultValue={weekCount.toString()}
-            className="h-10 px-3 text-sm rounded-lg border border-border bg-background"
-          >
-            <option value="4">4 weeks</option>
-            <option value="8">8 weeks</option>
-            <option value="13">13 weeks (Quarter)</option>
-            <option value="26">26 weeks</option>
-          </select>
+          <WeekRangeSelector value={weekCount} />
           <Link
             href="/dashboard/scorecard/entry"
             className="inline-flex items-center justify-center h-10 px-4 text-sm font-medium rounded-lg bg-ember-600 text-white hover:bg-ember-700 transition-colors"
