@@ -8,7 +8,7 @@ import { transcriptConnector } from '@/lib/connectors/transcript-connector'
 import type { ConnectorRecord } from '@/lib/connectors/types'
 
 export const dynamic = 'force-dynamic'
-export const maxDuration = 60
+export const maxDuration = 120
 
 const supabaseAdmin = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
