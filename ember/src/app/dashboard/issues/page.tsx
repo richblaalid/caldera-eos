@@ -2,6 +2,7 @@ import Link from 'next/link'
 import { getIssues } from '@/lib/eos'
 import { Card, CardContent, StatusBadge, Badge } from '@/components/ui'
 import type { IssueWithOwner } from '@/types/database'
+import { SuggestedIssues } from '@/components/issues/SuggestedIssues'
 
 // Status filter component
 function StatusFilter({
@@ -202,6 +203,9 @@ export default async function IssuesPage({ searchParams }: PageProps) {
           <StatusFilter currentStatus={statusFilter} />
         </div>
       </div>
+
+      {/* Suggested Issues from Transcripts */}
+      <SuggestedIssues />
 
       {/* Issue List */}
       {issues.length === 0 ? (

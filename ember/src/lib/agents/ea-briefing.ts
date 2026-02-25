@@ -3,6 +3,7 @@ import { anthropic } from '@ai-sdk/anthropic'
 import { z } from 'zod'
 import { createClient } from '@supabase/supabase-js'
 import type { BriefingItem, AgentWorkItem, BriefingInsert } from '@/types/agents'
+import { getSmartLookback, getTranscriptLabel } from './lookback'
 
 const supabaseAdmin = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -42,13 +43,14 @@ export async function generateBriefing(
   const today = new Date().toISOString().split('T')[0]
 
   // Gather all data sources in parallel
-  const [calendarEvents, recentEmails, eosData, agentOutputs, financialInsights, pipelineData, transcriptHighlights, ownerNames] = await Promise.all([
+  const [calendarEvents, recentEmails, eosData, agentOutputs, financialInsights, pipelineData, bdInsights, transcriptHighlights, ownerNames] = await Promise.all([
     getCalendarEvents(organizationId),
     getRecentEmails(organizationId),
     getEOSData(organizationId),
     getPendingAgentOutputs(organizationId),
     getFinancialInsights(organizationId),
     getPipelineData(organizationId),
+    getBDStrategistInsights(organizationId),
     getTranscriptHighlights(organizationId),
     getOwnerNames(organizationId),
   ])
@@ -61,6 +63,7 @@ export async function generateBriefing(
     agentOutputs,
     financialInsights,
     pipelineData,
+    bdInsights,
     transcriptHighlights,
     ownerNames,
     today,
@@ -230,7 +233,7 @@ async function getCalendarEvents(organizationId: string) {
 }
 
 async function getRecentEmails(organizationId: string) {
-  const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString()
+  const oneDayAgo = getSmartLookback(24)
 
   const { data } = await supabaseAdmin
     .from('ingested_data')
@@ -375,7 +378,7 @@ async function getEOSData(organizationId: string): Promise<EOSData> {
 }
 
 async function getPendingAgentOutputs(organizationId: string) {
-  const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString()
+  const oneDayAgo = getSmartLookback(24)
 
   const { data } = await supabaseAdmin
     .from('agent_outputs')
@@ -386,14 +389,19 @@ async function getPendingAgentOutputs(organizationId: string) {
     .order('created_at', { ascending: false })
     .limit(10)
 
+  const agentNames: Record<string, string> = {
+    'financial-strategist': 'Financial Strategist',
+    'bd-strategist': 'BD Strategist',
+    'ea': 'Executive Assistant',
+  }
   return (data || []).map(d => ({
     ...d,
-    agent_name: d.agent_id === 'financial-strategist' ? 'Financial Strategist' : d.agent_id,
+    agent_name: agentNames[d.agent_id] || d.agent_id,
   }))
 }
 
 async function getFinancialInsights(organizationId: string) {
-  const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString()
+  const oneDayAgo = getSmartLookback(24)
 
   // Get the most recent Financial Strategist analysis
   const { data } = await supabaseAdmin
@@ -401,6 +409,24 @@ async function getFinancialInsights(organizationId: string) {
     .select('title, summary, content')
     .eq('organization_id', organizationId)
     .eq('agent_id', 'financial-strategist')
+    .eq('output_type', 'analysis')
+    .gte('created_at', oneDayAgo)
+    .order('created_at', { ascending: false })
+    .limit(1)
+
+  if (!data || data.length === 0) return null
+
+  return data[0].content as Record<string, unknown>
+}
+
+async function getBDStrategistInsights(organizationId: string) {
+  const oneDayAgo = getSmartLookback(24)
+
+  const { data } = await supabaseAdmin
+    .from('agent_outputs')
+    .select('title, summary, content')
+    .eq('organization_id', organizationId)
+    .eq('agent_id', 'bd-strategist')
     .eq('output_type', 'analysis')
     .gte('created_at', oneDayAgo)
     .order('created_at', { ascending: false })
@@ -449,7 +475,7 @@ interface TranscriptHighlight {
 }
 
 async function getTranscriptHighlights(organizationId: string): Promise<TranscriptHighlight[]> {
-  const twoDaysAgo = new Date(Date.now() - 48 * 60 * 60 * 1000).toISOString()
+  const twoDaysAgo = getSmartLookback(48)
 
   const { data } = await supabaseAdmin
     .from('ingested_data')
@@ -488,6 +514,7 @@ function buildBriefingPrompt(data: {
   agentOutputs: Array<Record<string, unknown>>
   financialInsights: Record<string, unknown> | null
   pipelineData: PipelineData | null
+  bdInsights: Record<string, unknown> | null
   transcriptHighlights: TranscriptHighlight[]
   ownerNames: Map<string, string>
   today: string
@@ -662,6 +689,35 @@ function buildBriefingPrompt(data: {
     sections.push(`## Sales Pipeline (HubSpot)\n${pipelineSections.join('\n')}`)
   }
 
+  // BD Strategist pipeline insights
+  if (data.bdInsights) {
+    const bd = data.bdInsights
+    const bdSections: string[] = []
+
+    if (bd.headline) bdSections.push(`**Headline: ${bd.headline}**`)
+
+    const health = bd.pipeline_health as { total_value: number; deal_count: number; trend_indicator: string; trend_note: string } | undefined
+    if (health) {
+      bdSections.push(`Pipeline: $${health.total_value.toLocaleString()} across ${health.deal_count} deals ${health.trend_indicator} — ${health.trend_note}`)
+    }
+
+    const atRisk = bd.deals_at_risk as Array<{ deal_name: string; amount: number; risk_reason: string; recommended_action: string }> | undefined
+    if (atRisk && atRisk.length > 0) {
+      bdSections.push('Deals at Risk:\n' + atRisk.map(d =>
+        `- ${d.deal_name}: $${d.amount.toLocaleString()} — ${d.risk_reason}. Action: ${d.recommended_action}`
+      ).join('\n'))
+    }
+
+    const closing = bd.closing_this_week as Array<{ deal_name: string; amount: number; close_date: string; confidence_note: string }> | undefined
+    if (closing && closing.length > 0) {
+      bdSections.push('Closing This Week:\n' + closing.map(d =>
+        `- ${d.deal_name}: $${d.amount.toLocaleString()} (${d.close_date}) — ${d.confidence_note}`
+      ).join('\n'))
+    }
+
+    sections.push(`## BD Strategist Insights\n${bdSections.join('\n')}`)
+  }
+
   // Transcript highlights (yesterday's meetings)
   if (data.transcriptHighlights.length > 0) {
     const transcripts = data.transcriptHighlights.map(t => {
@@ -672,7 +728,7 @@ function buildBriefingPrompt(data: {
       if (t.decisions.length > 0) parts.push(`Decisions:\n${t.decisions.map(d => `  - ${d}`).join('\n')}`)
       return parts.join('\n')
     }).join('\n\n')
-    sections.push(`## Yesterday's Meetings (${data.transcriptHighlights.length} transcripts)\n${transcripts}`)
+    sections.push(`## ${getTranscriptLabel()} (${data.transcriptHighlights.length} transcripts)\n${transcripts}`)
   }
 
   // Agent outputs

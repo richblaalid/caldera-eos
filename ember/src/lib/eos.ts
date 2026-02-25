@@ -647,6 +647,33 @@ export async function createInsight(insight: InsightInsert): Promise<Insight | n
   return data as Insight
 }
 
+/**
+ * Create an insight using the service-role client (no user session required).
+ * Used by transcript processing pipelines that run without auth context.
+ */
+export async function createInsightAdmin(
+  insight: InsightInsert,
+  organizationId: string
+): Promise<Insight | null> {
+  const { createClient: createAdminClient } = await import('@supabase/supabase-js')
+  const supabaseAdmin = createAdminClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!
+  )
+
+  const { data, error } = await supabaseAdmin
+    .from('insights')
+    .insert({ ...insight, organization_id: organizationId })
+    .select()
+    .single()
+
+  if (error) {
+    console.error('Error creating insight (admin):', error)
+    return null
+  }
+  return data as Insight
+}
+
 // =============================================
 // Profiles Operations
 // =============================================

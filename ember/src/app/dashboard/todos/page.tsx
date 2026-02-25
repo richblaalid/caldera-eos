@@ -4,6 +4,7 @@ import { Card, CardContent } from '@/components/ui'
 import type { Profile } from '@/types/database'
 import { TodoListClient } from './TodoListClient'
 import { QuickAddTodo } from './QuickAddTodo'
+import { SuggestedTodos } from '@/components/todos/SuggestedTodos'
 
 // Filter component
 function StatusFilter({
@@ -270,6 +271,9 @@ export default async function TodosPage({ searchParams }: PageProps) {
 
       {/* Quick Add */}
       <QuickAddTodo profiles={profiles} />
+
+      {/* Suggested To-dos from Transcripts */}
+      <SuggestedTodos />
 
       {/* Todo List */}
       {filteredTodos.length === 0 ? (

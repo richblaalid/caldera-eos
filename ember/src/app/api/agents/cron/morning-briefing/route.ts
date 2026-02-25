@@ -2,7 +2,10 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { generateBriefing, saveBriefing } from '@/lib/agents/ea-briefing'
 import { deliverBriefing } from '@/lib/agents/slack-briefing'
-import { postSystemAlert } from '@/lib/connectors/slack-connector'
+import { postSystemAlert, getSlackClient, openDM, postBlockMessage } from '@/lib/connectors/slack-connector'
+import { generatePreCallBrief } from '@/lib/agents/meeting-prep'
+import { runNudgeCheck, formatNudgeForSlack, type Nudge } from '@/lib/agents/nudge-engine'
+import { detectUpcomingL10, hasL10PrepBeenGenerated, generateL10Prep, type L10Prep } from '@/lib/agents/l10-prep'
 
 export const dynamic = 'force-dynamic'
 export const maxDuration = 60
@@ -42,7 +45,39 @@ export async function GET(request: NextRequest) {
       partners_processed: 0,
       briefings_generated: 0,
       briefings_delivered: 0,
+      prep_briefs_sent: 0,
+      nudges_sent: 0,
+      nudge_issues_created: 0,
+      l10_prep_generated: false,
       errors: [] as string[],
+    }
+
+    // Run nudge check once per organization (before briefing generation)
+    const nudgedOrgs = new Set<string>()
+    const nudgesByPartner = new Map<string, Nudge[]>()
+
+    for (const partner of partners) {
+      if (!nudgedOrgs.has(partner.organization_id)) {
+        nudgedOrgs.add(partner.organization_id)
+        try {
+          const nudgeResult = await runNudgeCheck(partner.organization_id)
+          results.nudge_issues_created += nudgeResult.issuesCreated
+
+          // Group nudges by target partner
+          for (const nudge of nudgeResult.nudges) {
+            const existing = nudgesByPartner.get(nudge.targetPartnerId) || []
+            existing.push(nudge)
+            nudgesByPartner.set(nudge.targetPartnerId, existing)
+          }
+
+          if (nudgeResult.errors.length > 0) {
+            results.errors.push(...nudgeResult.errors.map(e => `Nudge: ${e}`))
+          }
+        } catch (nudgeError: unknown) {
+          const nErr = nudgeError as { message?: string }
+          results.errors.push(`Nudge engine: ${nErr.message || 'Unknown error'}`)
+        }
+      }
     }
 
     for (const partner of partners) {
@@ -73,10 +108,52 @@ export async function GET(request: NextRequest) {
           results.errors.push(`Slack delivery failed for ${partner.partner_id}: ${delivered.error || 'unknown'}`)
         }
 
+        // Generate pre-meeting prep for external meetings in next 4 hours
+        try {
+          const prepsSent = await sendPreMeetingPreps(partner.partner_id, partner.organization_id)
+          results.prep_briefs_sent += prepsSent
+        } catch (prepError: unknown) {
+          const pErr = prepError as { message?: string }
+          results.errors.push(`Pre-meeting prep ${partner.partner_id}: ${pErr.message || 'Unknown error'}`)
+        }
+
+        // Deliver nudges via Slack DM
+        const partnerNudges = nudgesByPartner.get(partner.partner_id)
+        if (partnerNudges && partnerNudges.length > 0) {
+          try {
+            const nudgesSent = await deliverNudges(partner.partner_id, partner.organization_id, partnerNudges)
+            results.nudges_sent += nudgesSent
+          } catch (nudgeError: unknown) {
+            const nErr = nudgeError as { message?: string }
+            results.errors.push(`Nudge delivery ${partner.partner_id}: ${nErr.message || 'Unknown error'}`)
+          }
+        }
+
         results.partners_processed++
       } catch (partnerError: unknown) {
         const err = partnerError as { message?: string }
         results.errors.push(`Partner ${partner.partner_id}: ${err.message || 'Unknown error'}`)
+      }
+    }
+
+    // L10 prep: detect upcoming L10 and generate prep (once per org, once per week)
+    const l10ProcessedOrgs = new Set<string>()
+    for (const partner of partners) {
+      if (l10ProcessedOrgs.has(partner.organization_id)) continue
+      l10ProcessedOrgs.add(partner.organization_id)
+
+      try {
+        const l10Date = await detectUpcomingL10(partner.organization_id, 3)
+        if (l10Date && !(await hasL10PrepBeenGenerated(partner.organization_id))) {
+          const { prep } = await generateL10Prep(partner.organization_id)
+          results.l10_prep_generated = true
+
+          // Deliver L10 prep to Slack
+          await deliverL10Prep(partner.organization_id, prep, l10Date, partners)
+        }
+      } catch (l10Error: unknown) {
+        const lErr = l10Error as { message?: string }
+        results.errors.push(`L10 prep: ${lErr.message || 'Unknown error'}`)
       }
     }
 
@@ -131,5 +208,274 @@ export async function GET(request: NextRequest) {
     } catch { /* ignore alert failure */ }
 
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
+  }
+}
+
+/**
+ * Deliver nudges to a partner via Slack DM.
+ * Returns the number of nudges sent.
+ */
+async function deliverNudges(partnerId: string, organizationId: string, nudges: Nudge[]): Promise<number> {
+  const client = await getSlackClient(organizationId)
+  if (!client) return 0
+
+  const { data: profile } = await supabaseAdmin
+    .from('profiles')
+    .select('slack_user_id')
+    .eq('id', partnerId)
+    .single()
+
+  if (!profile?.slack_user_id) return 0
+
+  const dmChannel = await openDM(client, profile.slack_user_id)
+  if (!dmChannel) return 0
+
+  let sent = 0
+  for (const nudge of nudges) {
+    const { text, blocks } = formatNudgeForSlack(nudge)
+    await postBlockMessage(client, dmChannel, text, blocks)
+    sent++
+  }
+
+  return sent
+}
+
+/**
+ * Check for external meetings in the next 4 hours and send pre-call intelligence briefs.
+ * Returns the number of prep briefs sent.
+ */
+async function sendPreMeetingPreps(partnerId: string, organizationId: string): Promise<number> {
+  const now = new Date()
+  const fourHoursOut = new Date(now.getTime() + 4 * 60 * 60 * 1000)
+
+  // Get calendar events in the next 4 hours that are external/client meetings
+  const { data: events } = await supabaseAdmin
+    .from('ingested_data')
+    .select('payload, source_timestamp')
+    .eq('organization_id', organizationId)
+    .eq('source', 'calendar')
+    .eq('data_type', 'calendar_event')
+    .gte('source_timestamp', now.toISOString())
+    .lte('source_timestamp', fourHoursOut.toISOString())
+    .order('source_timestamp', { ascending: true })
+    .limit(5)
+
+  if (!events || events.length === 0) return 0
+
+  // Filter to external meetings only
+  const externalEvents = events.filter(e => {
+    const payload = e.payload as Record<string, unknown>
+    const eventType = payload.event_type as string
+    return eventType === 'client_meeting' || eventType === 'external'
+  })
+
+  if (externalEvents.length === 0) return 0
+
+  // Get Slack client and partner's Slack user ID
+  const client = await getSlackClient(organizationId)
+  if (!client) return 0
+
+  const { data: profile } = await supabaseAdmin
+    .from('profiles')
+    .select('slack_user_id')
+    .eq('id', partnerId)
+    .single()
+
+  if (!profile?.slack_user_id) return 0
+
+  const dmChannel = await openDM(client, profile.slack_user_id)
+  if (!dmChannel) return 0
+
+  let sent = 0
+  for (const event of externalEvents) {
+    const payload = event.payload as Record<string, unknown>
+    const calendarEvent = {
+      title: (payload.title as string) || 'Untitled',
+      start: (payload.start as string) || '',
+      attendees: (payload.attendees as string[]) || [],
+      event_type: (payload.event_type as string) || 'client_meeting',
+      location: (payload.location as string) || undefined,
+      conference_link: (payload.conference_link as string) || undefined,
+    }
+
+    const brief = await generatePreCallBrief(calendarEvent, organizationId)
+    if (!brief) continue
+
+    // Format as Slack blocks
+    const blocks: Record<string, unknown>[] = [
+      {
+        type: 'header',
+        text: { type: 'plain_text', text: `📋 Pre-Call Brief: ${brief.meetingTitle}`, emoji: true },
+      },
+      {
+        type: 'context',
+        elements: [
+          { type: 'mrkdwn', text: `*Time:* ${new Date(brief.meetingTime).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })} | *Attendees:* ${brief.attendees.join(', ')}` },
+        ],
+      },
+      { type: 'divider' },
+      {
+        type: 'section',
+        text: { type: 'mrkdwn', text: brief.brief },
+      },
+    ]
+
+    await postBlockMessage(client, dmChannel, `Pre-call brief: ${brief.meetingTitle}`, blocks)
+    sent++
+  }
+
+  return sent
+}
+
+/**
+ * Deliver L10 prep to Slack — post to channel and DM each partner with personalized notes.
+ */
+async function deliverL10Prep(
+  organizationId: string,
+  prep: L10Prep,
+  l10Date: string,
+  partners: Array<{ partner_id: string; organization_id: string }>
+): Promise<void> {
+  const client = await getSlackClient(organizationId)
+  if (!client) return
+
+  const l10DateFormatted = new Date(l10Date).toLocaleDateString('en-US', {
+    weekday: 'long',
+    month: 'short',
+    day: 'numeric',
+  })
+
+  // Build the main prep blocks
+  const blocks: Record<string, unknown>[] = [
+    {
+      type: 'header',
+      text: { type: 'plain_text', text: `L10 Meeting Prep — ${l10DateFormatted}`, emoji: true },
+    },
+    {
+      type: 'section',
+      text: { type: 'mrkdwn', text: `*${prep.headline}*` },
+    },
+    { type: 'divider' },
+    {
+      type: 'section',
+      text: { type: 'mrkdwn', text: `*Scorecard:* ${prep.scorecard_review.summary}` },
+    },
+    {
+      type: 'section',
+      text: { type: 'mrkdwn', text: `*Rocks:* ${prep.rock_review.summary}` },
+    },
+    {
+      type: 'section',
+      text: {
+        type: 'mrkdwn',
+        text: `*To-Dos:* ${prep.todo_review.completion_rate_2wk}% completion rate | ${prep.todo_review.overdue_count} overdue\n${prep.todo_review.note}`,
+      },
+    },
+    { type: 'divider' },
+    {
+      type: 'section',
+      text: { type: 'mrkdwn', text: `*Financial:* ${prep.financial_snapshot}` },
+    },
+    {
+      type: 'section',
+      text: { type: 'mrkdwn', text: `*Pipeline:* ${prep.pipeline_snapshot}` },
+    },
+  ]
+
+  // IDS priorities
+  if (prep.issues_list.length > 0) {
+    blocks.push({ type: 'divider' })
+    blocks.push({
+      type: 'section',
+      text: {
+        type: 'mrkdwn',
+        text: '*IDS Priority Order:*\n' + prep.issues_list
+          .sort((a, b) => a.recommended_order - b.recommended_order)
+          .map((issue, i) => `${i + 1}. ${issue.title} _(${issue.priority}, ${issue.age_days}d old)_`)
+          .join('\n'),
+      },
+    })
+  }
+
+  // Ember observations
+  if (prep.ember_observations.length > 0) {
+    blocks.push({ type: 'divider' })
+    blocks.push({
+      type: 'section',
+      text: {
+        type: 'mrkdwn',
+        text: '*Ember Observations:*\n' + prep.ember_observations.map(o => `• ${o}`).join('\n'),
+      },
+    })
+  }
+
+  // Post to the first partner's configured channel (or find org-level channel)
+  const { data: slackSettings } = await supabaseAdmin
+    .from('slack_settings')
+    .select('default_channel_id')
+    .eq('organization_id', organizationId)
+    .single()
+
+  if (slackSettings?.default_channel_id) {
+    await postBlockMessage(
+      client,
+      slackSettings.default_channel_id,
+      `L10 Meeting Prep — ${l10DateFormatted}: ${prep.headline}`,
+      blocks
+    )
+  }
+
+  // Also DM each partner with their personalized Rock/To-do summary
+  const orgPartners = partners.filter(p => p.organization_id === organizationId)
+  for (const partner of orgPartners) {
+    const { data: profile } = await supabaseAdmin
+      .from('profiles')
+      .select('slack_user_id, full_name')
+      .eq('id', partner.partner_id)
+      .single()
+
+    if (!profile?.slack_user_id) continue
+
+    const dmChannel = await openDM(client, profile.slack_user_id)
+    if (!dmChannel) continue
+
+    // Find this partner's rocks and todos
+    const partnerName = profile.full_name || 'Unknown'
+    const myRocks = prep.rock_review.rocks.filter(r => r.owner === partnerName)
+    const myOverdue = prep.todo_review.carryforward_items
+
+    const personalBlocks: Record<string, unknown>[] = [
+      {
+        type: 'section',
+        text: {
+          type: 'mrkdwn',
+          text: `*Your L10 Prep — ${l10DateFormatted}*\n\nThe full prep has been posted to the team channel. Here's your personal summary:`,
+        },
+      },
+    ]
+
+    if (myRocks.length > 0) {
+      personalBlocks.push({
+        type: 'section',
+        text: {
+          type: 'mrkdwn',
+          text: '*Your Rocks:*\n' + myRocks.map(r =>
+            `• ${r.title} — ${r.status} (${r.completion_pct}% done) ${r.note}`
+          ).join('\n'),
+        },
+      })
+    }
+
+    if (myOverdue.length > 0) {
+      personalBlocks.push({
+        type: 'section',
+        text: {
+          type: 'mrkdwn',
+          text: '*Carried-Forward To-Dos:*\n' + myOverdue.map(t => `• ${t}`).join('\n'),
+        },
+      })
+    }
+
+    await postBlockMessage(client, dmChannel, `Your L10 Prep — ${l10DateFormatted}`, personalBlocks)
   }
 }
