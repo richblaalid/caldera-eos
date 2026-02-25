@@ -62,6 +62,17 @@ export const hubspotConnector: DataConnector = {
       errors.push({ code: 'CONTACTS_FETCH_FAILED', message: err.message || 'Contacts fetch failed', recoverable: true })
     }
 
+    // Pull recent engagements (calls, emails, meetings — last 7 days)
+    try {
+      const engagements = await fetchRecentEngagements(client)
+      for (const engagement of engagements) {
+        records.push(engagement)
+      }
+    } catch (error: unknown) {
+      const err = error as { message?: string }
+      errors.push({ code: 'ENGAGEMENTS_FETCH_FAILED', message: err.message || 'Engagements fetch failed', recoverable: true })
+    }
+
     return { records, errors }
   },
 }
@@ -107,6 +118,123 @@ async function fetchContacts(client: Client) {
     CONTACT_PROPERTIES,
   )
   return response.results
+}
+
+/**
+ * Fetch recent engagements (calls, emails, meetings) from the last 7 days.
+ * Uses the CRM search API with date filtering.
+ * Requires scopes: crm.objects.calls.read, crm.objects.emails.read, crm.objects.meetings.read
+ */
+async function fetchRecentEngagements(client: Client): Promise<ConnectorRecord[]> {
+  const sevenDaysAgo = Date.now() - 7 * 24 * 60 * 60 * 1000
+  const records: ConnectorRecord[] = []
+
+  const engagementTypes = [
+    {
+      objectType: 'calls',
+      properties: ['hs_timestamp', 'hubspot_owner_id', 'hs_call_title', 'hs_call_duration', 'hs_call_direction'],
+      normalize: normalizeCall,
+    },
+    {
+      objectType: 'emails',
+      properties: ['hs_timestamp', 'hubspot_owner_id', 'hs_email_subject', 'hs_email_direction'],
+      normalize: normalizeEmailEngagement,
+    },
+    {
+      objectType: 'meetings',
+      properties: ['hs_timestamp', 'hubspot_owner_id', 'hs_meeting_title', 'hs_meeting_start_time', 'hs_meeting_end_time'],
+      normalize: normalizeMeeting,
+    },
+  ] as const
+
+  for (const engType of engagementTypes) {
+    try {
+      const response = await client.apiRequest({
+        method: 'POST',
+        path: `/crm/v3/objects/${engType.objectType}/search`,
+        body: {
+          filterGroups: [{
+            filters: [{
+              propertyName: 'hs_timestamp',
+              operator: 'GTE',
+              value: sevenDaysAgo.toString(),
+            }],
+          }],
+          sorts: [{ propertyName: 'hs_timestamp', direction: 'DESCENDING' }],
+          properties: engType.properties as unknown as string[],
+          limit: 100,
+          after: 0,
+        },
+      })
+      const data = await response.json() as { results?: Array<{ id: string; properties: Record<string, string | null> }> }
+      for (const result of data.results || []) {
+        records.push(engType.normalize(result))
+      }
+    } catch {
+      // Individual engagement type failure is non-fatal — may not have scope
+    }
+  }
+
+  return records
+}
+
+function normalizeCall(call: { id: string; properties: Record<string, string | null> }): ConnectorRecord {
+  const props = call.properties
+  return {
+    source: 'hubspot',
+    sourceId: `call-${call.id}`,
+    dataType: 'engagement',
+    payload: {
+      engagement_type: 'call',
+      title: props.hs_call_title,
+      direction: props.hs_call_direction,
+      duration_ms: props.hs_call_duration ? parseInt(props.hs_call_duration) : null,
+      owner_id: props.hubspot_owner_id,
+      timestamp: props.hs_timestamp,
+    },
+    entities: { topics: ['call', 'outreach'] },
+    relevanceTags: ['sales', 'engagement', 'call'],
+    sourceTimestamp: props.hs_timestamp || null,
+  }
+}
+
+function normalizeEmailEngagement(email: { id: string; properties: Record<string, string | null> }): ConnectorRecord {
+  const props = email.properties
+  return {
+    source: 'hubspot',
+    sourceId: `hs-email-${email.id}`,
+    dataType: 'engagement',
+    payload: {
+      engagement_type: 'email',
+      subject: props.hs_email_subject,
+      direction: props.hs_email_direction,
+      owner_id: props.hubspot_owner_id,
+      timestamp: props.hs_timestamp,
+    },
+    entities: { topics: ['email', 'outreach'] },
+    relevanceTags: ['sales', 'engagement', 'email'],
+    sourceTimestamp: props.hs_timestamp || null,
+  }
+}
+
+function normalizeMeeting(meeting: { id: string; properties: Record<string, string | null> }): ConnectorRecord {
+  const props = meeting.properties
+  return {
+    source: 'hubspot',
+    sourceId: `meeting-${meeting.id}`,
+    dataType: 'engagement',
+    payload: {
+      engagement_type: 'meeting',
+      title: props.hs_meeting_title,
+      start_time: props.hs_meeting_start_time,
+      end_time: props.hs_meeting_end_time,
+      owner_id: props.hubspot_owner_id,
+      timestamp: props.hs_timestamp,
+    },
+    entities: { topics: ['meeting', 'outreach'] },
+    relevanceTags: ['sales', 'engagement', 'meeting'],
+    sourceTimestamp: props.hs_timestamp || null,
+  }
 }
 
 /** Calculate days between two dates */

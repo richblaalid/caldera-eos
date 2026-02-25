@@ -209,6 +209,67 @@ async function computeGrossMargin(orgId: string): Promise<{ value: number; notes
   }
 }
 
+const CALDERA_DOMAINS = ['withcaldera.com', 'bko.group']
+
+async function computeBDOutreach(orgId: string): Promise<{ value: number; notes: string } | null> {
+  const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString()
+
+  // Count 1: HubSpot engagements (calls, emails, meetings) from last 7 days
+  const { data: engagements } = await supabaseAdmin
+    .from('ingested_data')
+    .select('payload')
+    .eq('organization_id', orgId)
+    .eq('source', 'hubspot')
+    .eq('data_type', 'engagement')
+    .gte('source_timestamp', sevenDaysAgo)
+
+  const hsCount = engagements?.length || 0
+  const hsByType = new Map<string, number>()
+  for (const e of engagements || []) {
+    const type = (e.payload as Record<string, unknown>).engagement_type as string || 'unknown'
+    hsByType.set(type, (hsByType.get(type) || 0) + 1)
+  }
+
+  // Count 2: Outbound Gmail emails (from Caldera to external recipients) from last 7 days
+  const { data: emails } = await supabaseAdmin
+    .from('ingested_data')
+    .select('payload')
+    .eq('organization_id', orgId)
+    .eq('source', 'gmail')
+    .eq('data_type', 'email')
+    .gte('source_timestamp', sevenDaysAgo)
+
+  let gmailOutbound = 0
+  for (const e of emails || []) {
+    const p = e.payload as Record<string, unknown>
+    const from = ((p.from as string) || '').toLowerCase()
+    const to = ((p.to as string) || '').toLowerCase()
+
+    // From Caldera domain AND to external recipient
+    const isFromCaldera = CALDERA_DOMAINS.some(d => from.includes(d))
+    const isToExternal = !CALDERA_DOMAINS.some(d => to.includes(d))
+
+    if (isFromCaldera && isToExternal) {
+      gmailOutbound++
+    }
+  }
+
+  const total = hsCount + gmailOutbound
+
+  // Build breakdown notes
+  const hsBreakdown = [...hsByType.entries()]
+    .map(([type, count]) => `${count} ${type}s`)
+    .join(', ')
+
+  return {
+    value: total,
+    notes: [
+      hsCount > 0 ? `HubSpot: ${hsBreakdown}` : 'HubSpot: 0',
+      `Gmail outbound: ${gmailOutbound}`,
+    ].join(' | '),
+  }
+}
+
 // ============================================
 // Registry
 // ============================================
@@ -234,7 +295,11 @@ const metricComputers: MetricComputer[] = [
     automation: 'full',
     compute: computeGrossMargin,
   },
-  // Phase 3: BD Outreach Activities (needs HubSpot engagements)
+  {
+    metricName: 'Weekly BD Outreach Activities',
+    automation: 'full',
+    compute: computeBDOutreach,
+  },
 ]
 
 const MANUAL_METRICS = [
