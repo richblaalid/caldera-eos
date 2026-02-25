@@ -111,14 +111,19 @@ export async function generateTodoSuggestions(
       owner: todo.owner,
       due_date: todo.due_date,
       priority: todo.priority,
+      confidence: todo.confidence,
       context: todo.context,
     })
+
+    // Map confidence to insight priority for DB-level sorting
+    const mappedPriority = (todo.confidence ?? 0) >= 0.9 ? 1
+      : (todo.confidence ?? 0) >= 0.7 ? 2 : 3
 
     const insight: InsightInsert = {
       type: 'suggestion',
       title: `Suggested Todo: ${todo.title}`,
       content: todoData,
-      priority: todo.priority || 2,
+      priority: todo.priority || mappedPriority,
       sources: [{ type: 'transcript', id: transcriptId, title: transcriptTitle }],
       related_entities: {},
     }

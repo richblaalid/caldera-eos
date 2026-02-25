@@ -8,6 +8,7 @@ export function parseTodoSuggestion(content: string): {
   owner?: string
   due_date?: string
   priority?: number
+  confidence?: number
   context: string
 } | null {
   try {
@@ -18,6 +19,7 @@ export function parseTodoSuggestion(content: string): {
       owner: data.owner,
       due_date: data.due_date,
       priority: data.priority,
+      confidence: data.confidence,
       context: data.context || '',
     }
   } catch {
