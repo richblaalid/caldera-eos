@@ -99,6 +99,42 @@ function TrendArrow({
   )
 }
 
+// Format a metric value with its unit for compact display
+function formatMetricValue(value: number, unit: string | null): string {
+  if (!unit) return value.toLocaleString()
+
+  switch (unit) {
+    case '$':
+      if (value >= 1_000_000) return `$${(value / 1_000_000).toFixed(1)}M`
+      if (value >= 1_000) return `$${Math.round(value / 1_000)}K`
+      return `$${value.toLocaleString()}`
+    case '%':
+      return `${value}%`
+    case 'months':
+      return `${value} mo`
+    default:
+      return `${value.toLocaleString()} ${unit}`
+  }
+}
+
+// Format target value with unit
+function formatTargetValue(target: number, unit: string | null): string {
+  if (!unit) return target.toLocaleString()
+
+  switch (unit) {
+    case '$':
+      if (target >= 1_000_000) return `$${(target / 1_000_000).toFixed(1)}M`
+      if (target >= 1_000) return `$${Math.round(target / 1_000)}K`
+      return `$${target.toLocaleString()}`
+    case '%':
+      return `${target}%`
+    case 'months':
+      return `${target} mo`
+    default:
+      return `${target.toLocaleString()} ${unit}`
+  }
+}
+
 // Cell component
 function MetricCell({
   value,
@@ -123,11 +159,11 @@ function MetricCell({
   }
 
   const displayValue = value !== null && value !== undefined
-    ? `${value}${unit ? ` ${unit}` : ''}`
+    ? formatMetricValue(value, unit)
     : '-'
 
   return (
-    <td className={`px-3 py-2 text-center text-sm font-medium ${statusColors[status]}`}>
+    <td className={`px-3 py-2 text-center text-sm font-medium whitespace-nowrap ${statusColors[status]}`}>
       <span className="inline-flex items-center">
         {displayValue}
         <TrendArrow current={value} previous={prevValue} direction={direction} />
@@ -273,14 +309,13 @@ export default async function ScorecardPage({ searchParams }: PageProps) {
                       </p>
                     )}
                   </td>
-                  <td className="px-3 py-3 text-center text-sm text-foreground">
+                  <td className="px-3 py-3 text-center text-sm text-foreground whitespace-nowrap">
                     {metric.target !== null ? (
                       <>
                         {metric.goal_direction === 'above' && '≥ '}
                         {metric.goal_direction === 'below' && '≤ '}
                         {metric.goal_direction === 'equal' && '= '}
-                        {metric.target}
-                        {metric.unit && ` ${metric.unit}`}
+                        {formatTargetValue(metric.target, metric.unit)}
                       </>
                     ) : (
                       <span className="text-muted-foreground">-</span>

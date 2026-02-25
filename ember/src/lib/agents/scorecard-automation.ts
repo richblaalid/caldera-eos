@@ -284,7 +284,7 @@ const metricComputers: MetricComputer[] = [
     compute: computeCashFlowRunway,
   },
   {
-    metricName: 'Gross Margin %',
+    metricName: 'Net Margin %',
     automation: 'full',
     compute: computeNetMargin,
   },
