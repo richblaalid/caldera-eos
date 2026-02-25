@@ -105,10 +105,6 @@ async function handleDirectMessage(
   event: { user: string; text: string; channel: string; ts: string; thread_ts?: string },
   teamId: string
 ) {
-  // Dynamically import to keep the webhook handler lightweight
-  const { parseCommand } = await import('@/lib/agents/command-parser')
-  const { executeCommand } = await import('@/lib/agents/command-executor')
-
   // Look up partner by slack_user_id
   const { data: profile } = await getSupabaseAdmin()
     .from('profiles')
@@ -120,6 +116,14 @@ async function handleDirectMessage(
     console.warn(`No profile found for Slack user ${event.user}`)
     return
   }
+
+  // Try to handle as a scorecard value reply first (e.g. "Billable Utilization: 75")
+  const handled = await tryScorecardReply(event.text, profile, event.channel, event.thread_ts || event.ts)
+  if (handled) return
+
+  // Dynamically import to keep the webhook handler lightweight
+  const { parseCommand } = await import('@/lib/agents/command-parser')
+  const { executeCommand } = await import('@/lib/agents/command-executor')
 
   // Find the active briefing for threading context
   const today = new Date().toISOString().split('T')[0]
@@ -146,6 +150,97 @@ async function handleDirectMessage(
     threadTs: event.thread_ts || briefing?.slack_message_ts || event.ts,
     teamId,
   })
+}
+
+/**
+ * Try to parse a Slack DM as a scorecard value reply.
+ * Matches patterns like "Billable Utilization: 75" or "Bench Utilization Rate: 100".
+ * Supports multiple metrics on separate lines.
+ * Returns true if at least one metric value was recorded.
+ */
+async function tryScorecardReply(
+  text: string,
+  profile: { id: string; organization_id: string },
+  channelId: string,
+  threadTs: string
+): Promise<boolean> {
+  // Match lines like "Metric Name: 42.5" or "Metric Name: 42"
+  const lines = text.split('\n').map(l => l.trim()).filter(Boolean)
+  const valuePattern = /^(.+?):\s*([\d,.]+)\s*$/
+
+  const parsed: Array<{ name: string; value: number }> = []
+  for (const line of lines) {
+    const match = line.match(valuePattern)
+    if (!match) continue
+    const name = match[1].trim()
+    const value = parseFloat(match[2].replace(/,/g, ''))
+    if (!isNaN(value) && name.length > 2) {
+      parsed.push({ name, value })
+    }
+  }
+
+  if (parsed.length === 0) return false
+
+  const sb = getSupabaseAdmin()
+
+  // Look up metrics by name (case-insensitive) for this org
+  const { data: metrics } = await sb
+    .from('scorecard_metrics')
+    .select('id, name')
+    .eq('organization_id', profile.organization_id)
+    .eq('is_active', true)
+
+  if (!metrics || metrics.length === 0) return false
+
+  const matched: Array<{ metricId: string; metricName: string; value: number }> = []
+
+  for (const p of parsed) {
+    const metric = metrics.find(m => m.name.toLowerCase() === p.name.toLowerCase())
+    if (metric) {
+      matched.push({ metricId: metric.id, metricName: metric.name, value: p.value })
+    }
+  }
+
+  if (matched.length === 0) return false
+
+  // Compute current week start (Monday)
+  const d = new Date()
+  const day = d.getDay()
+  const diff = d.getDate() - day + (day === 0 ? -6 : 1)
+  d.setDate(diff)
+  d.setHours(0, 0, 0, 0)
+  const weekOf = d.toISOString().split('T')[0]
+
+  const results: string[] = []
+
+  for (const m of matched) {
+    const { error } = await sb
+      .from('scorecard_entries')
+      .upsert(
+        {
+          metric_id: m.metricId,
+          week_of: weekOf,
+          value: m.value,
+          notes: `[Slack] Entered by ${profile.id}`,
+        },
+        { onConflict: 'metric_id,week_of' }
+      )
+
+    if (error) {
+      results.push(`:x: ${m.metricName} — failed to save`)
+    } else {
+      results.push(`:white_check_mark: *${m.metricName}*: ${m.value} recorded for week of ${weekOf}`)
+    }
+  }
+
+  // Reply in thread with confirmation
+  const { getSlackClient, postThreadReply } = await import('@/lib/connectors/slack-connector')
+  const client = await getSlackClient(profile.organization_id)
+  if (client) {
+    await postThreadReply(client, channelId, threadTs, results.join('\n'))
+  }
+
+  return true
 }
 
 /**

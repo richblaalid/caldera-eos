@@ -59,6 +59,7 @@ interface EntryState {
     notes: string
     originalValue: string
     originalNotes: string
+    isAutoComputed: boolean
   }
 }
 
@@ -98,11 +99,13 @@ export default function ScorecardEntryPage() {
         const entriesMap: EntryState = {}
         metricsData.forEach((metric: MetricWithOwner) => {
           const existingEntry = entriesData.find(e => e.metric_id === metric.id)
+          const notes = existingEntry?.notes ?? ''
           entriesMap[metric.id] = {
             value: existingEntry?.value?.toString() ?? '',
-            notes: existingEntry?.notes ?? '',
+            notes,
             originalValue: existingEntry?.value?.toString() ?? '',
-            originalNotes: existingEntry?.notes ?? '',
+            originalNotes: notes,
+            isAutoComputed: notes.startsWith('[Auto]'),
           }
         })
         setEntries(entriesMap)
@@ -307,6 +310,11 @@ export default function ScorecardEntryPage() {
                         <span className="font-medium text-foreground">
                           {metric.name}
                         </span>
+                        {entry.isAutoComputed && (
+                          <span className="inline-flex items-center px-1.5 py-0.5 text-[10px] font-medium rounded bg-ember-100 text-ember-700 dark:bg-ember-900/30 dark:text-ember-400">
+                            Auto
+                          </span>
+                        )}
                         {metric.target !== null && (
                           <span className="text-xs text-muted-foreground">
                             Target: {metric.goal_direction === 'above' && '≥ '}
@@ -316,6 +324,11 @@ export default function ScorecardEntryPage() {
                           </span>
                         )}
                       </div>
+                      {entry.isAutoComputed && entry.originalNotes && (
+                        <p className="text-xs text-muted-foreground mb-2">
+                          {entry.originalNotes.replace(/^\[Auto\]\s*/, '')}
+                        </p>
+                      )}
                       {metric.description && (
                         <p className="text-sm text-muted-foreground mb-3">
                           {metric.description}
