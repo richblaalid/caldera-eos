@@ -1,9 +1,15 @@
-import { NextResponse } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
 import type { Insight } from '@/types/database'
 
-// GET /api/insights/suggestions - Get pending metric suggestions
-export async function GET() {
+const TITLE_PREFIXES: Record<string, string> = {
+  metric: 'Suggested Metric:%',
+  todo: 'Suggested Todo:%',
+  issue: 'Suggested Issue:%',
+}
+
+// GET /api/insights/suggestions?type=metric|todo|issue
+export async function GET(request: NextRequest) {
   try {
     const supabase = await createClient()
     const {
@@ -15,12 +21,14 @@ export async function GET() {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    // Fetch unacknowledged suggestions that are metric recommendations
+    const suggestionType = request.nextUrl.searchParams.get('type') || 'metric'
+    const titlePrefix = TITLE_PREFIXES[suggestionType] || TITLE_PREFIXES.metric
+
     const { data, error } = await supabase
       .from('insights')
       .select('*')
       .eq('type', 'suggestion')
-      .like('title', 'Suggested Metric:%')
+      .like('title', titlePrefix)
       .eq('acknowledged', false)
       .order('created_at', { ascending: false })
 

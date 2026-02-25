@@ -3,6 +3,7 @@ import { anthropic } from '@ai-sdk/anthropic'
 import { z } from 'zod'
 import { createClient } from '@supabase/supabase-js'
 import type { BriefingItem, AgentWorkItem, BriefingInsert } from '@/types/agents'
+import { getSmartLookback, getTranscriptLabel } from './lookback'
 
 const supabaseAdmin = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -232,7 +233,7 @@ async function getCalendarEvents(organizationId: string) {
 }
 
 async function getRecentEmails(organizationId: string) {
-  const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString()
+  const oneDayAgo = getSmartLookback(24)
 
   const { data } = await supabaseAdmin
     .from('ingested_data')
@@ -377,7 +378,7 @@ async function getEOSData(organizationId: string): Promise<EOSData> {
 }
 
 async function getPendingAgentOutputs(organizationId: string) {
-  const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString()
+  const oneDayAgo = getSmartLookback(24)
 
   const { data } = await supabaseAdmin
     .from('agent_outputs')
@@ -400,7 +401,7 @@ async function getPendingAgentOutputs(organizationId: string) {
 }
 
 async function getFinancialInsights(organizationId: string) {
-  const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString()
+  const oneDayAgo = getSmartLookback(24)
 
   // Get the most recent Financial Strategist analysis
   const { data } = await supabaseAdmin
@@ -419,7 +420,7 @@ async function getFinancialInsights(organizationId: string) {
 }
 
 async function getBDStrategistInsights(organizationId: string) {
-  const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString()
+  const oneDayAgo = getSmartLookback(24)
 
   const { data } = await supabaseAdmin
     .from('agent_outputs')
@@ -474,7 +475,7 @@ interface TranscriptHighlight {
 }
 
 async function getTranscriptHighlights(organizationId: string): Promise<TranscriptHighlight[]> {
-  const twoDaysAgo = new Date(Date.now() - 48 * 60 * 60 * 1000).toISOString()
+  const twoDaysAgo = getSmartLookback(48)
 
   const { data } = await supabaseAdmin
     .from('ingested_data')
@@ -727,7 +728,7 @@ function buildBriefingPrompt(data: {
       if (t.decisions.length > 0) parts.push(`Decisions:\n${t.decisions.map(d => `  - ${d}`).join('\n')}`)
       return parts.join('\n')
     }).join('\n\n')
-    sections.push(`## Yesterday's Meetings (${data.transcriptHighlights.length} transcripts)\n${transcripts}`)
+    sections.push(`## ${getTranscriptLabel()} (${data.transcriptHighlights.length} transcripts)\n${transcripts}`)
   }
 
   // Agent outputs

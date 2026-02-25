@@ -13,6 +13,8 @@ import {
   generateTranscriptSummary,
 } from '@/lib/transcripts'
 import { generateMetricSuggestions } from '@/lib/metric-suggestions'
+import { generateTodoSuggestions } from '@/lib/todo-suggestions'
+import { generateIssueSuggestions } from '@/lib/issue-suggestions'
 
 interface RouteParams {
   params: Promise<{ id: string }>
@@ -92,6 +94,32 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       }
     }
 
+    // Step 3.6: Generate todo suggestions from extracted todos
+    let todoSuggestionsCreated = 0
+    if (mergedExtractions.todos && mergedExtractions.todos.length > 0) {
+      try {
+        const ids = await generateTodoSuggestions(
+          mergedExtractions.todos, id, transcript.title || 'Meeting Transcript'
+        )
+        todoSuggestionsCreated = ids.length
+      } catch (e) {
+        console.error('Error creating todo suggestions:', e)
+      }
+    }
+
+    // Step 3.7: Generate issue suggestions from extracted issues
+    let issueSuggestionsCreated = 0
+    if (mergedExtractions.issues && mergedExtractions.issues.length > 0) {
+      try {
+        const ids = await generateIssueSuggestions(
+          mergedExtractions.issues, id, transcript.title || 'Meeting Transcript'
+        )
+        issueSuggestionsCreated = ids.length
+      } catch (e) {
+        console.error('Error creating issue suggestions:', e)
+      }
+    }
+
     // Step 4: Generate overall summary
     const summary = await generateTranscriptSummary(transcript.full_text)
 
@@ -108,6 +136,8 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       chunks_created: chunks.length,
       extractions: mergedExtractions,
       metric_suggestions_created: metricSuggestionsCreated,
+      todo_suggestions_created: todoSuggestionsCreated,
+      issue_suggestions_created: issueSuggestionsCreated,
     })
   } catch (error) {
     console.error('Error processing transcript:', error)
