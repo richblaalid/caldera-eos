@@ -122,118 +122,123 @@ async function fetchContacts(client: Client) {
 
 /**
  * Fetch recent engagements (calls, emails, meetings) from the last 7 days.
- * Uses the CRM search API with date filtering.
- * Requires scopes: crm.objects.calls.read, crm.objects.emails.read, crm.objects.meetings.read
+ * Uses the legacy Engagements v1 API which only requires the `contacts` scope
+ * (no separate engagement-object scopes needed for Private Apps).
  */
 async function fetchRecentEngagements(client: Client): Promise<ConnectorRecord[]> {
   const sevenDaysAgo = Date.now() - 7 * 24 * 60 * 60 * 1000
   const records: ConnectorRecord[] = []
+  const RELEVANT_TYPES = new Set(['CALL', 'EMAIL', 'MEETING'])
 
-  const engagementTypes = [
-    {
-      objectType: 'calls',
-      properties: ['hs_timestamp', 'hubspot_owner_id', 'hs_call_title', 'hs_call_duration', 'hs_call_direction'],
-      normalize: normalizeCall,
-    },
-    {
-      objectType: 'emails',
-      properties: ['hs_timestamp', 'hubspot_owner_id', 'hs_email_subject', 'hs_email_direction'],
-      normalize: normalizeEmailEngagement,
-    },
-    {
-      objectType: 'meetings',
-      properties: ['hs_timestamp', 'hubspot_owner_id', 'hs_meeting_title', 'hs_meeting_start_time', 'hs_meeting_end_time'],
-      normalize: normalizeMeeting,
-    },
-  ] as const
+  let offset = 0
+  let hasMore = true
 
-  for (const engType of engagementTypes) {
-    try {
-      const response = await client.apiRequest({
-        method: 'POST',
-        path: `/crm/v3/objects/${engType.objectType}/search`,
-        body: {
-          filterGroups: [{
-            filters: [{
-              propertyName: 'hs_timestamp',
-              operator: 'GTE',
-              value: sevenDaysAgo.toString(),
-            }],
-          }],
-          sorts: [{ propertyName: 'hs_timestamp', direction: 'DESCENDING' }],
-          properties: engType.properties as unknown as string[],
-          limit: 100,
-          after: 0,
-        },
-      })
-      const data = await response.json() as { results?: Array<{ id: string; properties: Record<string, string | null> }> }
-      for (const result of data.results || []) {
-        records.push(engType.normalize(result))
-      }
-    } catch {
-      // Individual engagement type failure is non-fatal — may not have scope
+  while (hasMore) {
+    const response = await client.apiRequest({
+      method: 'GET',
+      path: `/engagements/v1/engagements/recent/modified?since=${sevenDaysAgo}&count=100&offset=${offset}`,
+    })
+    const data = await response.json() as V1EngagementsResponse
+
+    for (const result of data.results || []) {
+      const engType = result.engagement?.type
+      if (!engType || !RELEVANT_TYPES.has(engType)) continue
+
+      const record = normalizeV1Engagement(result)
+      if (record) records.push(record)
     }
+
+    hasMore = data.hasMore === true
+    offset = data.offset ?? 0
+    // Safety: stop after 500 engagements to avoid runaway pagination
+    if (records.length >= 500) break
   }
 
   return records
 }
 
-function normalizeCall(call: { id: string; properties: Record<string, string | null> }): ConnectorRecord {
-  const props = call.properties
-  return {
-    source: 'hubspot',
-    sourceId: `call-${call.id}`,
-    dataType: 'engagement',
-    payload: {
-      engagement_type: 'call',
-      title: props.hs_call_title,
-      direction: props.hs_call_direction,
-      duration_ms: props.hs_call_duration ? parseInt(props.hs_call_duration) : null,
-      owner_id: props.hubspot_owner_id,
-      timestamp: props.hs_timestamp,
-    },
-    entities: { topics: ['call', 'outreach'] },
-    relevanceTags: ['sales', 'engagement', 'call'],
-    sourceTimestamp: props.hs_timestamp || null,
+interface V1Engagement {
+  engagement: {
+    id: number
+    type: string
+    timestamp: number
+    ownerId?: number
+    active?: boolean
+  }
+  metadata: Record<string, unknown>
+  associations?: {
+    contactIds?: number[]
+    companyIds?: number[]
+    dealIds?: number[]
   }
 }
 
-function normalizeEmailEngagement(email: { id: string; properties: Record<string, string | null> }): ConnectorRecord {
-  const props = email.properties
-  return {
-    source: 'hubspot',
-    sourceId: `hs-email-${email.id}`,
-    dataType: 'engagement',
-    payload: {
-      engagement_type: 'email',
-      subject: props.hs_email_subject,
-      direction: props.hs_email_direction,
-      owner_id: props.hubspot_owner_id,
-      timestamp: props.hs_timestamp,
-    },
-    entities: { topics: ['email', 'outreach'] },
-    relevanceTags: ['sales', 'engagement', 'email'],
-    sourceTimestamp: props.hs_timestamp || null,
-  }
+interface V1EngagementsResponse {
+  results: V1Engagement[]
+  hasMore: boolean
+  offset: number
+  total?: number
 }
 
-function normalizeMeeting(meeting: { id: string; properties: Record<string, string | null> }): ConnectorRecord {
-  const props = meeting.properties
-  return {
-    source: 'hubspot',
-    sourceId: `meeting-${meeting.id}`,
-    dataType: 'engagement',
-    payload: {
-      engagement_type: 'meeting',
-      title: props.hs_meeting_title,
-      start_time: props.hs_meeting_start_time,
-      end_time: props.hs_meeting_end_time,
-      owner_id: props.hubspot_owner_id,
-      timestamp: props.hs_timestamp,
-    },
-    entities: { topics: ['meeting', 'outreach'] },
-    relevanceTags: ['sales', 'engagement', 'meeting'],
-    sourceTimestamp: props.hs_timestamp || null,
+function normalizeV1Engagement(eng: V1Engagement): ConnectorRecord | null {
+  const { engagement, metadata } = eng
+  const type = engagement.type
+  const timestamp = engagement.timestamp ? new Date(engagement.timestamp).toISOString() : null
+  const ownerId = engagement.ownerId?.toString() || null
+
+  switch (type) {
+    case 'CALL':
+      return {
+        source: 'hubspot',
+        sourceId: `call-${engagement.id}`,
+        dataType: 'engagement',
+        payload: {
+          engagement_type: 'call',
+          title: metadata.title || metadata.subject || null,
+          direction: metadata.disposition || null,
+          duration_ms: metadata.durationMilliseconds || null,
+          owner_id: ownerId,
+          timestamp,
+        },
+        entities: { topics: ['call', 'outreach'] },
+        relevanceTags: ['sales', 'engagement', 'call'],
+        sourceTimestamp: timestamp,
+      }
+    case 'EMAIL':
+      return {
+        source: 'hubspot',
+        sourceId: `hs-email-${engagement.id}`,
+        dataType: 'engagement',
+        payload: {
+          engagement_type: 'email',
+          subject: metadata.subject || null,
+          direction: null,
+          owner_id: ownerId,
+          timestamp,
+        },
+        entities: { topics: ['email', 'outreach'] },
+        relevanceTags: ['sales', 'engagement', 'email'],
+        sourceTimestamp: timestamp,
+      }
+    case 'MEETING':
+      return {
+        source: 'hubspot',
+        sourceId: `meeting-${engagement.id}`,
+        dataType: 'engagement',
+        payload: {
+          engagement_type: 'meeting',
+          title: metadata.title || metadata.subject || null,
+          start_time: metadata.startTime ? new Date(metadata.startTime as number).toISOString() : null,
+          end_time: metadata.endTime ? new Date(metadata.endTime as number).toISOString() : null,
+          owner_id: ownerId,
+          timestamp,
+        },
+        entities: { topics: ['meeting', 'outreach'] },
+        relevanceTags: ['sales', 'engagement', 'meeting'],
+        sourceTimestamp: timestamp,
+      }
+    default:
+      return null
   }
 }
 
