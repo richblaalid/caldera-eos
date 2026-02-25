@@ -8,7 +8,7 @@ const TITLE_PREFIXES: Record<string, string> = {
   issue: 'Suggested Issue:%',
 }
 
-// GET /api/insights/suggestions?type=metric|todo|issue
+// GET /api/insights/suggestions?type=metric|todo|issue&limit=15&offset=0
 export async function GET(request: NextRequest) {
   try {
     const supabase = await createClient()
@@ -23,14 +23,27 @@ export async function GET(request: NextRequest) {
 
     const suggestionType = request.nextUrl.searchParams.get('type') || 'metric'
     const titlePrefix = TITLE_PREFIXES[suggestionType] || TITLE_PREFIXES.metric
+    const limit = Math.min(parseInt(request.nextUrl.searchParams.get('limit') || '15') || 15, 50)
+    const offset = parseInt(request.nextUrl.searchParams.get('offset') || '0') || 0
 
+    // Get total count for pagination info
+    const { count } = await supabase
+      .from('insights')
+      .select('*', { count: 'exact', head: true })
+      .eq('type', 'suggestion')
+      .like('title', titlePrefix)
+      .eq('acknowledged', false)
+
+    // Fetch paginated results, sorted by priority (1=highest) then recency
     const { data, error } = await supabase
       .from('insights')
       .select('*')
       .eq('type', 'suggestion')
       .like('title', titlePrefix)
       .eq('acknowledged', false)
+      .order('priority', { ascending: true })
       .order('created_at', { ascending: false })
+      .range(offset, offset + limit - 1)
 
     if (error) {
       console.error('Error fetching suggestions:', error)
@@ -40,7 +53,12 @@ export async function GET(request: NextRequest) {
       )
     }
 
-    return NextResponse.json(data as Insight[])
+    return NextResponse.json({
+      suggestions: data as Insight[],
+      total: count || 0,
+      limit,
+      offset,
+    })
   } catch (error) {
     console.error('Error in suggestions API:', error)
     return NextResponse.json(

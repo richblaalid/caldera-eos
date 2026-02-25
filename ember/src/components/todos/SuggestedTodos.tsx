@@ -13,16 +13,18 @@ interface SuggestedTodosProps {
 export function SuggestedTodos({ className }: SuggestedTodosProps) {
   const router = useRouter()
   const [suggestions, setSuggestions] = useState<Insight[]>([])
+  const [total, setTotal] = useState(0)
   const [loading, setLoading] = useState(true)
   const [acting, setActing] = useState<string | null>(null)
 
   useEffect(() => {
     async function fetchSuggestions() {
       try {
-        const res = await fetch('/api/insights/suggestions?type=todo')
+        const res = await fetch('/api/insights/suggestions?type=todo&limit=15')
         if (res.ok) {
           const data = await res.json()
-          setSuggestions(data)
+          setSuggestions(data.suggestions ?? data)
+          setTotal(data.total ?? 0)
         }
       } catch (error) {
         console.error('Failed to fetch todo suggestions:', error)
@@ -88,7 +90,9 @@ export function SuggestedTodos({ className }: SuggestedTodosProps) {
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
           </svg>
           Suggested To-dos from Meetings
-          <span className="text-xs font-normal text-muted-foreground">({suggestions.length})</span>
+          <span className="text-xs font-normal text-muted-foreground">
+            ({suggestions.length}{total > suggestions.length ? ` of ${total}` : ''})
+          </span>
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-3">

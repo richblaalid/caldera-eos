@@ -108,14 +108,19 @@ export async function generateIssueSuggestions(
       description: issue.description,
       owner: issue.owner,
       priority: issue.priority,
+      confidence: issue.confidence,
       context: issue.context,
     })
+
+    // Map confidence to insight priority for DB-level sorting
+    const mappedPriority = (issue.confidence ?? 0) >= 0.9 ? 1
+      : (issue.confidence ?? 0) >= 0.7 ? 2 : 3
 
     const insight: InsightInsert = {
       type: 'suggestion',
       title: `Suggested Issue: ${issue.title}`,
       content: issueData,
-      priority: issue.priority || 2,
+      priority: issue.priority || mappedPriority,
       sources: [{ type: 'transcript', id: transcriptId, title: transcriptTitle }],
       related_entities: {},
     }

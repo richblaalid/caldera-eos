@@ -19,10 +19,10 @@ export function SuggestedMetrics({ className }: SuggestedMetricsProps) {
   useEffect(() => {
     async function fetchSuggestions() {
       try {
-        const res = await fetch('/api/insights/suggestions')
+        const res = await fetch('/api/insights/suggestions?type=metric&limit=15')
         if (res.ok) {
           const data = await res.json()
-          setSuggestions(data)
+          setSuggestions(data.suggestions ?? data)
         }
       } catch (error) {
         console.error('Failed to fetch suggestions:', error)

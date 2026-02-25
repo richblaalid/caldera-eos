@@ -7,6 +7,7 @@ export function parseIssueSuggestion(content: string): {
   description?: string
   owner?: string
   priority?: number
+  confidence?: number
   context: string
 } | null {
   try {
@@ -16,6 +17,7 @@ export function parseIssueSuggestion(content: string): {
       description: data.description,
       owner: data.owner,
       priority: data.priority,
+      confidence: data.confidence,
       context: data.context || '',
     }
   } catch {

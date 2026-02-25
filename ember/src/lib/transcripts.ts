@@ -141,6 +141,7 @@ export interface ExtractedItem {
   priority?: number
   due_date?: string
   context: string // Relevant quote from transcript
+  confidence?: number // 0.0-1.0, from LLM extraction
 }
 
 export interface ExtractedMetric {
@@ -151,6 +152,7 @@ export interface ExtractedMetric {
   owner?: string
   frequency?: 'weekly' | 'monthly' | 'quarterly' | 'daily'
   context: string
+  confidence?: number // 0.0-1.0, from LLM extraction
 }
 
 export interface ExtractionResult {
@@ -165,18 +167,32 @@ export interface ExtractionResult {
 // AI Extraction Functions
 // =============================================
 
-const EXTRACTION_SYSTEM_PROMPT = `You are an EOS (Entrepreneurial Operating System) meeting analyst. Your job is to analyze meeting transcripts and extract:
+const EXTRACTION_SYSTEM_PROMPT = `You are Ember, the AI EOS Integrator for Caldera — a 14-person software services company. The three partners are Rich (CEO/CFO/Integrator), John (Sales), and Wade (Engineering/Operations).
 
-1. **Issues** - Problems, concerns, or topics that need discussion using the IDS (Identify, Discuss, Solve) process
-2. **To-dos** - Action items with clear owners and implied deadlines (EOS standard is 7 days)
-3. **Decisions** - Important decisions made during the meeting
-4. **Potential Metrics** - Measurable KPIs mentioned that could be tracked on a scorecard:
-   - Weekly/monthly numbers mentioned (calls made, revenue, utilization, etc.)
-   - Specific targets or goals discussed with numbers
-   - Measurements the team wants visibility into
-   Only extract when a SPECIFIC measurable number or KPI is mentioned.
+Your job is to analyze meeting transcript excerpts and extract ONLY high-quality, clearly actionable EOS entities:
 
-Be specific and actionable. Use exact quotes when helpful. Attribute items to speakers when mentioned.
+1. **Issues** — Real business problems that someone explicitly raised for discussion or resolution. NOT casual complaints, hypothetical scenarios, or offhand comments.
+2. **To-dos** — Specific action items that were clearly ASSIGNED to or ACCEPTED by a named person with an implied commitment. NOT suggestions, ideas floated in passing, or personal life items.
+3. **Decisions** — Significant business decisions that were explicitly agreed upon by the group.
+4. **Potential Metrics** — Only extract when a SPECIFIC measurable KPI with a numeric target is discussed as something to track on the Scorecard.
+
+## QUALITY THRESHOLD — CRITICAL
+- ONLY extract items where someone made a clear COMMITMENT or ASSIGNMENT ("I'll do X", "John, can you handle Y", "We agreed to Z")
+- SKIP casual conversation, jokes, personal anecdotes, hypothetical brainstorming, and "wouldn't it be nice if" ideas
+- SKIP anything not relevant to Caldera's business operations (personal errands, social plans, non-company projects)
+- When in doubt, DO NOT extract. It is far better to miss an item than to create noise.
+- Each item MUST include a confidence score (0.0-1.0)
+
+## CONFIDENCE SCORING
+- **0.9-1.0**: Explicit assignment with owner acceptance ("John, you'll send that proposal by Friday" / "I'll handle it")
+- **0.7-0.8**: Strong implication of commitment ("We need to get that done this week" with clear ownership context)
+- **0.5-0.6**: Discussed but no clear owner or commitment — do NOT extract as a todo, may qualify as an issue
+- **Below 0.5**: Do not extract at all
+
+## CALDERA CONTEXT
+The team discusses: software delivery, client relationships, sales pipeline, AI product development, hiring, revenue diversification, and EOS implementation (Rocks, Scorecard, L10 meetings). Items should relate to these domains.
+
+Be precise. Use exact quotes. Attribute items to speakers when possible.
 
 Format your output as valid JSON only.`
 
@@ -203,6 +219,7 @@ Return a JSON object with this structure:
       "description": "More detail if needed",
       "owner": "Person's name if mentioned",
       "priority": 1-3 (1=high, 3=low),
+      "confidence": 0.0-1.0,
       "context": "Brief quote from transcript"
     }
   ],
@@ -212,6 +229,7 @@ Return a JSON object with this structure:
       "title": "Action item title",
       "owner": "Person's name if mentioned",
       "due_date": "Date if mentioned, otherwise null",
+      "confidence": 0.0-1.0,
       "context": "Brief quote from transcript"
     }
   ],
@@ -219,6 +237,7 @@ Return a JSON object with this structure:
     {
       "type": "decision",
       "title": "Decision summary",
+      "confidence": 0.0-1.0,
       "context": "Brief quote from transcript"
     }
   ],
@@ -230,6 +249,7 @@ Return a JSON object with this structure:
       "suggested_target": "Target value if mentioned (e.g., 20)",
       "owner": "Person who would own this metric",
       "frequency": "weekly|monthly|quarterly|daily",
+      "confidence": 0.0-1.0,
       "context": "Brief quote from transcript"
     }
   ],
@@ -326,6 +346,9 @@ export async function generateTranscriptSummary(
 /**
  * Merge extraction results from multiple chunks
  */
+/** Minimum confidence score for an extracted item to be kept. */
+const MIN_CONFIDENCE_THRESHOLD = 0.7
+
 export function mergeExtractionResults(
   results: ExtractionResult[]
 ): ExtractionResult {
@@ -367,11 +390,15 @@ export function mergeExtractionResults(
     })
   }
 
+  // Filter by confidence threshold (items without scores are excluded)
+  const filterByConfidence = <T extends { confidence?: number }>(items: T[]): T[] =>
+    items.filter(item => (item.confidence ?? 0) >= MIN_CONFIDENCE_THRESHOLD)
+
   return {
-    issues: dedupeByTitle(issues),
-    todos: dedupeByTitle(todos),
+    issues: filterByConfidence(dedupeByTitle(issues)),
+    todos: filterByConfidence(dedupeByTitle(todos)),
     decisions: dedupeByTitle(decisions),
-    metrics: dedupeByName(metrics),
+    metrics: filterByConfidence(dedupeByName(metrics)),
     summary: summaries.join(' '),
   }
 }
