@@ -1,5 +1,5 @@
 import { createClient } from '@supabase/supabase-js'
-import { extractCashBalance, extractTotalExpenses } from '@/lib/qbo-report-parser'
+import { extractCashBalance, extractTotalExpenses, extractTotalIncome, extractCOGS } from '@/lib/qbo-report-parser'
 
 const supabaseAdmin = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -170,6 +170,45 @@ async function computeCashFlowRunway(orgId: string): Promise<{ value: number; no
   }
 }
 
+async function computeGrossMargin(orgId: string): Promise<{ value: number; notes: string } | null> {
+  // Use the current-month P&L (report_type = 'profit_and_loss') for the latest snapshot
+  // Fall back to the 3-month P&L if current month isn't available
+  const { data: pnlRecords } = await supabaseAdmin
+    .from('ingested_data')
+    .select('payload')
+    .eq('organization_id', orgId)
+    .eq('source', 'quickbooks')
+    .eq('data_type', 'financial_report')
+    .filter('payload->>report_type', 'in', '("profit_and_loss","profit_and_loss_3mo")')
+    .order('source_timestamp', { ascending: false })
+    .limit(2)
+
+  if (!pnlRecords || pnlRecords.length === 0) return null
+
+  // Prefer current-month P&L, fall back to 3-month
+  const currentMonth = pnlRecords.find(
+    r => (r.payload as Record<string, unknown>).report_type === 'profit_and_loss'
+  )
+  const record = currentMonth || pnlRecords[0]
+  const payload = record.payload as Record<string, unknown>
+  const reportData = payload.report_data as Record<string, unknown>
+
+  if (!reportData) return null
+
+  const totalIncome = extractTotalIncome(reportData)
+  const cogs = extractCOGS(reportData)
+
+  if (totalIncome === null || totalIncome === 0) return null
+
+  const grossProfit = totalIncome - cogs
+  const marginPct = (grossProfit / totalIncome) * 100
+
+  return {
+    value: Math.round(marginPct * 10) / 10, // 1 decimal place
+    notes: `Revenue: $${Math.round(totalIncome).toLocaleString()}, COGS: $${Math.round(cogs).toLocaleString()}, Gross Profit: $${Math.round(grossProfit).toLocaleString()}`,
+  }
+}
+
 // ============================================
 // Registry
 // ============================================
@@ -190,13 +229,17 @@ const metricComputers: MetricComputer[] = [
     automation: 'full',
     compute: computeCashFlowRunway,
   },
+  {
+    metricName: 'Gross Margin %',
+    automation: 'full',
+    compute: computeGrossMargin,
+  },
   // Phase 3: BD Outreach Activities (needs HubSpot engagements)
 ]
 
 const MANUAL_METRICS = [
   'Billable Utilization',
   'Monthly Thought Leadership Articles',
-  'Effective Bill Rate',
   'Bench Utilization Rate',
 ]
 

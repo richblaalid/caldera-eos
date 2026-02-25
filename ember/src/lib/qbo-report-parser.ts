@@ -90,6 +90,60 @@ export function extractTotalExpenses(report: Record<string, unknown>): number | 
   return null
 }
 
+/**
+ * Extract total income/revenue from a QBO Profit and Loss report.
+ * Looks for "Income" section total (Summary row).
+ */
+export function extractTotalIncome(report: Record<string, unknown>): number | null {
+  const qbo = report as unknown as QBOReport
+  const rows = qbo.Rows?.Row
+  if (!rows) return null
+
+  // Strategy 1: Find "Income" section Summary
+  const incomeSection = findSectionByGroup(rows, 'Income')
+  if (incomeSection?.Summary?.ColData?.[1]) {
+    const val = parseFloat(incomeSection.Summary.ColData[1].value)
+    if (!isNaN(val)) return Math.abs(val)
+  }
+
+  // Strategy 2: Look for "Total Income" row label
+  const totalRow = findRowByLabel(rows, 'Total Income')
+  if (totalRow?.ColData?.[1]) {
+    const val = parseFloat(totalRow.ColData[1].value)
+    if (!isNaN(val)) return Math.abs(val)
+  }
+
+  return null
+}
+
+/**
+ * Extract cost of goods sold / cost of services from a QBO P&L report.
+ * Returns 0 if no COGS section exists (common for pure-services firms).
+ */
+export function extractCOGS(report: Record<string, unknown>): number {
+  const qbo = report as unknown as QBOReport
+  const rows = qbo.Rows?.Row
+  if (!rows) return 0
+
+  // Strategy 1: Find "COGS" section Summary
+  const cogsSection = findSectionByGroup(rows, 'COGS')
+    ?? findSectionByGroup(rows, 'CostOfGoodsSold')
+  if (cogsSection?.Summary?.ColData?.[1]) {
+    const val = parseFloat(cogsSection.Summary.ColData[1].value)
+    if (!isNaN(val)) return Math.abs(val)
+  }
+
+  // Strategy 2: Look for "Total Cost of Goods Sold" row label
+  const totalRow = findRowByLabel(rows, 'Total Cost of Goods Sold')
+    ?? findRowByLabel(rows, 'Total Cost of Sales')
+  if (totalRow?.ColData?.[1]) {
+    const val = parseFloat(totalRow.ColData[1].value)
+    if (!isNaN(val)) return Math.abs(val)
+  }
+
+  return 0
+}
+
 /** Recursively find a Section row by its `group` property */
 function findSectionByGroup(rows: QBORow[], groupName: string): QBORow | null {
   for (const row of rows) {
