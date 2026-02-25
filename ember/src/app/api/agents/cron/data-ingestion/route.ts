@@ -3,6 +3,7 @@ import { createClient } from '@supabase/supabase-js'
 import { gmailConnector } from '@/lib/connectors/gmail-connector'
 import { calendarConnector } from '@/lib/connectors/calendar-connector'
 import { hubspotConnector } from '@/lib/connectors/hubspot-connector'
+import { quickbooksConnector } from '@/lib/connectors/quickbooks-connector'
 import { transcriptConnector } from '@/lib/connectors/transcript-connector'
 import type { ConnectorRecord } from '@/lib/connectors/types'
 
@@ -29,7 +30,7 @@ export async function GET(request: NextRequest) {
     // Get all partners with any connector tokens
     const { data: partners, error: fetchError } = await supabaseAdmin
       .from('partner_preferences')
-      .select('partner_id, organization_id, google_refresh_token, google_history_id, grain_last_sync')
+      .select('partner_id, organization_id, google_refresh_token, google_history_id, grain_last_sync, quickbooks_refresh_token, quickbooks_realm_id')
 
     if (fetchError) {
       console.error('Failed to fetch partner preferences:', fetchError)
@@ -45,12 +46,14 @@ export async function GET(request: NextRequest) {
       gmail_records: 0,
       calendar_records: 0,
       hubspot_records: 0,
+      quickbooks_records: 0,
       transcript_records: 0,
       errors: [] as string[],
     }
 
     // Track which orgs have already run org-level connectors (avoid duplicate runs)
     const hubspotProcessedOrgs = new Set<string>()
+    const quickbooksProcessedOrgs = new Set<string>()
     const transcriptProcessedOrgs = new Set<string>()
 
     for (const partner of partners) {
@@ -129,6 +132,39 @@ export async function GET(request: NextRequest) {
         }
       }
 
+      // Run QuickBooks connector (once per org — uses per-partner OAuth token)
+      let quickbooksRecords: ConnectorRecord[] = []
+      if (partner.quickbooks_refresh_token && partner.quickbooks_realm_id && !quickbooksProcessedOrgs.has(partner.organization_id)) {
+        quickbooksProcessedOrgs.add(partner.organization_id)
+        try {
+          const qboResult = await quickbooksConnector.pull({
+            organizationId: partner.organization_id,
+            partnerId: partner.partner_id,
+            config: {
+              quickbooks_refresh_token: partner.quickbooks_refresh_token,
+              quickbooks_realm_id: partner.quickbooks_realm_id,
+            },
+          })
+
+          quickbooksRecords = qboResult.records
+          if (qboResult.errors.length > 0) {
+            results.errors.push(...qboResult.errors.map(e => `QBO(${partner.organization_id}): ${e.message}`))
+          }
+
+          // Save rotated refresh token
+          if (qboResult.syncState?.quickbooks_refresh_token) {
+            await supabaseAdmin
+              .from('partner_preferences')
+              .update({ quickbooks_refresh_token: qboResult.syncState.quickbooks_refresh_token as string })
+              .eq('partner_id', partner.partner_id)
+              .eq('organization_id', partner.organization_id)
+          }
+        } catch (qboError: unknown) {
+          const err = qboError as { message?: string }
+          results.errors.push(`QBO(${partner.organization_id}): ${err.message || 'Connector crashed'}`)
+        }
+      }
+
       // Run Transcript connector (once per org — reads from transcripts table)
       let transcriptRecords: ConnectorRecord[] = []
       if (!transcriptProcessedOrgs.has(partner.organization_id)) {
@@ -160,7 +196,7 @@ export async function GET(request: NextRequest) {
       }
 
       // Persist all records to ingested_data
-      const allRecords = [...gmailRecords, ...calendarRecords, ...hubspotRecords, ...transcriptRecords]
+      const allRecords = [...gmailRecords, ...calendarRecords, ...hubspotRecords, ...quickbooksRecords, ...transcriptRecords]
       if (allRecords.length > 0) {
         const insertError = await persistRecords(allRecords, partner.organization_id)
         if (insertError) {
@@ -171,6 +207,7 @@ export async function GET(request: NextRequest) {
       results.gmail_records += gmailRecords.length
       results.calendar_records += calendarRecords.length
       results.hubspot_records += hubspotRecords.length
+      results.quickbooks_records += quickbooksRecords.length
       results.transcript_records += transcriptRecords.length
       results.partners_processed++
     }
