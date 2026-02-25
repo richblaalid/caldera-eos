@@ -10,8 +10,20 @@
       "schedule": "0 9 * * 1"
     },
     {
-      "path": "/api/agents/cron/data-ingestion",
+      "path": "/api/agents/cron/ingest/google",
       "schedule": "*/15 * * * *"
+    },
+    {
+      "path": "/api/agents/cron/ingest/hubspot",
+      "schedule": "0 9 * * *"
+    },
+    {
+      "path": "/api/agents/cron/ingest/quickbooks",
+      "schedule": "0 9 * * *"
+    },
+    {
+      "path": "/api/agents/cron/ingest/transcripts",
+      "schedule": "0 */6 * * *"
     },
     {
       "path": "/api/agents/cron/morning-briefing",
