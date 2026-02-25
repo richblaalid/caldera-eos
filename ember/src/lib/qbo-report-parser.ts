@@ -117,6 +117,32 @@ export function extractTotalIncome(report: Record<string, unknown>): number | nu
 }
 
 /**
+ * Extract net income from a QBO Profit and Loss report.
+ * Looks for "NetIncome" section total (Summary row).
+ */
+export function extractNetIncome(report: Record<string, unknown>): number | null {
+  const qbo = report as unknown as QBOReport
+  const rows = qbo.Rows?.Row
+  if (!rows) return null
+
+  // Strategy 1: Find "NetIncome" section Summary
+  const netIncomeSection = findSectionByGroup(rows, 'NetIncome')
+  if (netIncomeSection?.Summary?.ColData?.[1]) {
+    const val = parseFloat(netIncomeSection.Summary.ColData[1].value)
+    if (!isNaN(val)) return val // Keep sign (can be negative)
+  }
+
+  // Strategy 2: Look for "Net Income" row label
+  const totalRow = findRowByLabel(rows, 'Net Income')
+  if (totalRow?.ColData?.[1]) {
+    const val = parseFloat(totalRow.ColData[1].value)
+    if (!isNaN(val)) return val
+  }
+
+  return null
+}
+
+/**
  * Extract cost of goods sold / cost of services from a QBO P&L report.
  * Returns 0 if no COGS section exists (common for pure-services firms).
  */
