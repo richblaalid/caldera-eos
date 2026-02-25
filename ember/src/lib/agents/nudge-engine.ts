@@ -186,7 +186,9 @@ async function detectStalledRocks(
 }
 
 /**
- * Detect scorecard metrics with 3+ consecutive weeks without an entry.
+ * Detect scorecard metrics missing entries.
+ * On Mondays: flag any metric missing last week's entry (timely reminder).
+ * Any day: flag metrics with 3+ consecutive weeks without an entry (escalation).
  */
 async function detectMissedScorecard(
   organizationId: string,
@@ -202,8 +204,17 @@ async function detectMissedScorecard(
   if (!metrics || metrics.length === 0) return []
 
   const nudges: Nudge[] = []
+  const today = new Date()
+  const isMonday = today.getDay() === 1
 
-  // Check each metric for consecutive misses
+  // Calculate last week's Monday
+  const lastWeekMonday = new Date(today)
+  const dayOfWeek = lastWeekMonday.getDay()
+  const daysBack = dayOfWeek === 0 ? 6 : dayOfWeek - 1
+  lastWeekMonday.setDate(lastWeekMonday.getDate() - daysBack - 7)
+  lastWeekMonday.setHours(0, 0, 0, 0)
+  const lastWeekOf = lastWeekMonday.toISOString().split('T')[0]
+
   const threeWeeksAgo = new Date()
   threeWeeksAgo.setDate(threeWeeksAgo.getDate() - 21)
 
@@ -218,10 +229,29 @@ async function detectMissedScorecard(
       .gte('week_of', threeWeeksAgo.toISOString().split('T')[0])
       .order('week_of', { ascending: false })
 
-    // If no entries in the last 3 weeks, this is a miss
     const weeksCovered = entries?.length || 0
-    const consecutiveMisses = 3 - weeksCovered // approximate
+    const consecutiveMisses = 3 - weeksCovered
 
+    // Monday nudge: last week's entry is missing
+    if (isMonday) {
+      const hasLastWeek = entries?.some(e => e.week_of === lastWeekOf)
+      if (!hasLastWeek) {
+        nudges.push({
+          type: 'missed_scorecard',
+          escalation: 1 as EscalationLevel,
+          targetPartnerId: metric.owner_id,
+          targetPartnerName: partnerMap.get(metric.owner_id) || 'Unknown',
+          title: `Missing Scorecard: ${metric.name}`,
+          message: `Your metric "${metric.name}" is missing for last week. Reply with \`${metric.name}: <value>\` or enter in the dashboard.`,
+          itemId: `${metric.id}:${lastWeekOf}`,
+          itemTitle: metric.name,
+          daysOverdue: 7,
+        })
+        continue // Don't double-nudge with the escalation below
+      }
+    }
+
+    // Escalation: 3+ consecutive weeks missing
     if (consecutiveMisses >= 3) {
       nudges.push({
         type: 'missed_scorecard',

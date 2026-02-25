@@ -62,6 +62,17 @@ export const hubspotConnector: DataConnector = {
       errors.push({ code: 'CONTACTS_FETCH_FAILED', message: err.message || 'Contacts fetch failed', recoverable: true })
     }
 
+    // Pull recent engagements (calls, emails, meetings — last 7 days)
+    try {
+      const engagements = await fetchRecentEngagements(client)
+      for (const engagement of engagements) {
+        records.push(engagement)
+      }
+    } catch (error: unknown) {
+      const err = error as { message?: string }
+      errors.push({ code: 'ENGAGEMENTS_FETCH_FAILED', message: err.message || 'Engagements fetch failed', recoverable: true })
+    }
+
     return { records, errors }
   },
 }
@@ -107,6 +118,128 @@ async function fetchContacts(client: Client) {
     CONTACT_PROPERTIES,
   )
   return response.results
+}
+
+/**
+ * Fetch recent engagements (calls, emails, meetings) from the last 7 days.
+ * Uses the legacy Engagements v1 API which only requires the `contacts` scope
+ * (no separate engagement-object scopes needed for Private Apps).
+ */
+async function fetchRecentEngagements(client: Client): Promise<ConnectorRecord[]> {
+  const sevenDaysAgo = Date.now() - 7 * 24 * 60 * 60 * 1000
+  const records: ConnectorRecord[] = []
+  const RELEVANT_TYPES = new Set(['CALL', 'EMAIL', 'MEETING'])
+
+  let offset = 0
+  let hasMore = true
+
+  while (hasMore) {
+    const response = await client.apiRequest({
+      method: 'GET',
+      path: `/engagements/v1/engagements/recent/modified?since=${sevenDaysAgo}&count=100&offset=${offset}`,
+    })
+    const data = await response.json() as V1EngagementsResponse
+
+    for (const result of data.results || []) {
+      const engType = result.engagement?.type
+      if (!engType || !RELEVANT_TYPES.has(engType)) continue
+
+      const record = normalizeV1Engagement(result)
+      if (record) records.push(record)
+    }
+
+    hasMore = data.hasMore === true
+    offset = data.offset ?? 0
+    // Safety: stop after 500 engagements to avoid runaway pagination
+    if (records.length >= 500) break
+  }
+
+  return records
+}
+
+interface V1Engagement {
+  engagement: {
+    id: number
+    type: string
+    timestamp: number
+    ownerId?: number
+    active?: boolean
+  }
+  metadata: Record<string, unknown>
+  associations?: {
+    contactIds?: number[]
+    companyIds?: number[]
+    dealIds?: number[]
+  }
+}
+
+interface V1EngagementsResponse {
+  results: V1Engagement[]
+  hasMore: boolean
+  offset: number
+  total?: number
+}
+
+function normalizeV1Engagement(eng: V1Engagement): ConnectorRecord | null {
+  const { engagement, metadata } = eng
+  const type = engagement.type
+  const timestamp = engagement.timestamp ? new Date(engagement.timestamp).toISOString() : null
+  const ownerId = engagement.ownerId?.toString() || null
+
+  switch (type) {
+    case 'CALL':
+      return {
+        source: 'hubspot',
+        sourceId: `call-${engagement.id}`,
+        dataType: 'engagement',
+        payload: {
+          engagement_type: 'call',
+          title: metadata.title || metadata.subject || null,
+          direction: metadata.disposition || null,
+          duration_ms: metadata.durationMilliseconds || null,
+          owner_id: ownerId,
+          timestamp,
+        },
+        entities: { topics: ['call', 'outreach'] },
+        relevanceTags: ['sales', 'engagement', 'call'],
+        sourceTimestamp: timestamp,
+      }
+    case 'EMAIL':
+      return {
+        source: 'hubspot',
+        sourceId: `hs-email-${engagement.id}`,
+        dataType: 'engagement',
+        payload: {
+          engagement_type: 'email',
+          subject: metadata.subject || null,
+          direction: null,
+          owner_id: ownerId,
+          timestamp,
+        },
+        entities: { topics: ['email', 'outreach'] },
+        relevanceTags: ['sales', 'engagement', 'email'],
+        sourceTimestamp: timestamp,
+      }
+    case 'MEETING':
+      return {
+        source: 'hubspot',
+        sourceId: `meeting-${engagement.id}`,
+        dataType: 'engagement',
+        payload: {
+          engagement_type: 'meeting',
+          title: metadata.title || metadata.subject || null,
+          start_time: metadata.startTime ? new Date(metadata.startTime as number).toISOString() : null,
+          end_time: metadata.endTime ? new Date(metadata.endTime as number).toISOString() : null,
+          owner_id: ownerId,
+          timestamp,
+        },
+        entities: { topics: ['meeting', 'outreach'] },
+        relevanceTags: ['sales', 'engagement', 'meeting'],
+        sourceTimestamp: timestamp,
+      }
+    default:
+      return null
+  }
 }
 
 /** Calculate days between two dates */

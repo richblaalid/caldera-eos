@@ -81,6 +81,50 @@ export const quickbooksConnector: DataConnector = {
       errors.push({ code: 'AR_FETCH_FAILED', message: err.message || 'AR aging fetch failed', recoverable: true })
     }
 
+    // Pull Balance Sheet (for cash balance — used by scorecard automation)
+    try {
+      const balanceSheet = await fetchReport(accessToken, realmId, 'BalanceSheet')
+      if (balanceSheet) {
+        records.push(normalizeBalanceSheet(balanceSheet))
+      }
+    } catch (error: unknown) {
+      const err = error as { message?: string }
+      errors.push({ code: 'BALANCE_SHEET_FAILED', message: err.message || 'Balance Sheet fetch failed', recoverable: true })
+    }
+
+    // Pull trailing 3-month P&L (for expense averaging — used by scorecard automation)
+    try {
+      const threeMonthsAgo = new Date()
+      threeMonthsAgo.setMonth(threeMonthsAgo.getMonth() - 3)
+      const startDate = threeMonthsAgo.toISOString().split('T')[0]
+      const endDate = new Date().toISOString().split('T')[0]
+
+      const pnl3mo = await fetchReport(
+        accessToken, realmId, 'ProfitAndLoss',
+        { start_date: startDate, end_date: endDate }
+      )
+      if (pnl3mo) {
+        records.push({
+          source: 'quickbooks',
+          sourceId: `pnl-3mo-${endDate}`,
+          dataType: 'financial_report',
+          payload: {
+            report_type: 'profit_and_loss_3mo',
+            report_data: pnl3mo,
+            start_date: startDate,
+            end_date: endDate,
+          },
+          rawPayload: pnl3mo,
+          entities: { topics: ['profit_loss', 'expense_trend'] },
+          relevanceTags: ['financial', 'report', 'pnl_3mo'],
+          sourceTimestamp: new Date().toISOString(),
+        })
+      }
+    } catch (error: unknown) {
+      const err = error as { message?: string }
+      errors.push({ code: 'PNL_3MO_FAILED', message: err.message || '3-month P&L fetch failed', recoverable: true })
+    }
+
     return {
       records,
       syncState: newRefreshToken ? { quickbooks_refresh_token: newRefreshToken } : undefined,
@@ -148,8 +192,15 @@ async function queryQBO(accessToken: string, realmId: string, query: string): Pr
 /**
  * Fetch a QBO report.
  */
-async function fetchReport(accessToken: string, realmId: string, reportType: string): Promise<Record<string, unknown> | null> {
-  const url = `${QBO_BASE_URL}/v3/company/${realmId}/reports/${reportType}`
+async function fetchReport(
+  accessToken: string, realmId: string, reportType: string,
+  params?: Record<string, string>
+): Promise<Record<string, unknown> | null> {
+  let url = `${QBO_BASE_URL}/v3/company/${realmId}/reports/${reportType}`
+  if (params) {
+    const qs = new URLSearchParams(params).toString()
+    url += `?${qs}`
+  }
   const response = await fetch(url, {
     headers: {
       Authorization: `Bearer ${accessToken}`,
@@ -255,6 +306,24 @@ function normalizePnlReport(report: Record<string, unknown>): ConnectorRecord {
       topics: ['profit_loss', 'financial_summary'],
     },
     relevanceTags: ['financial', 'report', 'pnl'],
+    sourceTimestamp: new Date().toISOString(),
+  }
+}
+
+function normalizeBalanceSheet(report: Record<string, unknown>): ConnectorRecord {
+  return {
+    source: 'quickbooks',
+    sourceId: `balance-sheet-${new Date().toISOString().split('T')[0]}`,
+    dataType: 'financial_report',
+    payload: {
+      report_type: 'balance_sheet',
+      report_data: report,
+    },
+    rawPayload: report,
+    entities: {
+      topics: ['balance_sheet', 'cash_position'],
+    },
+    relevanceTags: ['financial', 'report', 'balance_sheet'],
     sourceTimestamp: new Date().toISOString(),
   }
 }
