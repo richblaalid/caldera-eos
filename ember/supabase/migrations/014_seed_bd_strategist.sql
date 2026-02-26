@@ -26,7 +26,7 @@ SELECT
   'America/Chicago',
   ARRAY['sales', 'pipeline', 'clients']
 FROM public.profiles p
-WHERE p.email = 'john@withcaldera.com'
+WHERE p.email = 'john.oneill@withcaldera.com'
   AND NOT EXISTS (
     SELECT 1 FROM public.partner_preferences pp
     WHERE pp.partner_id = p.id AND pp.organization_id = '00000000-0000-0000-0000-000000000001'
@@ -41,7 +41,7 @@ SELECT
   'America/Chicago',
   ARRAY['delivery', 'engineering', 'clients']
 FROM public.profiles p
-WHERE p.email = 'wade@withcaldera.com'
+WHERE p.email = 'wade.evanhoff@withcaldera.com'
   AND NOT EXISTS (
     SELECT 1 FROM public.partner_preferences pp
     WHERE pp.partner_id = p.id AND pp.organization_id = '00000000-0000-0000-0000-000000000001'
