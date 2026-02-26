@@ -5,6 +5,7 @@ import {
   updateTranscript,
   createTranscriptChunks,
 } from '@/lib/eos'
+import type { ExtractionResult } from '@/lib/transcripts'
 import {
   chunkTranscript,
   generateChunkEmbeddings,
@@ -43,10 +44,18 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       )
     }
 
-    // Step 1: Chunk the transcript
+    // Check if extractions are pre-populated (e.g., from Grain AI notes parser)
+    const existingExtractions = transcript.extractions as ExtractionResult | null
+    const grainNotesUsed = !!(existingExtractions?.todos?.length || existingExtractions?.issues?.length || existingExtractions?.decisions?.length)
+
+    if (grainNotesUsed) {
+      console.log(`Grain notes shortcut: skipping LLM extraction for transcript ${id}`)
+    }
+
+    // Step 1: Chunk the transcript (always needed for semantic search)
     const chunks = chunkTranscript(transcript.full_text, id)
 
-    // Step 1.5: Generate embeddings for semantic search
+    // Step 1.5: Generate embeddings for semantic search (always needed)
     let chunksWithEmbeddings = chunks
     try {
       console.log(`Generating embeddings for ${chunks.length} chunks...`)
@@ -54,30 +63,39 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       console.log('Embeddings generated successfully')
     } catch (embeddingError) {
       console.error('Error generating embeddings:', embeddingError)
-      // Continue without embeddings - they can be backfilled later
     }
 
     // Save chunks to database
     if (chunksWithEmbeddings.length > 0) {
-      // Delete existing chunks first
       await supabase.from('transcript_chunks').delete().eq('transcript_id', id)
-      // Create new chunks with embeddings
       await createTranscriptChunks(chunksWithEmbeddings)
     }
 
-    // Step 2: Extract items from each chunk
-    const extractionResults = []
-    for (let i = 0; i < chunks.length; i++) {
-      // Use previous chunk as context
-      const context = i > 0 ? chunks[i - 1].content.slice(-500) : ''
-      const result = await extractFromChunk(chunks[i].content, context)
-      extractionResults.push(result)
+    // Use existing extractions from Grain notes, or run LLM extraction pipeline
+    let mergedExtractions: ExtractionResult
+    let summary: string | null = null
+
+    if (grainNotesUsed && existingExtractions) {
+      // Grain notes shortcut: skip Steps 2-4 (chunk extraction, merge, summary)
+      mergedExtractions = existingExtractions
+      summary = existingExtractions.summary || null
+    } else {
+      // Step 2: Extract items from each chunk (LLM)
+      const extractionResults = []
+      for (let i = 0; i < chunks.length; i++) {
+        const context = i > 0 ? chunks[i - 1].content.slice(-500) : ''
+        const result = await extractFromChunk(chunks[i].content, context)
+        extractionResults.push(result)
+      }
+
+      // Step 3: Merge and deduplicate extractions
+      mergedExtractions = mergeExtractionResults(extractionResults)
+
+      // Step 4: Generate overall summary (LLM)
+      summary = await generateTranscriptSummary(transcript.full_text)
     }
 
-    // Step 3: Merge and deduplicate extractions
-    const mergedExtractions = mergeExtractionResults(extractionResults)
-
-    // Step 3.5: Generate metric suggestions from extracted metrics
+    // Step 3.5: Generate suggestions from extractions (runs for both paths)
     let metricSuggestionsCreated = 0
     if (mergedExtractions.metrics && mergedExtractions.metrics.length > 0) {
       try {
@@ -90,11 +108,9 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
         console.log(`Created ${metricSuggestionsCreated} metric suggestions`)
       } catch (suggestionError) {
         console.error('Error creating metric suggestions:', suggestionError)
-        // Continue - suggestions are optional
       }
     }
 
-    // Step 3.6: Generate todo suggestions from extracted todos
     let todoSuggestionsCreated = 0
     if (mergedExtractions.todos && mergedExtractions.todos.length > 0) {
       try {
@@ -107,7 +123,6 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       }
     }
 
-    // Step 3.7: Generate issue suggestions from extracted issues
     let issueSuggestionsCreated = 0
     if (mergedExtractions.issues && mergedExtractions.issues.length > 0) {
       try {
@@ -120,10 +135,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       }
     }
 
-    // Step 4: Generate overall summary
-    const summary = await generateTranscriptSummary(transcript.full_text)
-
-    // Step 5: Update transcript as processed with extractions
+    // Step 5: Update transcript as processed
     const updated = await updateTranscript(id, {
       processed: true,
       processed_at: new Date().toISOString(),
@@ -135,6 +147,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       ...updated,
       chunks_created: chunks.length,
       extractions: mergedExtractions,
+      grain_notes_used: grainNotesUsed,
       metric_suggestions_created: metricSuggestionsCreated,
       todo_suggestions_created: todoSuggestionsCreated,
       issue_suggestions_created: issueSuggestionsCreated,
