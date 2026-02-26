@@ -573,7 +573,7 @@ All 48 tasks completed. See `docs/archive/v1.0/` for original task definitions.
 
 #### 10.3 Automated Grain Ingestion Cron
 
-- [ ] **10.3.1** Rewrite transcript ingestion cron to pull from Grain MCP
+- [x] **10.3.1** Rewrite transcript ingestion cron to pull from Grain MCP
   - Modify `src/app/api/agents/cron/ingest/transcripts/route.ts`
   - New flow:
     1. Call `grainMcpClient.listMeetings(since: grain_last_sync)` to discover new meetings
@@ -795,6 +795,7 @@ All 48 tasks completed. See `docs/archive/v1.0/` for original task definitions.
 | 2026-02-25 | 10.1.2 | Build Grain MCP client wrapper | Complete |
 | 2026-02-25 | 10.2.1 | Build Grain notes parser | Complete |
 | 2026-02-25 | 10.2.2 | Short-circuit processing for Grain notes | Complete |
+| 2026-02-25 | 10.3.1 | Rewrite transcript cron with Grain MCP | Complete |
 
 ---
 
