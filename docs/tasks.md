@@ -604,7 +604,7 @@ All 48 tasks completed. See `docs/archive/v1.0/` for original task definitions.
 
 #### 10.4 BD Strategist Agent
 
-- [ ] **10.4.1** Seed BD Strategist agent definition and John's partner preferences
+- [x] **10.4.1** Seed BD Strategist agent definition and John's partner preferences
   - Create migration `014_seed_bd_strategist.sql`
   - Seed `agent_definitions` with BD Strategist persona (from PRD Section 7.4 — VP of Partnerships, proactive, opportunity-seeking)
   - Seed `partner_preferences` for John (briefing_time: 07:30, timezone: America/Chicago, focus_areas: ['sales', 'pipeline', 'clients'])
@@ -612,7 +612,7 @@ All 48 tasks completed. See `docs/archive/v1.0/` for original task definitions.
   - **Files:** `ember/supabase/migrations/014_seed_bd_strategist.sql`
   - **Acceptance:** BD Strategist agent definition exists, John and Wade have partner preferences
 
-- [ ] **10.4.2** Build BD Strategist analysis module
+- [x] **10.4.2** Build BD Strategist analysis module
   - Create `src/lib/agents/bd-strategist.ts`
   - `runPipelineAnalysis(organizationId)` — overnight analysis function
   - Queries: HubSpot deals from `ingested_data` (last 30 days), recent sales-tagged transcripts (last 30 days), deal stage distribution, velocity metrics
@@ -628,7 +628,7 @@ All 48 tasks completed. See `docs/archive/v1.0/` for original task definitions.
   - **Depends on:** 10.4.1
   - **Acceptance:** BD Strategist generates structured pipeline analysis from HubSpot data
 
-- [ ] **10.4.3** Add BD Strategist to overnight analysis cron
+- [x] **10.4.3** Add BD Strategist to overnight analysis cron
   - Extend `overnight-analysis/route.ts` to invoke BD Strategist per organization
   - Run after Financial Strategist (both feed into morning briefing)
   - Log to `agent_runs` table
@@ -640,7 +640,7 @@ All 48 tasks completed. See `docs/archive/v1.0/` for original task definitions.
 
 #### 10.5 Pre-Meeting Prep
 
-- [ ] **10.5.1** Build pre-meeting intelligence generator
+- [x] **10.5.1** Build pre-meeting intelligence generator
   - Create `src/lib/agents/meeting-prep.ts`
   - `generatePreCallBrief(meetingEvent, organizationId)` — compile context for an upcoming external meeting
   - Queries per-client data: `relevance_tags @> '{client:{name}}' ORDER BY source_timestamp DESC LIMIT 3`
@@ -651,7 +651,7 @@ All 48 tasks completed. See `docs/archive/v1.0/` for original task definitions.
   - **Depends on:** 10.3.2, 10.4.3
   - **Acceptance:** Pre-call brief generated with client context from multiple sources
 
-- [ ] **10.5.2** Wire pre-meeting prep into morning briefing cron
+- [x] **10.5.2** Wire pre-meeting prep into morning briefing cron
   - Extend `morning-briefing/route.ts` to check for external meetings in next 4 hours
   - For each external/client meeting, call `generatePreCallBrief()`
   - Deliver as separate Slack DM to the partner attending (not part of main briefing)
@@ -797,6 +797,11 @@ All 48 tasks completed. See `docs/archive/v1.0/` for original task definitions.
 | 2026-02-25 | 10.2.2 | Short-circuit processing for Grain notes | Complete |
 | 2026-02-25 | 10.3.1 | Rewrite transcript cron with Grain MCP | Complete |
 | 2026-02-25 | 10.3.2 | Transcript highlights in briefing (already implemented) | Complete |
+| 2026-02-25 | 10.4.1 | Seed BD Strategist agent definition + partner preferences (already implemented) | Complete |
+| 2026-02-25 | 10.4.2 | Build BD Strategist analysis module (already implemented) | Complete |
+| 2026-02-25 | 10.4.3 | Add BD Strategist to overnight cron + briefing (already implemented) | Complete |
+| 2026-02-25 | 10.5.1 | Build pre-meeting intelligence generator (already implemented) | Complete |
+| 2026-02-25 | 10.5.2 | Wire pre-meeting prep into morning briefing cron (already implemented) | Complete |
 
 ---
 
