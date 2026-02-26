@@ -8,6 +8,18 @@ const supabaseAdmin = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 )
 
+// Agent personality emojis — each AI assistant has a unique identity
+const AGENT_EMOJI: Record<string, string> = {
+  'ea': ':crystal_ball:',                    // Ember EA — the oracle
+  'financial-strategist': ':bank:',          // Finance brain
+  'bd-strategist': ':dart:',                 // Pipeline hunter
+  'operations-architect': ':gear:',          // Ops engine
+  'scorecard-automation': ':bar_chart:',     // Metrics tracker
+  'meeting-prep': ':memo:',                  // Pre-call intel
+  'l10-prep': ':calendar:',                  // L10 prep
+  'nudge-engine': ':bell:',                  // Accountability nudges
+}
+
 /** Get a time-of-day greeting */
 function getGreeting(): string {
   const hour = new Date().getHours()
@@ -20,6 +32,22 @@ function getGreeting(): string {
 function formatDate(dateStr: string): string {
   const date = new Date(dateStr + 'T12:00:00')
   return date.toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' })
+}
+
+/** Get the emoji for an agent, with fallback */
+function agentEmoji(agentId: string): string {
+  return AGENT_EMOJI[agentId] || ':robot_face:'
+}
+
+/** Map source string to a status card emoji */
+function sourceEmoji(source: string): string {
+  const s = source.toLowerCase()
+  if (s.includes('rock') || s.includes('todo')) return ':green-card:'
+  if (s.includes('scorecard') || s.includes('financial')) return ':yellow-card:'
+  if (s.includes('calendar')) return ':date:'
+  if (s.includes('email')) return ':email:'
+  if (s.includes('pipeline') || s.includes('deal')) return ':dart:'
+  return ''
 }
 
 /**
@@ -40,7 +68,7 @@ export function formatBriefingBlocks(briefing: BriefingInsert): Record<string, u
 
   // Quick stats line
   const statsLine = [
-    tier1.length > 0 ? `${tier1.length} urgent` : null,
+    tier1.length > 0 ? `:red-card: ${tier1.length} urgent` : null,
     tier2.length > 0 ? `${tier2.length} updates` : null,
     workQueue.length > 0 ? `${workQueue.length} items for review` : null,
   ].filter(Boolean).join(' · ')
@@ -56,7 +84,7 @@ export function formatBriefingBlocks(briefing: BriefingInsert): Record<string, u
     blocks.push({ type: 'divider' })
     blocks.push({
       type: 'section',
-      text: { type: 'mrkdwn', text: ':rotating_light: *Needs Your Attention*' },
+      text: { type: 'mrkdwn', text: ':red-card: *Needs Your Attention*' },
     })
     for (const item of tier1) {
       const actionTag = item.action_needed ? '  :point_right: _Action needed_' : ''
@@ -75,11 +103,13 @@ export function formatBriefingBlocks(briefing: BriefingInsert): Record<string, u
     blocks.push({ type: 'divider' })
     blocks.push({
       type: 'section',
-      text: { type: 'mrkdwn', text: ':briefcase: *Business Updates*' },
+      text: { type: 'mrkdwn', text: ':yellow-card: *Business Updates*' },
     })
-    // Tier 2 items as a compact list
     const tier2Text = tier2
-      .map(item => `*${item.title}*\n${item.detail}`)
+      .map(item => {
+        const emoji = sourceEmoji(item.source)
+        return `${emoji ? emoji + ' ' : ''}*${item.title}*\n${item.detail}`
+      })
       .join('\n\n')
     blocks.push({
       type: 'section',
@@ -95,7 +125,7 @@ export function formatBriefingBlocks(briefing: BriefingInsert): Record<string, u
       .join('\n')
     blocks.push({
       type: 'section',
-      text: { type: 'mrkdwn', text: `:newspaper: *FYI*\n${tier3Text}` },
+      text: { type: 'mrkdwn', text: `:green-card: *FYI*\n${tier3Text}` },
     })
   }
 
@@ -104,11 +134,12 @@ export function formatBriefingBlocks(briefing: BriefingInsert): Record<string, u
     blocks.push({ type: 'divider' })
     blocks.push({
       type: 'section',
-      text: { type: 'mrkdwn', text: ':robot_face: *Ember Work Queue*' },
+      text: { type: 'mrkdwn', text: ':crystal_ball: *Ember Work Queue*' },
     })
     const queueText = workQueue.map(item => {
-      const icon = item.status === 'pending_review' ? ':yellow_circle:' : ':white_circle:'
-      return `${icon} *${item.id}.* ${item.title} _[${item.agent_name}]_\n      ${item.summary}`
+      const emoji = agentEmoji(item.agent_id)
+      const statusIcon = item.status === 'pending_review' ? ':yellow-card:' : ':green-card:'
+      return `${statusIcon} *${item.id}.* ${item.title} _[${emoji} ${item.agent_name}]_\n      ${item.summary}`
     }).join('\n')
     blocks.push({
       type: 'section',
