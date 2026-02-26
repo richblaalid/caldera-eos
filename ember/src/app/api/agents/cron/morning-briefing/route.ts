@@ -84,7 +84,7 @@ export async function GET(request: NextRequest) {
     // Step 2: Generate all briefings in parallel (the expensive Sonnet calls)
     const briefingResults = await Promise.allSettled(
       partners.map(partner =>
-        generateBriefing(partner.partner_id, partner.organization_id)
+        generateBriefing(partner.partner_id, partner.organization_id, partner.briefing_timezone || 'America/Chicago')
           .then(briefing => ({ partner, briefing }))
       )
     )

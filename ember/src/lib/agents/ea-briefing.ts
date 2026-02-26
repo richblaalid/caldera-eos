@@ -11,6 +11,17 @@ const supabaseAdmin = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 )
 
+/** Convert a Date to YYYY-MM-DD in a specific timezone */
+function toLocalDate(date: Date, timezone: string): string {
+  return date.toLocaleDateString('en-CA', { timeZone: timezone }) // en-CA gives YYYY-MM-DD
+}
+
+/** Get day-of-week label for a date in a specific timezone */
+function toDayLabel(dateStr: string, timezone: string): string {
+  const date = new Date(dateStr)
+  return date.toLocaleDateString('en-US', { weekday: 'long', timeZone: timezone })
+}
+
 // Zod schema for the three-tier briefing structure
 const briefingSchema = z.object({
   tier1_urgent: z.array(z.object({
@@ -39,13 +50,14 @@ const briefingSchema = z.object({
  */
 export async function generateBriefing(
   partnerId: string,
-  organizationId: string
+  organizationId: string,
+  timezone: string = 'America/Chicago'
 ): Promise<BriefingInsert> {
-  const today = new Date().toISOString().split('T')[0]
+  const today = toLocalDate(new Date(), timezone)
 
   // Gather all data sources in parallel
   const [calendarEvents, recentEmails, eosData, agentOutputs, financialInsights, pipelineData, bdInsights, opsInsights, transcriptHighlights, coachingHighlights, ownerNames, industryNews] = await Promise.all([
-    getCalendarEvents(organizationId),
+    getCalendarEvents(organizationId, timezone),
     getRecentEmails(organizationId),
     getEOSData(organizationId),
     getPendingAgentOutputs(organizationId),
@@ -215,10 +227,10 @@ async function getOwnerNames(organizationId: string): Promise<Map<string, string
   return map
 }
 
-async function getCalendarEvents(organizationId: string) {
-  const today = new Date()
-  const todayStr = today.toISOString().split('T')[0]
-  const weekOut = new Date(today.getTime() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]
+async function getCalendarEvents(organizationId: string, timezone: string) {
+  const now = new Date()
+  const todayStr = toLocalDate(now, timezone)
+  const weekOut = toLocalDate(new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000), timezone)
 
   const { data } = await supabaseAdmin
     .from('ingested_data')
@@ -231,11 +243,16 @@ async function getCalendarEvents(organizationId: string) {
     .order('source_timestamp', { ascending: true })
     .limit(30)
 
-  // Tag each event as today vs. upcoming
+  // Tag each event as today vs. upcoming, using the partner's local timezone
   return (data || []).map(d => {
     const payload = d.payload as Record<string, unknown>
-    const eventDate = (d.source_timestamp || '').split('T')[0]
-    return { ...payload, _is_today: eventDate === todayStr, _date: eventDate }
+    const eventLocalDate = d.source_timestamp
+      ? toLocalDate(new Date(d.source_timestamp), timezone)
+      : ''
+    const dayLabel = d.source_timestamp
+      ? toDayLabel(d.source_timestamp, timezone)
+      : ''
+    return { ...payload, _is_today: eventLocalDate === todayStr, _date: eventLocalDate, _day: dayLabel }
   })
 }
 
@@ -602,7 +619,9 @@ function buildBriefingPrompt(data: {
   if (upcomingEvents.length > 0) {
     const events = upcomingEvents.slice(0, 10).map(e => {
       const date = e._date as string
-      return `- ${date} ${e.title} [${e.event_type}]`
+      const day = e._day as string
+      const time = typeof e.start === 'string' ? e.start.split('T')[1]?.substring(0, 5) : ''
+      return `- ${day} ${date}${time ? ' ' + time : ''} ${e.title} [${e.event_type}]`
     }).join('\n')
     sections.push(`## Upcoming This Week (${upcomingEvents.length} events)\n${events}`)
   }
