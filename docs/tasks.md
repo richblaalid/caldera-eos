@@ -510,62 +510,101 @@ All 48 tasks completed. See `docs/archive/v1.0/` for original task definitions.
 
 ---
 
-## Phase 10: Agent System — Week 3 (Meeting Intelligence + BD Strategist + Nudges)
+## Phase 10: Agent System — Week 3 (Grain MCP + BD Strategist + Nudges)
 
-**Plan:** `docs/plans/phase10-week3-intelligence.md`
-**Goal:** Get meeting transcripts flowing into the pipeline with classification and temporal retrieval, activate the BD Strategist for John, build the proactive nudge system, and wire L10 meeting prep into the agent system.
+**Plan:** `docs/plans/grain-mcp-integration-upgrade.md` (Grain), `docs/plans/phase10-week3-intelligence.md` (BD Strategist, Nudges, L10)
+**Goal:** Automate Grain transcript ingestion via MCP Connector API, leverage Grain AI notes to reduce LLM costs, activate the BD Strategist for John, build the proactive nudge system, and wire L10 meeting prep into the agent system.
 
-### Days 1-2: Grain Transcript Ingestion
+### Days 1-2: Grain MCP Automated Ingestion
 
-#### 10.1 Grain Connector
+**Architecture:** Use the [Anthropic MCP Connector API](https://platform.claude.com/docs/en/agents-and-tools/mcp-connector) (beta: `mcp-client-2025-11-20`) to call Grain's MCP server directly from our Vercel cron. Claude Haiku routes tool calls at ~$0.01/run. Grain's AI-generated notes replace our expensive LLM extraction pipeline for meetings where notes are available.
 
-- [ ] **10.1.1** Create Grain connector with meeting classification
-  - Create `src/lib/connectors/grain-connector.ts`
-  - Implements `DataConnector` interface
-  - Uses Grain MCP `list_attended_meetings` to find meetings since last sync
-  - Uses `fetch_meeting_notes` for structured AI summaries (key points, action items, decisions)
-  - Classifies meetings by type: `l10`, `sales_call`, `client_delivery`, `1on1`, `internal`
-  - Classification via title patterns (L10, Level 10) + attendee analysis (internal vs external)
-  - Cross-references Calendar connector data in `ingested_data` for attendee matching
-  - Tags with `relevance_tags`: meeting type + `client:{name}` when applicable
-  - Sets `source_timestamp` to the **meeting date/time** (not sync time)
-  - Stores structured summary payload in `ingested_data` (source: `grain`, data_type: `transcript_summary`)
-  - **Files:** `ember/src/lib/connectors/grain-connector.ts`
-  - **Acceptance:** Connector pulls meetings from Grain, classifies by type, stores tagged summaries in `ingested_data`
+**Plan:** `docs/plans/grain-mcp-integration-upgrade.md`
 
-- [ ] **10.1.2** Store full transcripts for deep retrieval
-  - Extend Grain connector to also call `fetch_meeting_transcript` for full text
-  - Store full transcript in existing `transcripts` table (not `ingested_data`)
-  - Link transcript to `ingested_data` summary via `grain_meeting_id` in payload
-  - Add `transcript_summary` to `DataType` union in `types/agents.ts`
-  - **Files:** `ember/src/lib/connectors/grain-connector.ts`, `ember/src/types/agents.ts`
+#### 10.1 Grain MCP Credentials & Client
+
+- [x] **10.1.1** Obtain Grain MCP server URL and OAuth token
+  - Run MCP Inspector: `npx @modelcontextprotocol/inspector`
+  - Select SSE/Streamable HTTP transport, point to Grain's MCP server
+  - Complete OAuth flow to obtain `access_token`
+  - Store as environment variables: `GRAIN_MCP_URL`, `GRAIN_MCP_TOKEN`
+  - Add both to `.env.local` and Vercel project environment variables
+  - **Acceptance:** MCP Inspector shows Grain tools accessible with obtained token
+
+- [x] **10.1.2** Build Grain MCP client wrapper
+  - Create `src/lib/connectors/grain-mcp-client.ts`
+  - Install `@anthropic-ai/sdk` if not already present
+  - Typed wrapper around `anthropic.beta.messages.create()` with Grain MCP server
+  - Methods: `listMeetings(since?)`, `fetchTranscript(id)`, `fetchNotes(id)`, `fetchCoaching(id)`
+  - Each method sends a structured prompt to Haiku with Grain MCP toolset attached
+  - Parses Claude's tool-use response into typed return values
+  - Uses beta header: `mcp-client-2025-11-20`
+  - Model: `claude-haiku-4-5-20251001` (cheapest, sufficient for tool routing)
+  - Types: `GrainMeeting`, `GrainTranscript`, `GrainNotes`, `GrainCoaching`
+  - **Files:** `ember/src/lib/connectors/grain-mcp-client.ts`
   - **Depends on:** 10.1.1
-  - **Acceptance:** Full transcripts stored in `transcripts` table, linked to classified summaries
+  - **Acceptance:** Client wrapper can list meetings and fetch transcripts/notes from Grain
 
-- [ ] **10.1.3** Create migration and add Grain to data ingestion cron
-  - Create `supabase/migrations/013_add_grain_sync_column.sql` — add `grain_last_sync` timestamp to `partner_preferences`
-  - Extend `data-ingestion/route.ts` to run Grain connector once per org (similar to HubSpot pattern)
-  - Check `grain_last_sync` to only fetch meetings since last successful sync
-  - Update `grain_last_sync` after successful pull
-  - **Files:** `ember/supabase/migrations/013_add_grain_sync_column.sql`, `ember/src/app/api/agents/cron/data-ingestion/route.ts`
-  - **Depends on:** 10.1.1
-  - **Acceptance:** Grain data flows on 15-minute cron schedule, only new meetings pulled
+#### 10.2 Grain Notes Parser & Extraction Shortcut
 
-- [ ] **10.1.4** Add transcript highlights to EA briefing
+- [ ] **10.2.1** Build Grain notes → Ember extractions parser
+  - Create `src/lib/connectors/grain-notes-parser.ts`
+  - `parseGrainNotes(notes: string): EmberExtractions` — deterministic parsing, no LLM
+  - Parses Grain's markdown-formatted notes (confirmed structure from POC):
+    - `## Section Header` → topics
+    - `- [ ] **Owner** will: task` → todos with owner
+    - `## Action Items` section → todos
+    - Dollar amounts (`$10,000`, `$600K`) → metrics
+    - Named people and companies → entities
+  - Maps to Ember's `extractions` JSONB format: `{ issues, todos, decisions, rocks, metrics, summary }`
+  - **Files:** `ember/src/lib/connectors/grain-notes-parser.ts`
+  - **Acceptance:** Parser correctly extracts todos, issues, and entities from sample Grain notes
+
+- [ ] **10.2.2** Short-circuit transcript processing when Grain notes available
+  - Modify `src/app/api/eos/transcripts/[id]/process/route.ts`
+  - If `transcript.extractions` is already populated (from Grain notes mapping):
+    - **Skip** steps 3-5 (chunk extraction, merge, summary) — saves 3-5 Claude API calls
+    - **Keep** steps 1-2 (chunking + embedding) — still needed for semantic search
+    - **Keep** suggestion generation (metrics, todos, issues) — uses existing extractions
+  - Add `grain_notes_used: boolean` to processing response for monitoring
+  - **Files:** `ember/src/app/api/eos/transcripts/[id]/process/route.ts`
+  - **Depends on:** 10.2.1
+  - **Acceptance:** Processing route skips LLM extraction when extractions pre-populated, embeddings still generated
+
+#### 10.3 Automated Grain Ingestion Cron
+
+- [ ] **10.3.1** Rewrite transcript ingestion cron to pull from Grain MCP
+  - Modify `src/app/api/agents/cron/ingest/transcripts/route.ts`
+  - New flow:
+    1. Call `grainMcpClient.listMeetings(since: grain_last_sync)` to discover new meetings
+    2. For each new meeting:
+       a. Fetch transcript via `grainMcpClient.fetchTranscript(id)`
+       b. Fetch AI notes via `grainMcpClient.fetchNotes(id)`
+       c. If notes available: parse with `parseGrainNotes()` → pre-populate `extractions`
+       d. Upsert to `transcripts` table with `source: 'grain'`
+       e. Trigger processing pipeline (which will skip LLM extraction if extractions exist)
+    3. Run existing transcript-connector for `ingested_data` pipeline
+    4. Update `grain_last_sync` timestamp
+  - Classify meetings using existing `classifyMeeting()` from transcript-connector
+  - **Files:** `ember/src/app/api/agents/cron/ingest/transcripts/route.ts`
+  - **Depends on:** 10.1.2, 10.2.1, 10.2.2
+  - **Acceptance:** New Grain meetings auto-ingested every 6 hours, Grain notes used when available
+
+- [ ] **10.3.2** Add transcript highlights to EA briefing
   - Update `ea-briefing.ts` to query recent transcript summaries (last 48 hours)
   - Filter by partner-relevant tags (Rich: `l10, leadership, 1on1`; John: `sales, prospect, client`)
   - Include key points and action items from recent meetings in briefing context
   - Add "Yesterday's Meetings" section to Tier 2 briefing items
   - Use `ORDER BY source_timestamp DESC` with time window filtering
   - **Files:** `ember/src/lib/agents/ea-briefing.ts`
-  - **Depends on:** 10.1.3
+  - **Depends on:** 10.3.1
   - **Acceptance:** Morning briefing includes highlights from previous day's meetings
 
 ### Days 3-4: BD Strategist + Pre-Meeting Prep
 
-#### 10.2 BD Strategist Agent
+#### 10.4 BD Strategist Agent
 
-- [ ] **10.2.1** Seed BD Strategist agent definition and John's partner preferences
+- [ ] **10.4.1** Seed BD Strategist agent definition and John's partner preferences
   - Create migration `014_seed_bd_strategist.sql`
   - Seed `agent_definitions` with BD Strategist persona (from PRD Section 7.4 — VP of Partnerships, proactive, opportunity-seeking)
   - Seed `partner_preferences` for John (briefing_time: 07:30, timezone: America/Chicago, focus_areas: ['sales', 'pipeline', 'clients'])
@@ -573,7 +612,7 @@ All 48 tasks completed. See `docs/archive/v1.0/` for original task definitions.
   - **Files:** `ember/supabase/migrations/014_seed_bd_strategist.sql`
   - **Acceptance:** BD Strategist agent definition exists, John and Wade have partner preferences
 
-- [ ] **10.2.2** Build BD Strategist analysis module
+- [ ] **10.4.2** Build BD Strategist analysis module
   - Create `src/lib/agents/bd-strategist.ts`
   - `runPipelineAnalysis(organizationId)` — overnight analysis function
   - Queries: HubSpot deals from `ingested_data` (last 30 days), recent sales-tagged transcripts (last 30 days), deal stage distribution, velocity metrics
@@ -586,22 +625,22 @@ All 48 tasks completed. See `docs/archive/v1.0/` for original task definitions.
     - `eos_actions`: auto-create Issues for pipeline risks (e.g., stalled high-value deals)
   - Uses Claude Sonnet for analysis
   - **Files:** `ember/src/lib/agents/bd-strategist.ts`
-  - **Depends on:** 10.2.1
+  - **Depends on:** 10.4.1
   - **Acceptance:** BD Strategist generates structured pipeline analysis from HubSpot data
 
-- [ ] **10.2.3** Add BD Strategist to overnight analysis cron
+- [ ] **10.4.3** Add BD Strategist to overnight analysis cron
   - Extend `overnight-analysis/route.ts` to invoke BD Strategist per organization
   - Run after Financial Strategist (both feed into morning briefing)
   - Log to `agent_runs` table
   - Include BD Strategist outputs in EA briefing assembly
   - Update `ea-briefing.ts` to query BD Strategist `agent_outputs` and include pipeline insights in Tier 2
   - **Files:** `ember/src/app/api/agents/cron/overnight-analysis/route.ts`, `ember/src/lib/agents/ea-briefing.ts`
-  - **Depends on:** 10.2.2
+  - **Depends on:** 10.4.2
   - **Acceptance:** BD Strategist runs overnight, outputs appear in morning briefing pipeline section
 
-#### 10.3 Pre-Meeting Prep
+#### 10.5 Pre-Meeting Prep
 
-- [ ] **10.3.1** Build pre-meeting intelligence generator
+- [ ] **10.5.1** Build pre-meeting intelligence generator
   - Create `src/lib/agents/meeting-prep.ts`
   - `generatePreCallBrief(meetingEvent, organizationId)` — compile context for an upcoming external meeting
   - Queries per-client data: `relevance_tags @> '{client:{name}}' ORDER BY source_timestamp DESC LIMIT 3`
@@ -609,24 +648,24 @@ All 48 tasks completed. See `docs/archive/v1.0/` for original task definitions.
   - Generates focused 5-line prep brief via Claude Haiku (fast, cheap — runs per meeting)
   - Format as Slack Block Kit for DM delivery
   - **Files:** `ember/src/lib/agents/meeting-prep.ts`
-  - **Depends on:** 10.1.4, 10.2.3
+  - **Depends on:** 10.3.2, 10.4.3
   - **Acceptance:** Pre-call brief generated with client context from multiple sources
 
-- [ ] **10.3.2** Wire pre-meeting prep into morning briefing cron
+- [ ] **10.5.2** Wire pre-meeting prep into morning briefing cron
   - Extend `morning-briefing/route.ts` to check for external meetings in next 4 hours
   - For each external/client meeting, call `generatePreCallBrief()`
   - Deliver as separate Slack DM to the partner attending (not part of main briefing)
   - If John has a sales call at 10am, he gets a prep DM at ~7:30am
   - Match meeting attendees to HubSpot contacts/companies for client identification
   - **Files:** `ember/src/app/api/agents/cron/morning-briefing/route.ts`, `ember/src/lib/agents/meeting-prep.ts`
-  - **Depends on:** 10.3.1
+  - **Depends on:** 10.5.1
   - **Acceptance:** Partners receive pre-call prep DMs before external meetings
 
 ### Days 4-5: Nudge System + L10 Prep
 
-#### 10.4 Proactive Nudge System
+#### 10.6 Proactive Nudge System
 
-- [x] **10.4.1** Build nudge engine
+- [x] **10.6.1** Build nudge engine
   - Create `src/lib/agents/nudge-engine.ts`
   - `runNudgeCheck(organizationId)` — evaluates all overdue/stalled EOS items
   - Detection rules:
@@ -643,19 +682,19 @@ All 48 tasks completed. See `docs/archive/v1.0/` for original task definitions.
   - **Files:** `ember/src/lib/agents/nudge-engine.ts`
   - **Acceptance:** Nudge engine detects overdue items and assigns correct escalation level
 
-- [x] **10.4.2** Wire nudge engine into morning briefing cron and deliver via Slack
+- [x] **10.6.2** Wire nudge engine into morning briefing cron and deliver via Slack
   - Extend `morning-briefing/route.ts` to run nudge check before briefing generation
   - Deliver nudges as individual Slack DMs to each partner (separate from briefing)
   - Store nudge outputs in `agent_outputs` for history tracking
   - Format nudges with appropriate tone per escalation level
   - Include relevant data (days overdue, last update date, completion %)
   - **Files:** `ember/src/app/api/agents/cron/morning-briefing/route.ts`, `ember/src/lib/agents/nudge-engine.ts`
-  - **Depends on:** 10.4.1
+  - **Depends on:** 10.6.1
   - **Acceptance:** Partners receive nudge DMs for overdue items, escalation levels work correctly
 
-#### 10.5 L10 Meeting Prep
+#### 10.7 L10 Meeting Prep
 
-- [x] **10.5.1** Build agent-powered L10 prep generator
+- [x] **10.7.1** Build agent-powered L10 prep generator
   - Create `src/lib/agents/l10-prep.ts`
   - `generateL10Prep(organizationId)` — comprehensive prep from all agent data
   - Detect L10 meetings 3 days ahead via `ingested_data` (source: `calendar`, data_type: `calendar_event`, relevance_tags containing `l10`)
@@ -669,10 +708,10 @@ All 48 tasks completed. See `docs/archive/v1.0/` for original task definitions.
     - Action items from last L10 transcript (tracked via `relevance_tags @> '{l10}'`)
   - Generate structured prep via Claude Sonnet with Zod schema
   - **Files:** `ember/src/lib/agents/l10-prep.ts`
-  - **Depends on:** 10.1.4, 10.2.3, 10.4.1
+  - **Depends on:** 10.3.2, 10.4.3, 10.6.1
   - **Acceptance:** L10 prep document generated with multi-source data aggregation
 
-- [x] **10.5.2** Wire L10 prep into morning briefing cron and deliver via Slack
+- [x] **10.7.2** Wire L10 prep into morning briefing cron and deliver via Slack
   - Extend `morning-briefing/route.ts` to detect upcoming L10 (within 3 days)
   - When L10 detected, run `generateL10Prep()` and post to:
     - Slack channel (`#eos-pulse` or configured channel)
@@ -680,11 +719,12 @@ All 48 tasks completed. See `docs/archive/v1.0/` for original task definitions.
   - Run once (not every morning) — track via `agent_outputs` to avoid duplicate prep
   - Store prep in `agent_outputs` (type: `briefing`, title: `L10 Prep - {date}`)
   - **Files:** `ember/src/app/api/agents/cron/morning-briefing/route.ts`, `ember/src/lib/agents/l10-prep.ts`
-  - **Depends on:** 10.5.1
+  - **Depends on:** 10.7.1
   - **Acceptance:** L10 prep posted to Slack 3 days before scheduled L10
 
 **Phase 10 Checkpoint:**
-- [ ] Grain transcripts flow into pipeline with classification (at least 1 meeting ingested)
+- [ ] Grain transcripts auto-ingested via MCP Connector API (at least 1 meeting ingested without manual action)
+- [ ] Grain AI notes mapped to Ember extractions, LLM extraction skipped when notes available
 - [ ] BD Strategist generates pipeline health analysis overnight
 - [ ] Partners receive pre-call intelligence briefs before external meetings
 - [ ] Proactive nudges fire for overdue Rocks or Todos with correct escalation
@@ -700,8 +740,8 @@ All 48 tasks completed. See `docs/archive/v1.0/` for original task definitions.
 |-------|---------|-------|-------|
 | 8 (Week 1) | 8.1-8.21 | 32 | Agent foundation, connectors, briefing, Slack, Financial Strategist |
 | 9 (Week 2) | 9.1-9.4 | 10 | Briefing excellence, HubSpot integration, settings page |
-| 10 (Week 3) | 10.1-10.5 | 12 | Grain transcripts, BD Strategist, pre-meeting prep, nudges, L10 prep |
-| **Total** | | **54** | |
+| 10 (Week 3) | 10.1-10.7 | 14 | Grain MCP ingestion, Grain notes parser, BD Strategist, pre-meeting prep, nudges, L10 prep |
+| **Total** | | **56** | |
 
 ---
 
@@ -751,6 +791,8 @@ All 48 tasks completed. See `docs/archive/v1.0/` for original task definitions.
 | 2026-02-23 | 9.3.4 | Add pipeline data to EA briefing | Complete |
 | 2026-02-23 | 9.4.1 | Build integrations settings page | Complete |
 | 2026-02-23 | 9.4.2 | Build API route for connector status | Complete |
+| 2026-02-25 | 10.1.1 | Obtain Grain MCP OAuth token via mcp-remote | Complete |
+| 2026-02-25 | 10.1.2 | Build Grain MCP client wrapper | Complete |
 
 ---
 
