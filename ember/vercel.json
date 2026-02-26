@@ -26,6 +26,10 @@
       "schedule": "0 */6 * * *"
     },
     {
+      "path": "/api/agents/cron/ingest/google-drive",
+      "schedule": "0 8 * * *"
+    },
+    {
       "path": "/api/agents/cron/morning-briefing",
       "schedule": "30 11 * * 1-5"
     },
