@@ -84,7 +84,7 @@ export function formatBriefingBlocks(briefing: BriefingInsert): Record<string, u
     blocks.push({ type: 'divider' })
     blocks.push({
       type: 'section',
-      text: { type: 'mrkdwn', text: ':red-card: *Needs Your Attention*' },
+      text: { type: 'mrkdwn', text: ':rotating_light: *Needs Your Attention*' },
     })
     for (const item of tier1) {
       const actionTag = item.action_needed ? '  :point_right: _Action needed_' : ''
@@ -103,7 +103,7 @@ export function formatBriefingBlocks(briefing: BriefingInsert): Record<string, u
     blocks.push({ type: 'divider' })
     blocks.push({
       type: 'section',
-      text: { type: 'mrkdwn', text: ':yellow-card: *Business Updates*' },
+      text: { type: 'mrkdwn', text: ':briefcase: *Business Updates*' },
     })
     const tier2Text = tier2
       .map(item => {
@@ -128,7 +128,7 @@ export function formatBriefingBlocks(briefing: BriefingInsert): Record<string, u
       .join('\n')
     blocks.push({
       type: 'section',
-      text: { type: 'mrkdwn', text: `:green-card: *FYI*\n${fyiText}` },
+      text: { type: 'mrkdwn', text: `:bulb: *FYI*\n${fyiText}` },
     })
   }
 
