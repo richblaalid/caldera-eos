@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { transcriptConnector } from '@/lib/connectors/transcript-connector'
-import { listMeetings, fetchTranscript, fetchNotes } from '@/lib/connectors/grain-mcp-client'
+import { listMeetings, fetchTranscript, fetchNotes, fetchCoaching } from '@/lib/connectors/grain-mcp-client'
 import { parseGrainNotes } from '@/lib/connectors/grain-notes-parser'
 import { verifyCronAuth, loadPartners, persistRecords, supabaseAdmin } from '@/lib/agents/ingest-helpers'
 
@@ -21,6 +21,7 @@ export async function GET(request: NextRequest) {
       grain_meetings_discovered: 0,
       grain_transcripts_ingested: 0,
       grain_notes_used: 0,
+      grain_coaching_ingested: 0,
       ingested_data_records: 0,
       errors: [] as string[],
     }
@@ -41,6 +42,7 @@ export async function GET(request: NextRequest) {
         results.grain_meetings_discovered += grainResult.discovered
         results.grain_transcripts_ingested += grainResult.ingested
         results.grain_notes_used += grainResult.notesUsed
+        results.grain_coaching_ingested += grainResult.coachingIngested
         results.errors.push(...grainResult.errors)
 
         // Update grain_last_sync if we discovered meetings
@@ -108,18 +110,18 @@ export async function GET(request: NextRequest) {
 async function ingestFromGrainMcp(
   organizationId: string,
   lastSync?: string,
-): Promise<{ discovered: number; ingested: number; notesUsed: number; errors: string[] }> {
+): Promise<{ discovered: number; ingested: number; notesUsed: number; coachingIngested: number; errors: string[] }> {
   const errors: string[] = []
 
   // Skip if Grain MCP is not configured
   if (!process.env.GRAIN_MCP_TOKEN && !process.env.GRAIN_MCP_REFRESH_TOKEN) {
-    return { discovered: 0, ingested: 0, notesUsed: 0, errors: [] }
+    return { discovered: 0, ingested: 0, notesUsed: 0, coachingIngested: 0, errors: [] }
   }
 
   // Discover meetings since last sync
   const meetings = await listMeetings(lastSync)
   if (meetings.length === 0) {
-    return { discovered: 0, ingested: 0, notesUsed: 0, errors: [] }
+    return { discovered: 0, ingested: 0, notesUsed: 0, coachingIngested: 0, errors: [] }
   }
 
   console.log(`Grain MCP: discovered ${meetings.length} meetings since ${lastSync || 'beginning'}`)
@@ -137,6 +139,7 @@ async function ingestFromGrainMcp(
 
   let ingested = 0
   let notesUsed = 0
+  let coachingIngested = 0
 
   for (const meeting of meetings) {
     // Skip if already ingested (match on title + date)
@@ -180,10 +183,65 @@ async function ingestFromGrainMcp(
         ingested++
         console.log(`Grain MCP: ingested "${meeting.title}" (notes: ${notes ? 'yes' : 'no'})`)
       }
+
+      // Fetch and persist coaching feedback (separate from transcript)
+      const coachingResult = await ingestCoachingFeedback(organizationId, meeting)
+      if (coachingResult.ingested) coachingIngested++
+      if (coachingResult.error) errors.push(coachingResult.error)
     } catch (err: unknown) {
       errors.push(`GrainFetch(${meeting.title}): ${(err as Error).message}`)
     }
   }
 
-  return { discovered: meetings.length, ingested, notesUsed, errors }
+  return { discovered: meetings.length, ingested, notesUsed, coachingIngested, errors }
+}
+
+/**
+ * Fetch coaching feedback for a meeting and persist to ingested_data.
+ * Coaching data is stored separately from the transcript since it has
+ * a different data_type and is consumed by different agents.
+ */
+async function ingestCoachingFeedback(
+  organizationId: string,
+  meeting: { id: string; title: string; date: string; participants?: string[] },
+): Promise<{ ingested: boolean; error?: string }> {
+  try {
+    const coaching = await fetchCoaching(meeting.id)
+    if (!coaching || !coaching.markdown.trim()) {
+      return { ingested: false }
+    }
+
+    const { error } = await supabaseAdmin
+      .from('ingested_data')
+      .upsert({
+        organization_id: organizationId,
+        source: 'grain',
+        source_id: `coaching-${meeting.id}`,
+        data_type: 'coaching_feedback',
+        payload: {
+          meeting_title: meeting.title,
+          meeting_id: meeting.id,
+          meeting_date: meeting.date,
+          participants: meeting.participants || [],
+          coaching_markdown: coaching.markdown,
+        },
+        entities: {
+          people: meeting.participants || [],
+        },
+        relevance_tags: ['coaching', 'sales'],
+        source_timestamp: meeting.date || new Date().toISOString(),
+      }, {
+        onConflict: 'organization_id,source,source_id',
+      })
+
+    if (error) {
+      return { ingested: false, error: `CoachingPersist(${meeting.title}): ${error.message}` }
+    }
+
+    console.log(`Grain MCP: coaching ingested for "${meeting.title}"`)
+    return { ingested: true }
+  } catch {
+    // Coaching feedback may not exist for all meetings — graceful skip
+    return { ingested: false }
+  }
 }

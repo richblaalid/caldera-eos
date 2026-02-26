@@ -123,7 +123,7 @@ export interface AgentRunInsert {
 // =============================================
 
 export type DataSource = 'gmail' | 'calendar' | 'quickbooks' | 'slack' | 'hubspot' | 'gusto' | 'grain' | 'google_drive'
-export type DataType = 'email' | 'calendar_event' | 'invoice' | 'payment' | 'message' | 'transcript' | 'transcript_summary' | 'financial_report' | 'deal' | 'contact' | 'company' | 'engagement' | 'document'
+export type DataType = 'email' | 'calendar_event' | 'invoice' | 'payment' | 'message' | 'transcript' | 'transcript_summary' | 'financial_report' | 'deal' | 'contact' | 'company' | 'engagement' | 'document' | 'coaching_feedback'
 
 export interface IngestedData {
   id: string
