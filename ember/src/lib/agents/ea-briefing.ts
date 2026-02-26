@@ -44,7 +44,7 @@ export async function generateBriefing(
   const today = new Date().toISOString().split('T')[0]
 
   // Gather all data sources in parallel
-  const [calendarEvents, recentEmails, eosData, agentOutputs, financialInsights, pipelineData, bdInsights, opsInsights, transcriptHighlights, ownerNames, industryNews] = await Promise.all([
+  const [calendarEvents, recentEmails, eosData, agentOutputs, financialInsights, pipelineData, bdInsights, opsInsights, transcriptHighlights, coachingHighlights, ownerNames, industryNews] = await Promise.all([
     getCalendarEvents(organizationId),
     getRecentEmails(organizationId),
     getEOSData(organizationId),
@@ -54,6 +54,7 @@ export async function generateBriefing(
     getBDStrategistInsights(organizationId),
     getOperationsInsights(organizationId),
     getTranscriptHighlights(organizationId),
+    getRecentCoaching(organizationId),
     getOwnerNames(organizationId),
     fetchIndustryNews(),
   ])
@@ -69,6 +70,7 @@ export async function generateBriefing(
     bdInsights,
     opsInsights,
     transcriptHighlights,
+    coachingHighlights,
     ownerNames,
     industryNews,
     today,
@@ -527,6 +529,39 @@ async function getTranscriptHighlights(organizationId: string): Promise<Transcri
   })
 }
 
+interface CoachingHighlight {
+  meeting_title: string
+  meeting_date: string
+  participants: string[]
+  coaching_markdown: string
+}
+
+async function getRecentCoaching(organizationId: string): Promise<CoachingHighlight[]> {
+  const twoDaysAgo = getSmartLookback(48)
+
+  const { data } = await supabaseAdmin
+    .from('ingested_data')
+    .select('payload, source_timestamp')
+    .eq('organization_id', organizationId)
+    .eq('source', 'grain')
+    .eq('data_type', 'coaching_feedback')
+    .gte('source_timestamp', twoDaysAgo)
+    .order('source_timestamp', { ascending: false })
+    .limit(5)
+
+  if (!data || data.length === 0) return []
+
+  return data.map(d => {
+    const p = d.payload as Record<string, unknown>
+    return {
+      meeting_title: (p.meeting_title as string) || 'Untitled',
+      meeting_date: (p.meeting_date as string) || d.source_timestamp || '',
+      participants: (p.participants as string[]) || [],
+      coaching_markdown: (p.coaching_markdown as string) || '',
+    }
+  })
+}
+
 // ============================================
 // Prompt builder
 // ============================================
@@ -541,6 +576,7 @@ function buildBriefingPrompt(data: {
   bdInsights: Record<string, unknown> | null
   opsInsights: Record<string, unknown> | null
   transcriptHighlights: TranscriptHighlight[]
+  coachingHighlights: CoachingHighlight[]
   ownerNames: Map<string, string>
   industryNews: NewsItem[]
   today: string
@@ -793,6 +829,18 @@ function buildBriefingPrompt(data: {
     }
   }
 
+  // Sales coaching highlights (from Grain AI coaching)
+  if (data.coachingHighlights.length > 0) {
+    const coaching = data.coachingHighlights.map(c => {
+      // Truncate coaching markdown to keep prompt reasonable
+      const preview = c.coaching_markdown.length > 500
+        ? c.coaching_markdown.slice(0, 500) + '...'
+        : c.coaching_markdown
+      return `### ${c.meeting_title} (${c.meeting_date.split('T')[0]})\nParticipants: ${c.participants.join(', ') || 'Unknown'}\n${preview}`
+    }).join('\n\n')
+    sections.push(`## Sales Coaching Highlights (${data.coachingHighlights.length} recent calls)\n${coaching}`)
+  }
+
   // Industry news (Brave Search)
   if (data.industryNews.length > 0) {
     const news = data.industryNews.map(n =>
@@ -822,5 +870,6 @@ Instructions:
 - For Scorecard metrics, mention consecutive misses and trend direction.
 - For To-dos, mention the owner name and due date.
 - Financial insights from the Financial Strategist should be prominently featured — AR alerts and threshold breaches in Tier 1, cash flow and margins in Tier 2.
-- If transcript highlights are available from yesterday's meetings, incorporate key follow-ups and action items into Tier 1 (if urgent) or Tier 2. Mention specific commitments people made and decisions that affect upcoming work.`
+- If transcript highlights are available from yesterday's meetings, incorporate key follow-ups and action items into Tier 1 (if urgent) or Tier 2. Mention specific commitments people made and decisions that affect upcoming work.
+- If sales coaching highlights are available, include a summary in Tier 2 highlighting coaching opportunities and strengths. Reference specific meetings and participants.`
 }

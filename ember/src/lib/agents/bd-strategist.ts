@@ -84,13 +84,14 @@ export async function runPipelineAnalysis(organizationId: string): Promise<{
   outputsCreated: number
   issuesCreated: number
 }> {
-  const [dealData, salesTranscripts, existingIssues] = await Promise.all([
+  const [dealData, salesTranscripts, existingIssues, coachingFeedback] = await Promise.all([
     getDealData(organizationId),
     getSalesTranscripts(organizationId),
     getExistingPipelineIssues(organizationId),
+    getRecentCoaching(organizationId),
   ])
 
-  const prompt = buildAnalysisPrompt(dealData, salesTranscripts, existingIssues)
+  const prompt = buildAnalysisPrompt(dealData, salesTranscripts, existingIssues, coachingFeedback)
 
   const { object: analysis } = await generateObject({
     model: anthropic(process.env.AGENT_DEFAULT_MODEL || 'claude-sonnet-4-20250514'),
@@ -111,8 +112,10 @@ Analyze the pipeline data and produce actionable intelligence. Focus on:
 2. What's closing soon and how confident we should be
 3. Pipeline health trends — is it growing or shrinking?
 4. Patterns from wins/losses that inform strategy
+5. Sales coaching insights — if coaching feedback is available, factor it into deal assessments and recommended actions
 
 Be specific with dollar amounts, dates, and deal names. John has zero patience for fluff.
+If coaching feedback is available, reference specific strengths and coaching opportunities.
 If no deal data is available, note that HubSpot integration needs to be configured.`,
   })
 
@@ -206,10 +209,27 @@ async function getExistingPipelineIssues(organizationId: string) {
   return data || []
 }
 
+async function getRecentCoaching(organizationId: string) {
+  const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString()
+
+  const { data } = await supabaseAdmin
+    .from('ingested_data')
+    .select('payload, source_timestamp')
+    .eq('organization_id', organizationId)
+    .eq('source', 'grain')
+    .eq('data_type', 'coaching_feedback')
+    .gte('source_timestamp', thirtyDaysAgo)
+    .order('source_timestamp', { ascending: false })
+    .limit(10)
+
+  return data || []
+}
+
 function buildAnalysisPrompt(
   deals: Array<{ payload: Record<string, unknown>; source_timestamp: string }>,
   transcripts: Array<{ payload: Record<string, unknown>; source_timestamp: string }>,
   existingIssues: Array<{ title: string; status: string; created_at: string }>,
+  coachingFeedback: Array<{ payload: Record<string, unknown>; source_timestamp: string }>,
 ): string {
   const sections: string[] = []
 
@@ -238,6 +258,19 @@ function buildAnalysisPrompt(
     sections.push(`### Existing Pipeline Issues (${existingIssues.length})`)
     sections.push(JSON.stringify(existingIssues, null, 2))
     sections.push('Note: Do not duplicate existing issues. Reference them if relevant.')
+  }
+
+  if (coachingFeedback.length > 0) {
+    sections.push(`### Sales Coaching Feedback (${coachingFeedback.length} calls, last 30 days)`)
+    sections.push(JSON.stringify(coachingFeedback.map(c => ({
+      meeting_title: c.payload.meeting_title,
+      meeting_date: c.payload.meeting_date,
+      participants: c.payload.participants,
+      // Truncate coaching markdown to keep prompt manageable
+      coaching_summary: typeof c.payload.coaching_markdown === 'string'
+        ? c.payload.coaching_markdown.slice(0, 1000)
+        : '',
+    })), null, 2))
   }
 
   sections.push('\nAnalyze this data and produce your pipeline assessment.')

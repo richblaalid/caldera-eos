@@ -734,6 +734,58 @@ All 48 tasks completed. See `docs/archive/v1.0/` for original task definitions.
 
 ---
 
+## Phase 12: Grain MCP Phase 2A — Sales Coaching Integration
+
+**Plan:** `docs/plans/grain-mcp-phase2-improvements.md`
+**Goal:** Ingest Grain's AI coaching feedback for sales/external calls and surface it in morning briefings and BD Strategist analysis.
+
+#### 12.1 Coaching Data Ingestion
+
+- [x] **12.1.1** Add coaching fetch to transcript ingestion cron
+  - Extend `ingestFromGrainMcp()` in transcript ingestion cron
+  - After ingesting transcript + notes, also call `fetchCoaching(meetingId)`
+  - Store as separate `ingested_data` record: `source: 'grain', data_type: 'coaching_feedback'`
+  - Payload: `{ meeting_title, meeting_id, coaching_markdown, score, categories, coaching_opportunities }`
+  - Graceful skip if no coaching data available (not all meetings have it)
+  - **Files:** `ember/src/app/api/agents/cron/ingest/transcripts/route.ts`
+  - **Depends on:** 10.3.1
+  - **Acceptance:** Coaching data appears in `ingested_data` after cron runs for meetings that have coaching
+
+- [x] **12.1.2** Add `coaching_feedback` data type to agent types
+  - Add `'coaching_feedback'` to `DataType` union in `src/types/agents.ts`
+  - **Files:** `ember/src/types/agents.ts`
+  - **Acceptance:** TypeScript accepts `coaching_feedback` as a valid data type
+
+#### 12.2 Surface Coaching in Agents
+
+- [x] **12.1.3** Surface coaching highlights in morning briefing
+  - Add `getRecentCoaching(organizationId)` function to `ea-briefing.ts`
+  - Query `ingested_data` where `source='grain'` and `data_type='coaching_feedback'` from last 48h
+  - Add to `Promise.all` data assembly
+  - Add `## Sales Coaching Highlights` section to briefing prompt
+  - Include coaching opportunities in Tier 2 when available
+  - **Files:** `ember/src/lib/agents/ea-briefing.ts`
+  - **Depends on:** 12.1.1, 12.1.2
+  - **Acceptance:** Morning briefing includes coaching highlights when coaching data exists
+
+- [x] **12.1.4** Feed coaching data into BD Strategist analysis
+  - Add `getRecentCoaching(organizationId)` function to `bd-strategist.ts`
+  - Query recent coaching feedback (last 30 days) from `ingested_data`
+  - Add `## Sales Coaching Data` section to BD Strategist prompt
+  - Include coaching scores/opportunities in pipeline health assessment
+  - **Files:** `ember/src/lib/agents/bd-strategist.ts`
+  - **Depends on:** 12.1.1, 12.1.2
+  - **Acceptance:** BD Strategist analysis references coaching data for recent sales calls
+
+**Phase 12 Checkpoint:**
+- [ ] Coaching data appears in `ingested_data` with `data_type: 'coaching_feedback'`
+- [ ] Morning briefing includes coaching highlights when available
+- [ ] BD Strategist analysis references coaching scores
+- [ ] No errors when meetings lack coaching data (graceful skip)
+- [ ] All quality checks pass: typecheck, lint, test, build
+
+---
+
 ## Task Summary
 
 | Phase | Section | Tasks | Focus |
@@ -741,7 +793,8 @@ All 48 tasks completed. See `docs/archive/v1.0/` for original task definitions.
 | 8 (Week 1) | 8.1-8.21 | 32 | Agent foundation, connectors, briefing, Slack, Financial Strategist |
 | 9 (Week 2) | 9.1-9.4 | 10 | Briefing excellence, HubSpot integration, settings page |
 | 10 (Week 3) | 10.1-10.7 | 14 | Grain MCP ingestion, Grain notes parser, BD Strategist, pre-meeting prep, nudges, L10 prep |
-| **Total** | | **56** | |
+| 12 (Grain 2A) | 12.1-12.2 | 4 | Sales coaching ingestion, briefing + BD Strategist integration |
+| **Total** | | **60** | |
 
 ---
 
@@ -802,6 +855,10 @@ All 48 tasks completed. See `docs/archive/v1.0/` for original task definitions.
 | 2026-02-25 | 10.4.3 | Add BD Strategist to overnight cron + briefing (already implemented) | Complete |
 | 2026-02-25 | 10.5.1 | Build pre-meeting intelligence generator (already implemented) | Complete |
 | 2026-02-25 | 10.5.2 | Wire pre-meeting prep into morning briefing cron (already implemented) | Complete |
+| 2026-02-26 | 12.1.1 | Add coaching fetch to transcript ingestion cron | Complete |
+| 2026-02-26 | 12.1.2 | Add coaching_feedback data type to agent types | Complete |
+| 2026-02-26 | 12.1.3 | Surface coaching highlights in morning briefing | Complete |
+| 2026-02-26 | 12.1.4 | Feed coaching data into BD Strategist analysis | Complete |
 
 ---
 
