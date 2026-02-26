@@ -7,7 +7,7 @@ import { runOperationsAnalysis } from '@/lib/agents/operations-architect'
 import { postSystemAlert } from '@/lib/connectors/slack-connector'
 
 export const dynamic = 'force-dynamic'
-export const maxDuration = 120
+export const maxDuration = 300
 
 const supabaseAdmin = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,

@@ -6,9 +6,10 @@ import { postSystemAlert, getSlackClient, openDM, postBlockMessage } from '@/lib
 import { generatePreCallBrief } from '@/lib/agents/meeting-prep'
 import { runNudgeCheck, formatNudgeForSlack, type Nudge } from '@/lib/agents/nudge-engine'
 import { detectUpcomingL10, hasL10PrepBeenGenerated, generateL10Prep, type L10Prep } from '@/lib/agents/l10-prep'
+import type { BriefingInsert } from '@/types/agents'
 
 export const dynamic = 'force-dynamic'
-export const maxDuration = 60
+export const maxDuration = 300
 
 const supabaseAdmin = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -18,6 +19,8 @@ const supabaseAdmin = createClient(
 // GET /api/agents/cron/morning-briefing
 // Runs weekday mornings to generate and deliver briefings to each partner.
 export async function GET(request: NextRequest) {
+  const startTime = Date.now()
+
   try {
     // Verify cron secret
     const authHeader = request.headers.get('authorization')
@@ -52,39 +55,50 @@ export async function GET(request: NextRequest) {
       errors: [] as string[],
     }
 
-    // Run nudge check once per organization (before briefing generation)
-    const nudgedOrgs = new Set<string>()
+    // Step 1: Run nudge check once per organization (before briefing generation)
     const nudgesByPartner = new Map<string, Nudge[]>()
+    const nudgedOrgs = new Set<string>()
 
     for (const partner of partners) {
-      if (!nudgedOrgs.has(partner.organization_id)) {
-        nudgedOrgs.add(partner.organization_id)
-        try {
-          const nudgeResult = await runNudgeCheck(partner.organization_id)
-          results.nudge_issues_created += nudgeResult.issuesCreated
+      if (nudgedOrgs.has(partner.organization_id)) continue
+      nudgedOrgs.add(partner.organization_id)
+      try {
+        const nudgeResult = await runNudgeCheck(partner.organization_id)
+        results.nudge_issues_created += nudgeResult.issuesCreated
 
-          // Group nudges by target partner
-          for (const nudge of nudgeResult.nudges) {
-            const existing = nudgesByPartner.get(nudge.targetPartnerId) || []
-            existing.push(nudge)
-            nudgesByPartner.set(nudge.targetPartnerId, existing)
-          }
-
-          if (nudgeResult.errors.length > 0) {
-            results.errors.push(...nudgeResult.errors.map(e => `Nudge: ${e}`))
-          }
-        } catch (nudgeError: unknown) {
-          const nErr = nudgeError as { message?: string }
-          results.errors.push(`Nudge engine: ${nErr.message || 'Unknown error'}`)
+        for (const nudge of nudgeResult.nudges) {
+          const existing = nudgesByPartner.get(nudge.targetPartnerId) || []
+          existing.push(nudge)
+          nudgesByPartner.set(nudge.targetPartnerId, existing)
         }
+
+        if (nudgeResult.errors.length > 0) {
+          results.errors.push(...nudgeResult.errors.map(e => `Nudge: ${e}`))
+        }
+      } catch (nudgeError: unknown) {
+        const nErr = nudgeError as { message?: string }
+        results.errors.push(`Nudge engine: ${nErr.message || 'Unknown error'}`)
       }
     }
 
-    for (const partner of partners) {
-      try {
-        // Generate briefing
-        const briefing = await generateBriefing(partner.partner_id, partner.organization_id)
+    // Step 2: Generate all briefings in parallel (the expensive Sonnet calls)
+    const briefingResults = await Promise.allSettled(
+      partners.map(partner =>
+        generateBriefing(partner.partner_id, partner.organization_id)
+          .then(briefing => ({ partner, briefing }))
+      )
+    )
 
+    // Step 3: Save and deliver each briefing (sequential for Slack rate limits)
+    for (const result of briefingResults) {
+      if (result.status === 'rejected') {
+        results.errors.push(`Briefing generation: ${result.reason?.message || 'Unknown error'}`)
+        continue
+      }
+
+      const { partner, briefing } = result.value
+
+      try {
         // Save to database
         const briefingId = await saveBriefing(briefing)
         if (!briefingId) {
@@ -108,15 +122,6 @@ export async function GET(request: NextRequest) {
           results.errors.push(`Slack delivery failed for ${partner.partner_id}: ${delivered.error || 'unknown'}`)
         }
 
-        // Generate pre-meeting prep for external meetings in next 4 hours
-        try {
-          const prepsSent = await sendPreMeetingPreps(partner.partner_id, partner.organization_id)
-          results.prep_briefs_sent += prepsSent
-        } catch (prepError: unknown) {
-          const pErr = prepError as { message?: string }
-          results.errors.push(`Pre-meeting prep ${partner.partner_id}: ${pErr.message || 'Unknown error'}`)
-        }
-
         // Deliver nudges via Slack DM
         const partnerNudges = nudgesByPartner.get(partner.partner_id)
         if (partnerNudges && partnerNudges.length > 0) {
@@ -136,7 +141,23 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    // L10 prep: detect upcoming L10 and generate prep (once per org, once per week)
+    // Step 4: Generate pre-meeting preps in parallel (each may call Sonnet)
+    const prepResults = await Promise.allSettled(
+      partners.map(partner =>
+        sendPreMeetingPreps(partner.partner_id, partner.organization_id)
+          .then(count => ({ partnerId: partner.partner_id, count }))
+      )
+    )
+
+    for (const result of prepResults) {
+      if (result.status === 'fulfilled') {
+        results.prep_briefs_sent += result.value.count
+      } else {
+        results.errors.push(`Pre-meeting prep: ${result.reason?.message || 'Unknown error'}`)
+      }
+    }
+
+    // Step 5: L10 prep (once per org, once per week)
     const l10ProcessedOrgs = new Set<string>()
     for (const partner of partners) {
       if (l10ProcessedOrgs.has(partner.organization_id)) continue
@@ -158,19 +179,20 @@ export async function GET(request: NextRequest) {
     }
 
     // Log run to agent_runs
+    const durationMs = Date.now() - startTime
     await supabaseAdmin.from('agent_runs').insert({
       organization_id: partners[0]?.organization_id,
       agent_id: 'ea',
       trigger_type: 'schedule',
       trigger_context: { cron: 'morning-briefing', results },
       completed_at: new Date().toISOString(),
-      duration_ms: 0, // Could track this more precisely
+      duration_ms: durationMs,
       status: results.errors.length === 0 ? 'completed' : 'completed',
       outputs_created: results.briefings_generated,
       errors: results.errors.map(e => ({ message: e })),
     })
 
-    console.log('Morning briefing complete:', results)
+    console.log(`Morning briefing complete (${durationMs}ms):`, results)
 
     // Alert on errors
     if (results.errors.length > 0) {
@@ -184,6 +206,7 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json({
       message: 'Morning briefing complete',
+      duration_ms: durationMs,
       ...results,
     })
   } catch (error) {
