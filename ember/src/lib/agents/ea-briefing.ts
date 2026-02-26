@@ -4,6 +4,7 @@ import { z } from 'zod'
 import { createClient } from '@supabase/supabase-js'
 import type { BriefingItem, AgentWorkItem, BriefingInsert } from '@/types/agents'
 import { getSmartLookback, getTranscriptLabel } from './lookback'
+import { fetchIndustryNews, type NewsItem } from '@/lib/connectors/brave-search-client'
 
 const supabaseAdmin = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -43,7 +44,7 @@ export async function generateBriefing(
   const today = new Date().toISOString().split('T')[0]
 
   // Gather all data sources in parallel
-  const [calendarEvents, recentEmails, eosData, agentOutputs, financialInsights, pipelineData, bdInsights, transcriptHighlights, ownerNames] = await Promise.all([
+  const [calendarEvents, recentEmails, eosData, agentOutputs, financialInsights, pipelineData, bdInsights, opsInsights, transcriptHighlights, ownerNames, industryNews] = await Promise.all([
     getCalendarEvents(organizationId),
     getRecentEmails(organizationId),
     getEOSData(organizationId),
@@ -51,8 +52,10 @@ export async function generateBriefing(
     getFinancialInsights(organizationId),
     getPipelineData(organizationId),
     getBDStrategistInsights(organizationId),
+    getOperationsInsights(organizationId),
     getTranscriptHighlights(organizationId),
     getOwnerNames(organizationId),
+    fetchIndustryNews(),
   ])
 
   // Build the user prompt with all available data
@@ -64,8 +67,10 @@ export async function generateBriefing(
     financialInsights,
     pipelineData,
     bdInsights,
+    opsInsights,
     transcriptHighlights,
     ownerNames,
+    industryNews,
     today,
   })
 
@@ -392,6 +397,7 @@ async function getPendingAgentOutputs(organizationId: string) {
   const agentNames: Record<string, string> = {
     'financial-strategist': 'Financial Strategist',
     'bd-strategist': 'BD Strategist',
+    'operations-architect': 'Operations Architect',
     'ea': 'Executive Assistant',
   }
   return (data || []).map(d => ({
@@ -427,6 +433,24 @@ async function getBDStrategistInsights(organizationId: string) {
     .select('title, summary, content')
     .eq('organization_id', organizationId)
     .eq('agent_id', 'bd-strategist')
+    .eq('output_type', 'analysis')
+    .gte('created_at', oneDayAgo)
+    .order('created_at', { ascending: false })
+    .limit(1)
+
+  if (!data || data.length === 0) return null
+
+  return data[0].content as Record<string, unknown>
+}
+
+async function getOperationsInsights(organizationId: string) {
+  const oneDayAgo = getSmartLookback(24)
+
+  const { data } = await supabaseAdmin
+    .from('agent_outputs')
+    .select('title, summary, content')
+    .eq('organization_id', organizationId)
+    .eq('agent_id', 'operations-architect')
     .eq('output_type', 'analysis')
     .gte('created_at', oneDayAgo)
     .order('created_at', { ascending: false })
@@ -515,8 +539,10 @@ function buildBriefingPrompt(data: {
   financialInsights: Record<string, unknown> | null
   pipelineData: PipelineData | null
   bdInsights: Record<string, unknown> | null
+  opsInsights: Record<string, unknown> | null
   transcriptHighlights: TranscriptHighlight[]
   ownerNames: Map<string, string>
+  industryNews: NewsItem[]
   today: string
 }): string {
   const sections: string[] = []
@@ -731,6 +757,50 @@ function buildBriefingPrompt(data: {
     sections.push(`## ${getTranscriptLabel()} (${data.transcriptHighlights.length} transcripts)\n${transcripts}`)
   }
 
+  // Operations Architect insights
+  if (data.opsInsights) {
+    const ops = data.opsInsights
+    const opsSections: string[] = []
+
+    if (ops.headline) opsSections.push(`**Headline: ${ops.headline}**`)
+
+    const scopeAlerts = ops.scope_variance_alerts as Array<{ project_name: string; variance_type: string; risk_level: string; recommended_action: string }> | undefined
+    if (scopeAlerts && scopeAlerts.length > 0) {
+      opsSections.push('Scope Variance Alerts:\n' + scopeAlerts.map(a =>
+        `- [${a.risk_level.toUpperCase()}] ${a.project_name}: ${a.variance_type} — ${a.recommended_action}`
+      ).join('\n'))
+    }
+
+    const satisfaction = ops.client_satisfaction_signals as Array<{ client_name: string; signal_type: string; detail: string }> | undefined
+    if (satisfaction && satisfaction.length > 0) {
+      opsSections.push('Client Satisfaction:\n' + satisfaction.map(s =>
+        `- [${s.signal_type.toUpperCase()}] ${s.client_name}: ${s.detail}`
+      ).join('\n'))
+    }
+
+    const handoffs = ops.handoff_status as Array<{ deal_or_project: string; handoff_stage: string; gaps: string | null }> | undefined
+    if (handoffs && handoffs.length > 0) {
+      const atRisk = handoffs.filter(h => h.handoff_stage === 'at_risk' || h.gaps)
+      if (atRisk.length > 0) {
+        opsSections.push('Handoff Risks:\n' + atRisk.map(h =>
+          `- ${h.deal_or_project}: ${h.handoff_stage}${h.gaps ? ` — ${h.gaps}` : ''}`
+        ).join('\n'))
+      }
+    }
+
+    if (opsSections.length > 0) {
+      sections.push(`## Operations Insights (Operations Architect)\n${opsSections.join('\n')}`)
+    }
+  }
+
+  // Industry news (Brave Search)
+  if (data.industryNews.length > 0) {
+    const news = data.industryNews.map(n =>
+      `- ${n.title}: ${n.detail} (${n.source})`
+    ).join('\n')
+    sections.push(`## Industry News (${data.industryNews.length} items)\n${news}`)
+  }
+
   // Agent outputs
   if (data.agentOutputs.length > 0) {
     const outputs = data.agentOutputs
@@ -746,7 +816,7 @@ ${sections.join('\n\n')}
 Instructions:
 - Tier 1 (Urgent, 0-3 items): Items needing action TODAY. Include: overdue EOS items, critical emails needing response, meetings with external attendees requiring prep, financial threshold breaches (AR > 45 days, margin < 30%, concentration > 60%), Rocks that are off-track with milestones overdue, deals closing today or with overdue close dates.
 - Tier 2 (Business, 3-7 items): Calendar overview (today and upcoming), EOS status updates (Rocks progress, Scorecard trends, To-do completion rate), financial highlights, pipeline summary (total value, deals closing soon, top deals), agent insights, important-but-not-urgent context.
-- Tier 3 (FYI, 0-3 items): Lower-priority items, upcoming deadlines that aren't urgent yet, informational context.
+- Tier 3 (FYI, 0-3 items): Industry news relevant to Caldera's positioning (AI services, digital transformation, competitive landscape), lower-priority items, upcoming deadlines. When industry news data is available, use it to create sourced Tier 3 items with specific citations. Focus on news connecting to Caldera's shift from "dev services" to "AI-powered product consultancy."
 - Include specific names, dollar amounts, dates, percentages, and trends (↑↓→). Never say "some items" or "several issues" — be exact.
 - For Rocks, mention milestone progress and days until due.
 - For Scorecard metrics, mention consecutive misses and trend direction.
