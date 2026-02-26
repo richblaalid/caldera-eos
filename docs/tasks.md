@@ -590,7 +590,7 @@ All 48 tasks completed. See `docs/archive/v1.0/` for original task definitions.
   - **Depends on:** 10.1.2, 10.2.1, 10.2.2
   - **Acceptance:** New Grain meetings auto-ingested every 6 hours, Grain notes used when available
 
-- [ ] **10.3.2** Add transcript highlights to EA briefing
+- [x] **10.3.2** Add transcript highlights to EA briefing
   - Update `ea-briefing.ts` to query recent transcript summaries (last 48 hours)
   - Filter by partner-relevant tags (Rich: `l10, leadership, 1on1`; John: `sales, prospect, client`)
   - Include key points and action items from recent meetings in briefing context
@@ -796,6 +796,7 @@ All 48 tasks completed. See `docs/archive/v1.0/` for original task definitions.
 | 2026-02-25 | 10.2.1 | Build Grain notes parser | Complete |
 | 2026-02-25 | 10.2.2 | Short-circuit processing for Grain notes | Complete |
 | 2026-02-25 | 10.3.1 | Rewrite transcript cron with Grain MCP | Complete |
+| 2026-02-25 | 10.3.2 | Transcript highlights in briefing (already implemented) | Complete |
 
 ---
 
