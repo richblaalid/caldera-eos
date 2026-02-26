@@ -117,15 +117,29 @@ export function formatBriefingBlocks(briefing: BriefingInsert): Record<string, u
     })
   }
 
-  // Tier 3: FYI (compact single block)
-  if (tier3.length > 0) {
+  // Tier 3: Split into Industry Pulse (news with URL sources) and general FYI
+  const newsItems = tier3.filter(item => item.source?.startsWith('http'))
+  const fyiItems = tier3.filter(item => !item.source?.startsWith('http'))
+
+  if (fyiItems.length > 0) {
     blocks.push({ type: 'divider' })
-    const tier3Text = tier3
+    const fyiText = fyiItems
       .map(item => `• ${item.title} — ${item.detail}`)
       .join('\n')
     blocks.push({
       type: 'section',
-      text: { type: 'mrkdwn', text: `:green-card: *FYI*\n${tier3Text}` },
+      text: { type: 'mrkdwn', text: `:green-card: *FYI*\n${fyiText}` },
+    })
+  }
+
+  if (newsItems.length > 0) {
+    blocks.push({ type: 'divider' })
+    const newsText = newsItems
+      .map(item => `• <${item.source}|${item.title}> — ${item.detail}`)
+      .join('\n')
+    blocks.push({
+      type: 'section',
+      text: { type: 'mrkdwn', text: `:newspaper: *Industry Pulse*\n${newsText}` },
     })
   }
 
