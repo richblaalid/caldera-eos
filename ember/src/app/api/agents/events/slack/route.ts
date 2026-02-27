@@ -112,16 +112,9 @@ async function handleDirectMessage(
     .select('id, slack_user_id')
     .eq('slack_user_id', event.user)
 
-  console.log(`Profile lookup for ${event.user}: found ${profileRows?.length ?? 0} rows`, profileError?.message || '')
-
   const profileRow = profileRows?.[0]
   if (!profileRow) {
-    // Debug: check if ANY profiles have slack_user_id set
-    const { data: allProfiles } = await admin
-      .from('profiles')
-      .select('id, slack_user_id')
-      .not('slack_user_id', 'is', null)
-    console.warn(`No profile for ${event.user}. Profiles with slack_user_id:`, allProfiles?.map(p => p.slack_user_id))
+    console.warn(`No profile found for Slack user ${event.user}`, profileError?.message || '')
     return
   }
 
@@ -172,12 +165,16 @@ async function handleDirectMessage(
 
   console.log(`Parsed command: ${command.command_type}`, command.parameters)
 
+  // If user sent a top-level DM (not in a thread), reply directly in the conversation.
+  // Only thread on the briefing if the user explicitly replied in the briefing thread.
+  const threadTs = event.thread_ts || event.ts
+
   // Execute the command
   await executeCommand(command, {
     partnerId: profile.id,
     organizationId: profile.organization_id,
     channelId: event.channel,
-    threadTs: event.thread_ts || briefing?.slack_message_ts || event.ts,
+    threadTs,
     teamId,
   })
 

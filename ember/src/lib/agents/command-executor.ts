@@ -196,8 +196,13 @@ async function resolveWorkQueueItems(
  */
 async function askEA(question: string, ctx: ExecutionContext): Promise<string> {
   try {
-    // Gather relevant context
-    const [rocksData, todosData, metricsData] = await Promise.all([
+    // Gather partner identity and relevant context
+    const [partnerData, rocksData, todosData, metricsData] = await Promise.all([
+      supabaseAdmin
+        .from('profiles')
+        .select('name, email, role')
+        .eq('id', ctx.partnerId)
+        .single(),
       supabaseAdmin
         .from('rocks')
         .select('title, status, owner_id')
@@ -206,27 +211,59 @@ async function askEA(question: string, ctx: ExecutionContext): Promise<string> {
         .limit(10),
       supabaseAdmin
         .from('todos')
-        .select('title, status, due_date')
+        .select('title, status, due_date, owner_id')
         .eq('organization_id', ctx.organizationId)
         .eq('status', 'open')
         .limit(10),
       supabaseAdmin
         .from('scorecard_metrics')
-        .select('title, goal, measurable_id:id')
+        .select('name, goal, owner_id')
         .eq('organization_id', ctx.organizationId)
-        .limit(10),
+        .eq('is_active', true)
+        .limit(15),
     ])
 
+    // Resolve owner names for rocks and todos
+    const ownerIds = new Set<string>()
+    rocksData.data?.forEach(r => r.owner_id && ownerIds.add(r.owner_id))
+    todosData.data?.forEach(t => t.owner_id && ownerIds.add(t.owner_id))
+    metricsData.data?.forEach(m => m.owner_id && ownerIds.add(m.owner_id))
+
+    const ownerMap = new Map<string, string>()
+    if (ownerIds.size > 0) {
+      const { data: owners } = await supabaseAdmin
+        .from('profiles')
+        .select('id, name')
+        .in('id', Array.from(ownerIds))
+      owners?.forEach(o => ownerMap.set(o.id, o.name || 'Unknown'))
+    }
+
+    const enrichRocks = rocksData.data?.map(r => ({
+      ...r,
+      owner: ownerMap.get(r.owner_id) || 'Unknown',
+    }))
+    const enrichTodos = todosData.data?.map(t => ({
+      ...t,
+      owner: ownerMap.get(t.owner_id) || 'Unknown',
+    }))
+    const enrichMetrics = metricsData.data?.map(m => ({
+      ...m,
+      owner: ownerMap.get(m.owner_id) || 'Unknown',
+    }))
+
+    const partnerName = partnerData.data?.name || 'Unknown'
     const context = [
-      rocksData.data?.length ? `Active Rocks: ${JSON.stringify(rocksData.data)}` : '',
-      todosData.data?.length ? `Open Todos: ${JSON.stringify(todosData.data)}` : '',
-      metricsData.data?.length ? `Scorecard Metrics: ${JSON.stringify(metricsData.data)}` : '',
+      enrichRocks?.length ? `Active Rocks: ${JSON.stringify(enrichRocks)}` : '',
+      enrichTodos?.length ? `Open Todos: ${JSON.stringify(enrichTodos)}` : '',
+      enrichMetrics?.length ? `Scorecard Metrics: ${JSON.stringify(enrichMetrics)}` : '',
     ].filter(Boolean).join('\n\n')
 
     const response = await anthropic.messages.create({
       model: process.env.AGENT_DEFAULT_MODEL || 'claude-sonnet-4-20250514',
       max_tokens: 1024,
       system: `You are Ember, the AI Executive Assistant for Caldera's leadership team. You respond concisely and directly in Slack. Use Slack markdown formatting (bold with *, lists with •). Keep responses brief — 2-4 sentences for simple questions, up to a short paragraph for complex ones.
+
+You are speaking with *${partnerName}* (partner ID: ${ctx.partnerId}). When they ask about "my" tasks, rocks, or metrics, filter the data below to items owned by them.
 
 Current EOS data:
 ${context}`,
