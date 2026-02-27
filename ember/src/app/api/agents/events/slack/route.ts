@@ -125,7 +125,7 @@ async function handleDirectMessage(
     return
   }
 
-  const { data: membership } = await getSupabaseAdmin()
+  const { data: membership, error: membershipError } = await getSupabaseAdmin()
     .from('organization_members')
     .select('organization_id')
     .eq('user_id', profileRow.id)
@@ -133,15 +133,19 @@ async function handleDirectMessage(
     .single()
 
   if (!membership) {
-    console.warn(`No organization found for profile ${profileRow.id}`)
+    console.warn(`No organization found for profile ${profileRow.id}`, membershipError?.message)
     return
   }
 
   const profile = { id: profileRow.id, organization_id: membership.organization_id }
+  console.log(`Slack DM from ${event.user}: org=${profile.organization_id}, text="${event.text.substring(0, 50)}"`)
 
   // Try to handle as a scorecard value reply first (e.g. "Billable Utilization: 75")
   const handled = await tryScorecardReply(event.text, profile, event.channel, event.thread_ts || event.ts)
-  if (handled) return
+  if (handled) {
+    console.log('Handled as scorecard reply')
+    return
+  }
 
   // Dynamically import to keep the webhook handler lightweight
   const { parseCommand } = await import('@/lib/agents/command-parser')
@@ -158,11 +162,15 @@ async function handleDirectMessage(
     .limit(1)
     .single()
 
+  console.log(`Briefing lookup: ${briefing ? `found ${briefing.id}` : 'none for today'}`)
+
   // Parse the user's message
   const command = await parseCommand(event.text, {
     briefingId: briefing?.id,
     threadTs: event.thread_ts || briefing?.slack_message_ts,
   })
+
+  console.log(`Parsed command: ${command.command_type}`, command.parameters)
 
   // Execute the command
   await executeCommand(command, {
@@ -172,6 +180,8 @@ async function handleDirectMessage(
     threadTs: event.thread_ts || briefing?.slack_message_ts || event.ts,
     teamId,
   })
+
+  console.log('Command executed successfully')
 }
 
 /**
