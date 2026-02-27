@@ -105,17 +105,31 @@ async function handleDirectMessage(
   event: { user: string; text: string; channel: string; ts: string; thread_ts?: string },
   teamId: string
 ) {
-  // Look up partner by slack_user_id
-  const { data: profile } = await getSupabaseAdmin()
+  // Look up partner by slack_user_id, joining to get organization_id
+  const { data: profileRow } = await getSupabaseAdmin()
     .from('profiles')
-    .select('id, organization_id')
+    .select('id')
     .eq('slack_user_id', event.user)
     .single()
 
-  if (!profile) {
+  if (!profileRow) {
     console.warn(`No profile found for Slack user ${event.user}`)
     return
   }
+
+  const { data: membership } = await getSupabaseAdmin()
+    .from('organization_members')
+    .select('organization_id')
+    .eq('user_id', profileRow.id)
+    .limit(1)
+    .single()
+
+  if (!membership) {
+    console.warn(`No organization found for profile ${profileRow.id}`)
+    return
+  }
+
+  const profile = { id: profileRow.id, organization_id: membership.organization_id }
 
   // Try to handle as a scorecard value reply first (e.g. "Billable Utilization: 75")
   const handled = await tryScorecardReply(event.text, profile, event.channel, event.thread_ts || event.ts)
@@ -259,14 +273,25 @@ async function handleReactionAdded(
   // Dynamically import
   const { handleReaction } = await import('@/lib/agents/command-executor')
 
-  // Look up partner
-  const { data: profile } = await getSupabaseAdmin()
+  // Look up partner by slack_user_id, joining to get organization_id
+  const { data: profileRow } = await getSupabaseAdmin()
     .from('profiles')
-    .select('id, organization_id')
+    .select('id')
     .eq('slack_user_id', event.user)
     .single()
 
-  if (!profile) return
+  if (!profileRow) return
+
+  const { data: membership } = await getSupabaseAdmin()
+    .from('organization_members')
+    .select('organization_id')
+    .eq('user_id', profileRow.id)
+    .limit(1)
+    .single()
+
+  if (!membership) return
+
+  const profile = { id: profileRow.id, organization_id: membership.organization_id }
 
   await handleReaction(event.reaction, {
     partnerId: profile.id,
