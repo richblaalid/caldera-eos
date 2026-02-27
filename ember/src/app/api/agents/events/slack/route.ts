@@ -106,14 +106,22 @@ async function handleDirectMessage(
   teamId: string
 ) {
   // Look up partner by slack_user_id, joining to get organization_id
-  const { data: profileRow, error: profileError } = await getSupabaseAdmin()
+  const admin = getSupabaseAdmin()
+  const { data: profileRows, error: profileError } = await admin
     .from('profiles')
-    .select('id')
+    .select('id, slack_user_id')
     .eq('slack_user_id', event.user)
-    .single()
 
+  console.log(`Profile lookup for ${event.user}: found ${profileRows?.length ?? 0} rows`, profileError?.message || '')
+
+  const profileRow = profileRows?.[0]
   if (!profileRow) {
-    console.warn(`No profile found for Slack user ${event.user}`, profileError?.message || profileError)
+    // Debug: check if ANY profiles have slack_user_id set
+    const { data: allProfiles } = await admin
+      .from('profiles')
+      .select('id, slack_user_id')
+      .not('slack_user_id', 'is', null)
+    console.warn(`No profile for ${event.user}. Profiles with slack_user_id:`, allProfiles?.map(p => p.slack_user_id))
     return
   }
 
