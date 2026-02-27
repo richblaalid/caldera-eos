@@ -57,6 +57,12 @@ export async function POST(request: NextRequest) {
     })
   }
 
+  // Reject Slack retries — our handler takes >3s due to AI calls,
+  // so Slack retries thinking we failed. Acknowledge retries immediately.
+  if (request.headers.get('x-slack-retry-num')) {
+    return NextResponse.json({ ok: true })
+  }
+
   // Verify request signature
   const signingSecret = process.env.SLACK_SIGNING_SECRET
   if (!signingSecret) {
