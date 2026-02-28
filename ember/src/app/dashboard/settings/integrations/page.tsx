@@ -46,6 +46,13 @@ const CONNECTOR_META: Record<string, { label: string; description: string; color
     authUrl: '/api/agents/auth/quickbooks',
     disconnectable: true,
   },
+  grain: {
+    label: 'Grain',
+    description: 'Meeting transcripts, notes, and coaching feedback',
+    color: '#6366F1',
+    authUrl: '/api/agents/auth/grain',
+    disconnectable: true,
+  },
 }
 
 function formatTimeAgo(dateStr: string): string {
@@ -77,6 +84,7 @@ export default function IntegrationsPage() {
         hubspot_connected: 'HubSpot connected successfully!',
         quickbooks_connected: 'QuickBooks connected successfully!',
         slack_connected: 'Slack connected successfully!',
+        grain_connected: 'Grain connected successfully!',
       }
       setMessage({ type: 'success', text: successMessages[success] || 'Connected!' })
     } else if (error) {

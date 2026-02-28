@@ -31,7 +31,7 @@ export async function GET() {
     // Get partner preferences (tokens)
     const { data: prefs } = await serviceClient
       .from('partner_preferences')
-      .select('google_refresh_token, quickbooks_refresh_token, quickbooks_realm_id')
+      .select('google_refresh_token, quickbooks_refresh_token, quickbooks_realm_id, grain_refresh_token')
       .eq('organization_id', orgId)
       .eq('partner_id', user.id)
       .single()
@@ -74,6 +74,13 @@ export async function GET() {
         lastSync: lastSyncBySource.quickbooks || null,
         details: prefs?.quickbooks_realm_id ? `Realm: ${prefs.quickbooks_realm_id}` : undefined,
       },
+      {
+        name: 'Grain',
+        key: 'grain',
+        connected: !!prefs?.grain_refresh_token,
+        lastSync: lastSyncBySource.grain || null,
+        details: 'Meeting transcripts and coaching',
+      },
     ]
 
     return NextResponse.json({ connectors })
@@ -87,7 +94,7 @@ async function getLastSyncTimes(
   client: Awaited<ReturnType<typeof createServiceClient>>,
   orgId: string
 ): Promise<Record<string, string | null>> {
-  const sources = ['gmail', 'calendar', 'hubspot', 'quickbooks']
+  const sources = ['gmail', 'calendar', 'hubspot', 'quickbooks', 'grain']
   const result: Record<string, string | null> = {}
 
   for (const source of sources) {

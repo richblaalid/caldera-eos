@@ -29,33 +29,47 @@ export interface GrainCoaching {
   markdown: string
 }
 
+/** Token config from the database (preferred) or env vars (fallback). */
+export interface GrainTokenConfig {
+  refreshToken: string
+  clientId: string
+}
+
+/** Result of a token refresh — includes rotated refresh token if changed. */
+export interface GrainTokenRefreshResult {
+  accessToken: string
+  newRefreshToken?: string
+}
+
 // =============================================
 // OAuth Token Refresh
 // =============================================
 
+const GRAIN_TOKEN_URL = 'https://api.grain.com/_/public-api/oauth2/token'
+
 let cachedToken: string | null = null
 let tokenExpiresAt: number = 0
+let lastRefreshToken: string | null = null
 
 /**
  * Get a valid Grain MCP access token, refreshing if expired.
- * Grain OAuth tokens expire every 3600 seconds (1 hour).
+ * Accepts token config from DB; falls back to env vars.
+ * Returns the access token and any rotated refresh token.
  */
-async function getAccessToken(): Promise<string> {
-  // Return cached token if still valid (with 5-minute buffer)
-  if (cachedToken && Date.now() < tokenExpiresAt - 5 * 60 * 1000) {
-    return cachedToken
-  }
-
-  const refreshToken = process.env.GRAIN_MCP_REFRESH_TOKEN
-  const clientId = process.env.GRAIN_MCP_CLIENT_ID
+export async function getAccessToken(config?: GrainTokenConfig): Promise<GrainTokenRefreshResult> {
+  // Return cached token if still valid (with 5-minute buffer) and same refresh token
+  const refreshToken = config?.refreshToken || process.env.GRAIN_MCP_REFRESH_TOKEN
+  const clientId = config?.clientId || process.env.GRAIN_MCP_CLIENT_ID
   const currentToken = process.env.GRAIN_MCP_TOKEN
+
+  if (cachedToken && Date.now() < tokenExpiresAt - 5 * 60 * 1000 && lastRefreshToken === refreshToken) {
+    return { accessToken: cachedToken }
+  }
 
   // Try to refresh if we have the refresh token and client ID
   if (refreshToken && clientId) {
     try {
-      // Discover token endpoint from Grain's OAuth metadata
-      const tokenEndpoint = await discoverTokenEndpoint()
-      const response = await fetch(tokenEndpoint, {
+      const response = await fetch(GRAIN_TOKEN_URL, {
         method: 'POST',
         headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
         body: new URLSearchParams({
@@ -66,10 +80,22 @@ async function getAccessToken(): Promise<string> {
       })
 
       if (response.ok) {
-        const data = await response.json() as { access_token: string; expires_in: number }
+        const data = await response.json() as {
+          access_token: string
+          refresh_token?: string
+          expires_in: number
+        }
         cachedToken = data.access_token
         tokenExpiresAt = Date.now() + data.expires_in * 1000
-        return cachedToken
+        lastRefreshToken = refreshToken
+
+        return {
+          accessToken: cachedToken,
+          // Return rotated refresh token if it changed
+          newRefreshToken: data.refresh_token && data.refresh_token !== refreshToken
+            ? data.refresh_token
+            : undefined,
+        }
       }
 
       console.warn('Grain token refresh failed:', response.status, await response.text())
@@ -81,37 +107,12 @@ async function getAccessToken(): Promise<string> {
   // Fall back to env var token (may be expired)
   if (currentToken) {
     cachedToken = currentToken
-    // Assume 1 hour from now if we don't know when it expires
     tokenExpiresAt = Date.now() + 60 * 60 * 1000
-    return currentToken
+    lastRefreshToken = null
+    return { accessToken: currentToken }
   }
 
-  throw new Error('No Grain MCP token available. Set GRAIN_MCP_TOKEN or GRAIN_MCP_REFRESH_TOKEN + GRAIN_MCP_CLIENT_ID.')
-}
-
-let cachedTokenEndpoint: string | null = null
-
-async function discoverTokenEndpoint(): Promise<string> {
-  if (cachedTokenEndpoint) return cachedTokenEndpoint
-
-  // Try standard OAuth metadata discovery
-  const baseUrl = new URL(process.env.GRAIN_MCP_URL || 'https://api.grain.com/_/mcp')
-  const metadataUrl = `${baseUrl.origin}/.well-known/oauth-authorization-server`
-
-  try {
-    const response = await fetch(metadataUrl)
-    if (response.ok) {
-      const metadata = await response.json() as { token_endpoint: string }
-      cachedTokenEndpoint = metadata.token_endpoint
-      return cachedTokenEndpoint
-    }
-  } catch {
-    // metadata not available
-  }
-
-  // Fallback: Grain's token endpoint (discovered from mcp-remote OAuth flow)
-  cachedTokenEndpoint = `${baseUrl.origin}/oauth/token`
-  return cachedTokenEndpoint
+  throw new Error('No Grain MCP token available. Connect Grain in Settings > Integrations, or set GRAIN_MCP_REFRESH_TOKEN + GRAIN_MCP_CLIENT_ID env vars.')
 }
 
 // =============================================
@@ -125,10 +126,13 @@ async function discoverTokenEndpoint(): Promise<string> {
  * The response contains tool_use + tool_result blocks that Claude has
  * already resolved by calling the Grain MCP server. We extract the
  * final text response.
+ *
+ * Returns newRefreshToken if the token was rotated during refresh.
  */
-async function callGrainMcp(prompt: string): Promise<{ text: string; rawContent: unknown[] }> {
+async function callGrainMcp(prompt: string, tokenConfig?: GrainTokenConfig): Promise<{ text: string; rawContent: unknown[]; newRefreshToken?: string }> {
   const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
-  const grainToken = await getAccessToken()
+  const tokenResult = await getAccessToken(tokenConfig)
+  const grainToken = tokenResult.accessToken
   const grainUrl = process.env.GRAIN_MCP_URL || 'https://api.grain.com/_/mcp'
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -153,7 +157,7 @@ async function callGrainMcp(prompt: string): Promise<{ text: string; rawContent:
   const textBlocks = response.content.filter(b => b.type === 'text') as Array<{ type: 'text'; text: string }>
   const text = textBlocks.map(b => b.text).join('\n')
 
-  return { text, rawContent: response.content as unknown[] }
+  return { text, rawContent: response.content as unknown[], newRefreshToken: tokenResult.newRefreshToken }
 }
 
 /**
@@ -188,29 +192,28 @@ function extractMcpToolResults(rawContent: unknown[]): unknown[] {
 /**
  * List meetings from Grain, optionally filtered by date.
  */
-export async function listMeetings(since?: string): Promise<GrainMeeting[]> {
+export async function listMeetings(since?: string, tokenConfig?: GrainTokenConfig): Promise<{ meetings: GrainMeeting[]; newRefreshToken?: string }> {
   const dateFilter = since ? ` Filter to meetings after ${since}.` : ''
   const prompt = `List all accessible meetings.${dateFilter} Return the meeting IDs, titles, dates, durations, and participant names. Use the list_meetings tool.`
 
-  const { text, rawContent } = await callGrainMcp(prompt)
+  const { text, rawContent, newRefreshToken } = await callGrainMcp(prompt, tokenConfig)
 
   // Try to parse structured data from tool results first
   const toolResults = extractMcpToolResults(rawContent)
-  if (toolResults.length > 0) {
-    return parseMeetingsFromToolResults(toolResults)
-  }
+  const meetings = toolResults.length > 0
+    ? parseMeetingsFromToolResults(toolResults)
+    : parseMeetingsFromText(text)
 
-  // Fall back to parsing Claude's text response
-  return parseMeetingsFromText(text)
+  return { meetings, newRefreshToken }
 }
 
 /**
  * Fetch the full transcript for a meeting.
  */
-export async function fetchTranscript(meetingId: string): Promise<GrainTranscript | null> {
+export async function fetchTranscript(meetingId: string, tokenConfig?: GrainTokenConfig): Promise<GrainTranscript | null> {
   const prompt = `Fetch the full transcript for meeting ID "${meetingId}". Include speaker labels. Use the fetch_meeting_transcript tool. Return the complete transcript text.`
 
-  const { text, rawContent } = await callGrainMcp(prompt)
+  const { text, rawContent } = await callGrainMcp(prompt, tokenConfig)
 
   const toolResults = extractMcpToolResults(rawContent)
   const transcriptText = toolResults.length > 0
@@ -231,10 +234,10 @@ export async function fetchTranscript(meetingId: string): Promise<GrainTranscrip
 /**
  * Fetch AI-generated notes for a meeting.
  */
-export async function fetchNotes(meetingId: string): Promise<GrainNotes | null> {
+export async function fetchNotes(meetingId: string, tokenConfig?: GrainTokenConfig): Promise<GrainNotes | null> {
   const prompt = `Fetch the AI-generated meeting notes for meeting ID "${meetingId}". Use the fetch_meeting_notes tool. Return the full notes content.`
 
-  const { text, rawContent } = await callGrainMcp(prompt)
+  const { text, rawContent } = await callGrainMcp(prompt, tokenConfig)
 
   const toolResults = extractMcpToolResults(rawContent)
   const notesText = toolResults.length > 0
@@ -249,11 +252,11 @@ export async function fetchNotes(meetingId: string): Promise<GrainNotes | null> 
 /**
  * Fetch AI-generated coaching feedback for a meeting.
  */
-export async function fetchCoaching(meetingId: string): Promise<GrainCoaching | null> {
+export async function fetchCoaching(meetingId: string, tokenConfig?: GrainTokenConfig): Promise<GrainCoaching | null> {
   const prompt = `Fetch the AI coaching feedback for meeting ID "${meetingId}". Use the fetch_meeting_coaching_feedback tool. Return the full coaching content.`
 
   try {
-    const { text, rawContent } = await callGrainMcp(prompt)
+    const { text, rawContent } = await callGrainMcp(prompt, tokenConfig)
 
     const toolResults = extractMcpToolResults(rawContent)
     const coachingText = toolResults.length > 0
