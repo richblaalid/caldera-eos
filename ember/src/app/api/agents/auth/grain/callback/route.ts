@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
-import { createClient, createServiceClient } from '@/lib/supabase/server'
+import { createClient } from '@/lib/supabase/server'
+import { createClient as createAdminClient } from '@supabase/supabase-js'
 import { cookies } from 'next/headers'
 
 const GRAIN_TOKEN_URL = 'https://api.grain.com/_/public-api/oauth2/token'
@@ -106,9 +107,12 @@ export async function GET(request: Request) {
       )
     }
 
-    // Store tokens in partner_preferences
-    const serviceClient = await createServiceClient()
-    const { error: upsertError } = await serviceClient
+    // Store tokens in partner_preferences (use raw admin client to bypass RLS)
+    const adminClient = createAdminClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.SUPABASE_SERVICE_ROLE_KEY!,
+    )
+    const { error: upsertError } = await adminClient
       .from('partner_preferences')
       .upsert({
         organization_id: membership.organization_id,
