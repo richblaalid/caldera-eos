@@ -14,6 +14,8 @@ const AGENT_EMOJI: Record<string, string> = {
   'financial-strategist': ':bank:',          // Finance brain
   'bd-strategist': ':dart:',                 // Pipeline hunter
   'operations-architect': ':gear:',          // Ops engine
+  'marketing-strategist': ':mega:',          // Marketing CMO
+  'pattern-detector': ':mag:',               // Pattern detection
   'scorecard-automation': ':bar_chart:',     // Metrics tracker
   'meeting-prep': ':memo:',                  // Pre-call intel
   'l10-prep': ':calendar:',                  // L10 prep

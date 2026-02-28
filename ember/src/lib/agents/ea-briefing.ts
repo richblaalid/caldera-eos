@@ -57,7 +57,7 @@ export async function generateBriefing(
   const today = toLocalDate(new Date(), timezone)
 
   // Gather all data sources in parallel
-  const [calendarEvents, recentEmails, eosData, agentOutputs, financialInsights, pipelineData, bdInsights, opsInsights, transcriptHighlights, coachingHighlights, ownerNames, industryNews, patternAlerts] = await Promise.all([
+  const [calendarEvents, recentEmails, eosData, agentOutputs, financialInsights, pipelineData, bdInsights, opsInsights, marketingInsights, transcriptHighlights, coachingHighlights, ownerNames, industryNews, patternAlerts] = await Promise.all([
     getCalendarEvents(organizationId, timezone),
     getRecentEmails(organizationId),
     getEOSData(organizationId),
@@ -66,6 +66,7 @@ export async function generateBriefing(
     getPipelineData(organizationId),
     getBDStrategistInsights(organizationId),
     getOperationsInsights(organizationId),
+    getMarketingInsights(organizationId),
     getTranscriptHighlights(organizationId),
     getRecentCoaching(organizationId),
     getOwnerNames(organizationId),
@@ -83,6 +84,7 @@ export async function generateBriefing(
     pipelineData,
     bdInsights,
     opsInsights,
+    marketingInsights,
     transcriptHighlights,
     coachingHighlights,
     ownerNames,
@@ -420,6 +422,8 @@ async function getPendingAgentOutputs(organizationId: string) {
     'financial-strategist': 'Financial Strategist',
     'bd-strategist': 'BD Strategist',
     'operations-architect': 'Operations Architect',
+    'marketing-strategist': 'Marketing Strategist',
+    'pattern-detector': 'Pattern Detector',
     'ea': 'Executive Assistant',
   }
   return (data || []).map(d => ({
@@ -475,6 +479,25 @@ async function getOperationsInsights(organizationId: string) {
     .eq('agent_id', 'operations-architect')
     .eq('output_type', 'analysis')
     .gte('created_at', oneDayAgo)
+    .order('created_at', { ascending: false })
+    .limit(1)
+
+  if (!data || data.length === 0) return null
+
+  return data[0].content as Record<string, unknown>
+}
+
+async function getMarketingInsights(organizationId: string) {
+  // Marketing runs weekly — look back further (7 days)
+  const sevenDaysAgo = getSmartLookback(168)
+
+  const { data } = await supabaseAdmin
+    .from('agent_outputs')
+    .select('title, summary, content')
+    .eq('organization_id', organizationId)
+    .eq('agent_id', 'marketing-strategist')
+    .eq('output_type', 'analysis')
+    .gte('created_at', sevenDaysAgo)
     .order('created_at', { ascending: false })
     .limit(1)
 
@@ -595,6 +618,7 @@ function buildBriefingPrompt(data: {
   pipelineData: PipelineData | null
   bdInsights: Record<string, unknown> | null
   opsInsights: Record<string, unknown> | null
+  marketingInsights: Record<string, unknown> | null
   transcriptHighlights: TranscriptHighlight[]
   coachingHighlights: CoachingHighlight[]
   ownerNames: Map<string, string>
@@ -849,6 +873,43 @@ function buildBriefingPrompt(data: {
 
     if (opsSections.length > 0) {
       sections.push(`## Operations Insights (Operations Architect)\n${opsSections.join('\n')}`)
+    }
+  }
+
+  // Marketing Strategist insights (weekly)
+  if (data.marketingInsights) {
+    const mkt = data.marketingInsights
+    const mktSections: string[] = []
+
+    if (mkt.headline) mktSections.push(`**Headline: ${mkt.headline}**`)
+
+    const posScore = mkt.positioning_score as { score: number; rationale: string } | undefined
+    if (posScore) {
+      mktSections.push(`Positioning Score: ${posScore.score}/10 — ${posScore.rationale}`)
+    }
+
+    const competitors = mkt.competitive_landscape as Array<{ competitor: string; threat_level: string; notable_activity: string | null }> | undefined
+    if (competitors && competitors.length > 0) {
+      const highThreats = competitors.filter(c => c.threat_level === 'high' || c.notable_activity)
+      if (highThreats.length > 0) {
+        mktSections.push('Competitive Activity:\n' + highThreats.map(c =>
+          `- [${c.threat_level.toUpperCase()}] ${c.competitor}${c.notable_activity ? `: ${c.notable_activity}` : ''}`
+        ).join('\n'))
+      }
+    }
+
+    const contentOpps = mkt.content_opportunities as Array<{ topic: string; priority: string; format: string }> | undefined
+    if (contentOpps && contentOpps.length > 0) {
+      const highPriority = contentOpps.filter(c => c.priority === 'high').slice(0, 3)
+      if (highPriority.length > 0) {
+        mktSections.push('Top Content Opportunities:\n' + highPriority.map(c =>
+          `- ${c.topic} (${c.format})`
+        ).join('\n'))
+      }
+    }
+
+    if (mktSections.length > 0) {
+      sections.push(`## Marketing & Positioning (Marketing Strategist)\n${mktSections.join('\n')}`)
     }
   }
 
