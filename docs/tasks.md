@@ -862,11 +862,84 @@ All 48 tasks completed. See `docs/archive/v1.0/` for original task definitions.
 
 ---
 
+## Phase 2: Intelligence Layer
+
+### Phase 13: Pattern Detection Engine
+> "Surface what's not being said" — the core differentiator
+
+- [ ] 13.1.1 Create pattern detection engine with 6 detection rules
+  - **Files:** `src/lib/agents/pattern-detector.ts` (NEW)
+  - Pure data queries (no LLM): stalled rocks, scorecard misses without issues, topic avoidance, untracked commitments, concentration worsening, partner workload imbalance
+  - Output: `PatternAlert[]` with severity levels (observation/concern/escalation)
+
+- [ ] 13.2.1 Wire pattern detection into morning briefing
+  - **Files:** `src/lib/agents/ea-briefing.ts` (MODIFY)
+  - Add `runPatternDetection(orgId)` to Promise.all data assembly
+  - Add `## Pattern Observations` section to briefing prompt
+  - Concerns → Tier 1, Observations → Tier 2, Escalations → auto-create Issues
+
+- [ ] 13.3.1 Wire pattern detection into overnight analysis
+  - **Files:** `src/app/api/agents/cron/overnight-analysis/route.ts` (MODIFY)
+  - Run pattern detection as part of nightly cron
+  - Weekly deep scan on Sundays for cross-agent pattern analysis
+
+**Checkpoint:** Pattern alerts appear in daily briefing. Stalled rock + scorecard miss patterns detected correctly. Escalation auto-creates Issue with duplicate check.
+
+### Phase 15: Marketing Strategist Agent
+> Fractional CMO — competitive intel, positioning, content strategy, client language mining
+> Strategic foundation: `docs/Caldera_Marketing_Strategy_Assessment.md`
+
+- [ ] 15.1.1 Create Marketing Strategist agent
+  - **Files:** `src/lib/agents/marketing-strategist.ts` (NEW)
+  - Follows `bd-strategist.ts` pattern: Zod schema → data fetch → prompt → generateObject → save → auto-Issue
+  - Schema: positioning_score, competitive_landscape[], content_opportunities[], client_language_insights[], market_signals[]
+  - Data: Grain transcripts (language mining), Brave Search (competitor news), HubSpot (deal narratives), existing Issues
+
+- [ ] 15.2.1 Seed Marketing Strategist + wire into overnight analysis + briefing
+  - **Files:** `supabase/migrations/018_seed_marketing_strategist.sql` (NEW), `overnight-analysis/route.ts` (MODIFY), `ea-briefing.ts` (MODIFY), `slack-briefing.ts` (MODIFY)
+  - Add `runMarketingAnalysis(orgId)` to overnight cron
+  - Add `getMarketingInsights(orgId)` + `## Marketing & Positioning` section to briefing
+  - Add `'marketing-strategist': ':mega:'` to AGENT_EMOJI
+
+- [ ] 15.3.1 Quality check Marketing Strategist
+  - Trigger overnight cron → verify analysis in `agent_outputs`
+  - Trigger briefing → verify marketing insights appear
+  - Quality gate: `npm run typecheck && npm run lint && npm run test && npm run build`
+
+**Checkpoint:** Marketing analysis appears in overnight cron output. Briefing includes positioning score, competitive landscape, and content opportunities. Auto-Issues created for positioning gaps.
+
+### Phase 16: Product Innovation Officer Agent
+> Continuous market radar and idea processor — surfaces trends and signals for leadership consideration
+> Strategic foundation: `docs/Caldera_Product_Innovation_Assessment.md`
+
+- [ ] 16.1.1 Create Product Innovation Officer agent
+  - **Files:** `src/lib/agents/product-innovation.ts` (NEW)
+  - Follows `bd-strategist.ts` pattern: Zod schema → data fetch → prompt → generateObject → save → auto-Issue
+  - Schema: technology_trends[], market_signals[], competitor_product_moves[], opportunity_seeds[], bench_time_signals
+  - Data: Brave Search (tech trends, competitor products), Grain transcripts (client patterns), Financial Strategist (utilization), existing Issues
+
+- [ ] 16.2.1 Seed Product Innovation Officer + wire into overnight analysis + briefing
+  - **Files:** `supabase/migrations/019_seed_product_innovation.sql` (NEW), `overnight-analysis/route.ts` (MODIFY), `ea-briefing.ts` (MODIFY), `slack-briefing.ts` (MODIFY)
+  - Add `runInnovationAnalysis(orgId)` to overnight cron
+  - Add `getInnovationInsights(orgId)` + `## Product & Innovation` section to briefing
+  - Add `'product-innovation': ':rocket:'` to AGENT_EMOJI
+
+- [ ] 16.3.1 Quality check Product Innovation Officer
+  - Trigger overnight cron → verify analysis in `agent_outputs`
+  - Trigger briefing → verify innovation insights appear
+  - Quality gate: `npm run typecheck && npm run lint && npm run test && npm run build`
+
+**Checkpoint:** Innovation analysis appears in overnight cron output. Briefing includes tech trends, market signals, and opportunity seeds. Agent philosophy: radar, not prescriber.
+
+---
+
 ## Notes
 
-- Tasks should be completed in order within each day
-- Each day has a checkpoint that must be verified before proceeding
-- Slack Events API requires deployed endpoint before Slack config (see Day 3 note)
-- QuickBooks connector has mock data contingency if API unavailable
+- Tasks should be completed in order within each phase
+- Each phase has a checkpoint that must be verified before proceeding
+- Pattern Detection Engine (Phase 13) is pure data queries — no LLM needed
+- Marketing Strategist and Product Innovation Officer follow the bd-strategist.ts agent pattern
+- Strategic foundation docs inform system prompts but are not re-analyzed by agents
+- All agents must degrade gracefully when data is unavailable
 - Update this file as tasks are completed
 - Add blockers and notes in the Task Log

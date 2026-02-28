@@ -5,6 +5,7 @@ import { createClient } from '@supabase/supabase-js'
 import type { BriefingItem, AgentWorkItem, BriefingInsert } from '@/types/agents'
 import { getSmartLookback, getTranscriptLabel } from './lookback'
 import { fetchIndustryNews, type NewsItem } from '@/lib/connectors/brave-search-client'
+import { runPatternDetection, type PatternAlert } from './pattern-detector'
 
 const supabaseAdmin = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -56,7 +57,7 @@ export async function generateBriefing(
   const today = toLocalDate(new Date(), timezone)
 
   // Gather all data sources in parallel
-  const [calendarEvents, recentEmails, eosData, agentOutputs, financialInsights, pipelineData, bdInsights, opsInsights, transcriptHighlights, coachingHighlights, ownerNames, industryNews] = await Promise.all([
+  const [calendarEvents, recentEmails, eosData, agentOutputs, financialInsights, pipelineData, bdInsights, opsInsights, transcriptHighlights, coachingHighlights, ownerNames, industryNews, patternAlerts] = await Promise.all([
     getCalendarEvents(organizationId, timezone),
     getRecentEmails(organizationId),
     getEOSData(organizationId),
@@ -69,6 +70,7 @@ export async function generateBriefing(
     getRecentCoaching(organizationId),
     getOwnerNames(organizationId),
     fetchIndustryNews(),
+    runPatternDetection(organizationId).catch(() => [] as PatternAlert[]),
   ])
 
   // Build the user prompt with all available data
@@ -85,6 +87,7 @@ export async function generateBriefing(
     coachingHighlights,
     ownerNames,
     industryNews,
+    patternAlerts,
     today,
   })
 
@@ -596,6 +599,7 @@ function buildBriefingPrompt(data: {
   coachingHighlights: CoachingHighlight[]
   ownerNames: Map<string, string>
   industryNews: NewsItem[]
+  patternAlerts: PatternAlert[]
   today: string
 }): string {
   const sections: string[] = []
@@ -848,6 +852,22 @@ function buildBriefingPrompt(data: {
     }
   }
 
+  // Pattern Detection alerts — "surface what's not being said"
+  if (data.patternAlerts.length > 0) {
+    const concerns = data.patternAlerts.filter(a => a.severity === 'concern' || a.severity === 'escalation')
+    const observations = data.patternAlerts.filter(a => a.severity === 'observation')
+
+    const alertLines: string[] = []
+    for (const alert of concerns) {
+      alertLines.push(`- [${alert.severity.toUpperCase()}] ${alert.title}\n  ${alert.detail}\n  Recommended: ${alert.recommended_action}`)
+    }
+    for (const alert of observations) {
+      alertLines.push(`- [OBSERVATION] ${alert.title}\n  ${alert.detail}`)
+    }
+
+    sections.push(`## Pattern Observations (${data.patternAlerts.length} patterns detected)\n${alertLines.join('\n')}`)
+  }
+
   // Sales coaching highlights (from Grain AI coaching)
   if (data.coachingHighlights.length > 0) {
     const coaching = data.coachingHighlights.map(c => {
@@ -890,5 +910,6 @@ Instructions:
 - For To-dos, mention the owner name and due date.
 - Financial insights from the Financial Strategist should be prominently featured — AR alerts and threshold breaches in Tier 1, cash flow and margins in Tier 2.
 - If transcript highlights are available from yesterday's meetings, incorporate key follow-ups and action items into Tier 1 (if urgent) or Tier 2. Mention specific commitments people made and decisions that affect upcoming work.
-- If sales coaching highlights are available, include a summary in Tier 2 highlighting coaching opportunities and strengths. Reference specific meetings and participants.`
+- If sales coaching highlights are available, include a summary in Tier 2 highlighting coaching opportunities and strengths. Reference specific meetings and participants.
+- If pattern observations are available, surface CONCERN and ESCALATION patterns in Tier 1 (these are behavioral gaps the team may be avoiding). OBSERVATION patterns go in Tier 2. Pattern detection reveals what's NOT being said — stalled rocks marked on-track, scorecard misses without issues, topics avoided in meetings, and untracked commitments.`
 }
