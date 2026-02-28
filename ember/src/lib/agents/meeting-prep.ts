@@ -112,7 +112,7 @@ Be concise and specific. Use actual names, dates, and dollar amounts.`
 
 function extractClientIdentifiers(event: CalendarEvent): string[] {
   const identifiers: string[] = []
-  const calderaDomains = ['caldera.llc', 'calderaconsulting.com', 'withcaldera.com', 'gmail.com', 'yahoo.com', 'outlook.com', 'google.com']
+  const calderaDomains = ['withcaldera.com', 'bko.group', 'gmail.com', 'yahoo.com', 'outlook.com', 'google.com']
 
   // Extract external domains from attendees
   for (const attendee of event.attendees) {

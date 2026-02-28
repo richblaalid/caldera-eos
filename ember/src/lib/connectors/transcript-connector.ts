@@ -3,7 +3,7 @@ import type { DataConnector, ConnectorPullParams, ConnectorResult, ConnectorReco
 
 type MeetingType = 'l10' | 'sales_call' | 'client_delivery' | '1on1' | 'internal'
 
-const CALDERA_DOMAINS = ['caldera.llc', 'calderaconsulting.com', 'withcaldera.com']
+const CALDERA_DOMAINS = ['withcaldera.com', 'bko.group']
 
 /**
  * Transcript connector that pulls processed transcripts from the `transcripts` table,

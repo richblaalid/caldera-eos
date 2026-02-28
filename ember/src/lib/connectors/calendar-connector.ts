@@ -97,7 +97,7 @@ function classifyEventType(event: calendar_v3.Schema$Event): CalendarEventType {
   // Check if all attendees are internal (same domain)
   const domains = attendees.map(a => (a.email || '').split('@')[1]).filter(Boolean)
   const uniqueDomains = new Set(domains)
-  const calderaDomains = ['caldera.llc', 'calderaconsulting.com']
+  const calderaDomains = ['withcaldera.com', 'bko.group']
   const allInternal = domains.length > 0 && [...uniqueDomains].every(d => calderaDomains.includes(d))
 
   if (allInternal) {
@@ -130,7 +130,7 @@ function extractEntities(event: calendar_v3.Schema$Event): IngestedEntities {
 
     if (attendee.email) {
       const domain = attendee.email.split('@')[1]
-      if (domain && !['gmail.com', 'caldera.llc', 'calderaconsulting.com', 'google.com'].includes(domain)) {
+      if (domain && !['gmail.com', 'withcaldera.com', 'bko.group', 'google.com'].includes(domain)) {
         domains.add(domain)
       }
     }
