@@ -14,7 +14,7 @@ export async function POST(request: Request) {
     }
 
     const { connector } = await request.json()
-    if (!connector || !['google', 'slack', 'quickbooks'].includes(connector)) {
+    if (!connector || !['google', 'slack', 'quickbooks', 'grain'].includes(connector)) {
       return NextResponse.json({ error: 'Invalid connector' }, { status: 400 })
     }
 
@@ -52,6 +52,14 @@ export async function POST(request: Request) {
       await serviceClient
         .from('partner_preferences')
         .update({ quickbooks_refresh_token: null, quickbooks_realm_id: null })
+        .eq('organization_id', orgId)
+        .eq('partner_id', user.id)
+    }
+
+    if (connector === 'grain') {
+      await serviceClient
+        .from('partner_preferences')
+        .update({ grain_refresh_token: null, grain_client_id: null })
         .eq('organization_id', orgId)
         .eq('partner_id', user.id)
     }

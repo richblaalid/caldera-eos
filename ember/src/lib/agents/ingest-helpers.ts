@@ -22,7 +22,7 @@ export function verifyCronAuth(request: NextRequest): NextResponse | null {
 export async function loadPartners() {
   return supabaseAdmin
     .from('partner_preferences')
-    .select('partner_id, organization_id, google_refresh_token, google_history_id, quickbooks_refresh_token, quickbooks_realm_id, config')
+    .select('partner_id, organization_id, google_refresh_token, google_history_id, quickbooks_refresh_token, quickbooks_realm_id, grain_refresh_token, grain_client_id, config')
 }
 
 /** Upsert connector records into ingested_data. */

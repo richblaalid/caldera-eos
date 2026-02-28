@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { transcriptConnector } from '@/lib/connectors/transcript-connector'
 import { listMeetings, fetchTranscript, fetchNotes, fetchCoaching } from '@/lib/connectors/grain-mcp-client'
+import type { GrainTokenConfig } from '@/lib/connectors/grain-mcp-client'
 import { parseGrainNotes } from '@/lib/connectors/grain-notes-parser'
 import { verifyCronAuth, loadPartners, persistRecords, supabaseAdmin } from '@/lib/agents/ingest-helpers'
 
@@ -33,17 +34,34 @@ export async function GET(request: NextRequest) {
 
       const config = (partner.config as Record<string, unknown>) || {}
 
+      // Build Grain token config from DB (preferred) or env vars (fallback)
+      const grainTokenConfig: GrainTokenConfig | undefined =
+        (partner.grain_refresh_token && partner.grain_client_id)
+          ? { refreshToken: partner.grain_refresh_token, clientId: partner.grain_client_id }
+          : undefined
+
       // Phase 1: Discover and ingest new meetings from Grain MCP
       try {
         const grainResult = await ingestFromGrainMcp(
           partner.organization_id,
           config.grain_last_sync as string | undefined,
+          grainTokenConfig,
         )
         results.grain_meetings_discovered += grainResult.discovered
         results.grain_transcripts_ingested += grainResult.ingested
         results.grain_notes_used += grainResult.notesUsed
         results.grain_coaching_ingested += grainResult.coachingIngested
         results.errors.push(...grainResult.errors)
+
+        // Persist rotated refresh token if it changed
+        if (grainResult.newRefreshToken) {
+          await supabaseAdmin
+            .from('partner_preferences')
+            .update({ grain_refresh_token: grainResult.newRefreshToken })
+            .eq('partner_id', partner.partner_id)
+            .eq('organization_id', partner.organization_id)
+          console.log('Grain: persisted rotated refresh token')
+        }
 
         // Update grain_last_sync if we discovered meetings
         if (grainResult.discovered > 0) {
@@ -110,18 +128,21 @@ export async function GET(request: NextRequest) {
 async function ingestFromGrainMcp(
   organizationId: string,
   lastSync?: string,
-): Promise<{ discovered: number; ingested: number; notesUsed: number; coachingIngested: number; errors: string[] }> {
+  tokenConfig?: GrainTokenConfig,
+): Promise<{ discovered: number; ingested: number; notesUsed: number; coachingIngested: number; newRefreshToken?: string; errors: string[] }> {
   const errors: string[] = []
 
-  // Skip if Grain MCP is not configured
-  if (!process.env.GRAIN_MCP_TOKEN && !process.env.GRAIN_MCP_REFRESH_TOKEN) {
+  // Skip if Grain MCP is not configured (no DB tokens and no env vars)
+  if (!tokenConfig && !process.env.GRAIN_MCP_TOKEN && !process.env.GRAIN_MCP_REFRESH_TOKEN) {
     return { discovered: 0, ingested: 0, notesUsed: 0, coachingIngested: 0, errors: [] }
   }
 
   // Discover meetings since last sync
-  const meetings = await listMeetings(lastSync)
+  const listResult = await listMeetings(lastSync, tokenConfig)
+  const meetings = listResult.meetings
+  const newRefreshToken = listResult.newRefreshToken
   if (meetings.length === 0) {
-    return { discovered: 0, ingested: 0, notesUsed: 0, coachingIngested: 0, errors: [] }
+    return { discovered: 0, ingested: 0, notesUsed: 0, coachingIngested: 0, newRefreshToken, errors: [] }
   }
 
   console.log(`Grain MCP: discovered ${meetings.length} meetings since ${lastSync || 'beginning'}`)
@@ -148,7 +169,7 @@ async function ingestFromGrainMcp(
 
     try {
       // Fetch transcript
-      const transcript = await fetchTranscript(meeting.id)
+      const transcript = await fetchTranscript(meeting.id, tokenConfig)
       if (!transcript || transcript.text.trim().length === 0) {
         console.log(`Grain MCP: no transcript for "${meeting.title}", skipping`)
         continue
@@ -156,7 +177,7 @@ async function ingestFromGrainMcp(
 
       // Fetch AI notes (may not exist for all meetings)
       let extractions = null
-      const notes = await fetchNotes(meeting.id)
+      const notes = await fetchNotes(meeting.id, tokenConfig)
       if (notes && notes.markdown.trim().length > 0) {
         extractions = parseGrainNotes(notes.markdown)
         notesUsed++
@@ -185,7 +206,7 @@ async function ingestFromGrainMcp(
       }
 
       // Fetch and persist coaching feedback (separate from transcript)
-      const coachingResult = await ingestCoachingFeedback(organizationId, meeting)
+      const coachingResult = await ingestCoachingFeedback(organizationId, meeting, tokenConfig)
       if (coachingResult.ingested) coachingIngested++
       if (coachingResult.error) errors.push(coachingResult.error)
     } catch (err: unknown) {
@@ -193,7 +214,7 @@ async function ingestFromGrainMcp(
     }
   }
 
-  return { discovered: meetings.length, ingested, notesUsed, coachingIngested, errors }
+  return { discovered: meetings.length, ingested, notesUsed, coachingIngested, newRefreshToken, errors }
 }
 
 /**
@@ -204,9 +225,10 @@ async function ingestFromGrainMcp(
 async function ingestCoachingFeedback(
   organizationId: string,
   meeting: { id: string; title: string; date: string; participants?: string[] },
+  tokenConfig?: GrainTokenConfig,
 ): Promise<{ ingested: boolean; error?: string }> {
   try {
-    const coaching = await fetchCoaching(meeting.id)
+    const coaching = await fetchCoaching(meeting.id, tokenConfig)
     if (!coaching || !coaching.markdown.trim()) {
       return { ingested: false }
     }
