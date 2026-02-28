@@ -4,6 +4,9 @@ import { quickbooksConnector } from '@/lib/connectors/quickbooks-connector'
 import { runFinancialAnalysis } from '@/lib/agents/financial-strategist'
 import { runPipelineAnalysis } from '@/lib/agents/bd-strategist'
 import { runOperationsAnalysis } from '@/lib/agents/operations-architect'
+import { runPatternDetection } from '@/lib/agents/pattern-detector'
+import { runMarketingAnalysis } from '@/lib/agents/marketing-strategist'
+import { runInnovationAnalysis } from '@/lib/agents/product-innovation'
 import { postSystemAlert } from '@/lib/connectors/slack-connector'
 
 export const dynamic = 'force-dynamic'
@@ -43,6 +46,9 @@ export async function GET(request: NextRequest) {
       financial_analysis: { orgs_processed: 0, outputs_created: 0, issues_created: 0, errors: [] as string[] },
       pipeline_analysis: { orgs_processed: 0, outputs_created: 0, issues_created: 0, errors: [] as string[] },
       operations_analysis: { orgs_processed: 0, outputs_created: 0, issues_created: 0, errors: [] as string[] },
+      pattern_detection: { orgs_processed: 0, patterns_detected: 0, issues_created: 0, errors: [] as string[] },
+      marketing_analysis: { orgs_processed: 0, outputs_created: 0, issues_created: 0, errors: [] as string[] },
+      innovation_analysis: { orgs_processed: 0, outputs_created: 0, issues_created: 0, errors: [] as string[] },
     }
 
     // Step 1: QuickBooks data ingestion per partner
@@ -141,6 +147,45 @@ export async function GET(request: NextRequest) {
       }
     }
 
+    // Step 5: Run Pattern Detection per organization
+    for (const orgId of allOrgs) {
+      try {
+        const alerts = await runPatternDetection(orgId)
+        results.pattern_detection.patterns_detected += alerts.length
+        results.pattern_detection.issues_created += alerts.filter(a => a.severity === 'escalation').length
+        results.pattern_detection.orgs_processed++
+      } catch (error: unknown) {
+        const err = error as { message?: string }
+        results.pattern_detection.errors.push(`Org ${orgId}: ${err.message || 'Unknown error'}`)
+      }
+    }
+
+    // Step 6: Run Marketing Strategist analysis per organization (weekly)
+    for (const orgId of allOrgs) {
+      try {
+        const result = await runMarketingAnalysis(orgId)
+        results.marketing_analysis.outputs_created += result.outputsCreated
+        results.marketing_analysis.issues_created += result.issuesCreated
+        results.marketing_analysis.orgs_processed++
+      } catch (error: unknown) {
+        const err = error as { message?: string }
+        results.marketing_analysis.errors.push(`Org ${orgId}: ${err.message || 'Unknown error'}`)
+      }
+    }
+
+    // Step 7: Run Product Innovation analysis per organization (weekly)
+    for (const orgId of allOrgs) {
+      try {
+        const result = await runInnovationAnalysis(orgId)
+        results.innovation_analysis.outputs_created += result.outputsCreated
+        results.innovation_analysis.issues_created += result.issuesCreated
+        results.innovation_analysis.orgs_processed++
+      } catch (error: unknown) {
+        const err = error as { message?: string }
+        results.innovation_analysis.errors.push(`Org ${orgId}: ${err.message || 'Unknown error'}`)
+      }
+    }
+
     const durationMs = Date.now() - startTime
 
     // Log run to agent_runs
@@ -165,7 +210,7 @@ export async function GET(request: NextRequest) {
     console.log('Overnight analysis complete:', results)
 
     // Alert on errors
-    const allErrors = [...results.qb_ingestion.errors, ...results.financial_analysis.errors, ...results.pipeline_analysis.errors, ...results.operations_analysis.errors]
+    const allErrors = [...results.qb_ingestion.errors, ...results.financial_analysis.errors, ...results.pipeline_analysis.errors, ...results.operations_analysis.errors, ...results.pattern_detection.errors, ...results.marketing_analysis.errors, ...results.innovation_analysis.errors]
     if (allErrors.length > 0 && firstOrgId) {
       await postSystemAlert(
         firstOrgId,

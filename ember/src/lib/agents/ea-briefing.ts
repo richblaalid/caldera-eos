@@ -5,6 +5,7 @@ import { createClient } from '@supabase/supabase-js'
 import type { BriefingItem, AgentWorkItem, BriefingInsert } from '@/types/agents'
 import { getSmartLookback, getTranscriptLabel } from './lookback'
 import { fetchIndustryNews, type NewsItem } from '@/lib/connectors/brave-search-client'
+import { runPatternDetection, type PatternAlert } from './pattern-detector'
 
 const supabaseAdmin = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -56,7 +57,7 @@ export async function generateBriefing(
   const today = toLocalDate(new Date(), timezone)
 
   // Gather all data sources in parallel
-  const [calendarEvents, recentEmails, eosData, agentOutputs, financialInsights, pipelineData, bdInsights, opsInsights, transcriptHighlights, coachingHighlights, ownerNames, industryNews] = await Promise.all([
+  const [calendarEvents, recentEmails, eosData, agentOutputs, financialInsights, pipelineData, bdInsights, opsInsights, marketingInsights, innovationInsights, transcriptHighlights, coachingHighlights, ownerNames, industryNews, patternAlerts] = await Promise.all([
     getCalendarEvents(organizationId, timezone),
     getRecentEmails(organizationId),
     getEOSData(organizationId),
@@ -65,10 +66,13 @@ export async function generateBriefing(
     getPipelineData(organizationId),
     getBDStrategistInsights(organizationId),
     getOperationsInsights(organizationId),
+    getMarketingInsights(organizationId),
+    getInnovationInsights(organizationId),
     getTranscriptHighlights(organizationId),
     getRecentCoaching(organizationId),
     getOwnerNames(organizationId),
     fetchIndustryNews(),
+    runPatternDetection(organizationId).catch(() => [] as PatternAlert[]),
   ])
 
   // Build the user prompt with all available data
@@ -81,10 +85,13 @@ export async function generateBriefing(
     pipelineData,
     bdInsights,
     opsInsights,
+    marketingInsights,
+    innovationInsights,
     transcriptHighlights,
     coachingHighlights,
     ownerNames,
     industryNews,
+    patternAlerts,
     today,
   })
 
@@ -417,6 +424,9 @@ async function getPendingAgentOutputs(organizationId: string) {
     'financial-strategist': 'Financial Strategist',
     'bd-strategist': 'BD Strategist',
     'operations-architect': 'Operations Architect',
+    'marketing-strategist': 'Marketing Strategist',
+    'pattern-detector': 'Pattern Detector',
+    'product-innovation': 'Product Innovation Officer',
     'ea': 'Executive Assistant',
   }
   return (data || []).map(d => ({
@@ -472,6 +482,44 @@ async function getOperationsInsights(organizationId: string) {
     .eq('agent_id', 'operations-architect')
     .eq('output_type', 'analysis')
     .gte('created_at', oneDayAgo)
+    .order('created_at', { ascending: false })
+    .limit(1)
+
+  if (!data || data.length === 0) return null
+
+  return data[0].content as Record<string, unknown>
+}
+
+async function getMarketingInsights(organizationId: string) {
+  // Marketing runs weekly — look back further (7 days)
+  const sevenDaysAgo = getSmartLookback(168)
+
+  const { data } = await supabaseAdmin
+    .from('agent_outputs')
+    .select('title, summary, content')
+    .eq('organization_id', organizationId)
+    .eq('agent_id', 'marketing-strategist')
+    .eq('output_type', 'analysis')
+    .gte('created_at', sevenDaysAgo)
+    .order('created_at', { ascending: false })
+    .limit(1)
+
+  if (!data || data.length === 0) return null
+
+  return data[0].content as Record<string, unknown>
+}
+
+async function getInnovationInsights(organizationId: string) {
+  // Innovation runs weekly — look back further (7 days)
+  const sevenDaysAgo = getSmartLookback(168)
+
+  const { data } = await supabaseAdmin
+    .from('agent_outputs')
+    .select('title, summary, content')
+    .eq('organization_id', organizationId)
+    .eq('agent_id', 'product-innovation')
+    .eq('output_type', 'analysis')
+    .gte('created_at', sevenDaysAgo)
     .order('created_at', { ascending: false })
     .limit(1)
 
@@ -592,10 +640,13 @@ function buildBriefingPrompt(data: {
   pipelineData: PipelineData | null
   bdInsights: Record<string, unknown> | null
   opsInsights: Record<string, unknown> | null
+  marketingInsights: Record<string, unknown> | null
+  innovationInsights: Record<string, unknown> | null
   transcriptHighlights: TranscriptHighlight[]
   coachingHighlights: CoachingHighlight[]
   ownerNames: Map<string, string>
   industryNews: NewsItem[]
+  patternAlerts: PatternAlert[]
   today: string
 }): string {
   const sections: string[] = []
@@ -848,6 +899,88 @@ function buildBriefingPrompt(data: {
     }
   }
 
+  // Marketing Strategist insights (weekly)
+  if (data.marketingInsights) {
+    const mkt = data.marketingInsights
+    const mktSections: string[] = []
+
+    if (mkt.headline) mktSections.push(`**Headline: ${mkt.headline}**`)
+
+    const posScore = mkt.positioning_score as { score: number; rationale: string } | undefined
+    if (posScore) {
+      mktSections.push(`Positioning Score: ${posScore.score}/10 — ${posScore.rationale}`)
+    }
+
+    const competitors = mkt.competitive_landscape as Array<{ competitor: string; threat_level: string; notable_activity: string | null }> | undefined
+    if (competitors && competitors.length > 0) {
+      const highThreats = competitors.filter(c => c.threat_level === 'high' || c.notable_activity)
+      if (highThreats.length > 0) {
+        mktSections.push('Competitive Activity:\n' + highThreats.map(c =>
+          `- [${c.threat_level.toUpperCase()}] ${c.competitor}${c.notable_activity ? `: ${c.notable_activity}` : ''}`
+        ).join('\n'))
+      }
+    }
+
+    const contentOpps = mkt.content_opportunities as Array<{ topic: string; priority: string; format: string }> | undefined
+    if (contentOpps && contentOpps.length > 0) {
+      const highPriority = contentOpps.filter(c => c.priority === 'high').slice(0, 3)
+      if (highPriority.length > 0) {
+        mktSections.push('Top Content Opportunities:\n' + highPriority.map(c =>
+          `- ${c.topic} (${c.format})`
+        ).join('\n'))
+      }
+    }
+
+    if (mktSections.length > 0) {
+      sections.push(`## Marketing & Positioning (Marketing Strategist)\n${mktSections.join('\n')}`)
+    }
+  }
+
+  // Product Innovation insights (weekly)
+  if (data.innovationInsights) {
+    const inn = data.innovationInsights
+    const innSections: string[] = []
+
+    if (inn.headline) innSections.push(`**Headline: ${inn.headline}**`)
+
+    const trends = inn.technology_trends as Array<{ trend: string; relevance: number; opportunity_type: string; time_horizon: string }> | undefined
+    if (trends && trends.length > 0) {
+      const highRelevance = trends.filter(t => t.relevance >= 7).slice(0, 3)
+      if (highRelevance.length > 0) {
+        innSections.push('Key Tech Trends:\n' + highRelevance.map(t =>
+          `- ${t.trend} (relevance: ${t.relevance}/10, ${t.opportunity_type}, ${t.time_horizon})`
+        ).join('\n'))
+      }
+    }
+
+    const seeds = inn.opportunity_seeds as Array<{ idea: string; origin: string; potential: string }> | undefined
+    if (seeds && seeds.length > 0) {
+      innSections.push('Opportunity Seeds:\n' + seeds.slice(0, 3).map(s =>
+        `- ${s.idea} [${s.origin}] — ${s.potential}`
+      ).join('\n'))
+    }
+
+    if (innSections.length > 0) {
+      sections.push(`## Product & Innovation (Innovation Officer)\n${innSections.join('\n')}`)
+    }
+  }
+
+  // Pattern Detection alerts — "surface what's not being said"
+  if (data.patternAlerts.length > 0) {
+    const concerns = data.patternAlerts.filter(a => a.severity === 'concern' || a.severity === 'escalation')
+    const observations = data.patternAlerts.filter(a => a.severity === 'observation')
+
+    const alertLines: string[] = []
+    for (const alert of concerns) {
+      alertLines.push(`- [${alert.severity.toUpperCase()}] ${alert.title}\n  ${alert.detail}\n  Recommended: ${alert.recommended_action}`)
+    }
+    for (const alert of observations) {
+      alertLines.push(`- [OBSERVATION] ${alert.title}\n  ${alert.detail}`)
+    }
+
+    sections.push(`## Pattern Observations (${data.patternAlerts.length} patterns detected)\n${alertLines.join('\n')}`)
+  }
+
   // Sales coaching highlights (from Grain AI coaching)
   if (data.coachingHighlights.length > 0) {
     const coaching = data.coachingHighlights.map(c => {
@@ -890,5 +1023,6 @@ Instructions:
 - For To-dos, mention the owner name and due date.
 - Financial insights from the Financial Strategist should be prominently featured — AR alerts and threshold breaches in Tier 1, cash flow and margins in Tier 2.
 - If transcript highlights are available from yesterday's meetings, incorporate key follow-ups and action items into Tier 1 (if urgent) or Tier 2. Mention specific commitments people made and decisions that affect upcoming work.
-- If sales coaching highlights are available, include a summary in Tier 2 highlighting coaching opportunities and strengths. Reference specific meetings and participants.`
+- If sales coaching highlights are available, include a summary in Tier 2 highlighting coaching opportunities and strengths. Reference specific meetings and participants.
+- If pattern observations are available, surface CONCERN and ESCALATION patterns in Tier 1 (these are behavioral gaps the team may be avoiding). OBSERVATION patterns go in Tier 2. Pattern detection reveals what's NOT being said — stalled rocks marked on-track, scorecard misses without issues, topics avoided in meetings, and untracked commitments.`
 }
