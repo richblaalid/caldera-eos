@@ -57,7 +57,7 @@ export async function generateBriefing(
   const today = toLocalDate(new Date(), timezone)
 
   // Gather all data sources in parallel
-  const [calendarEvents, recentEmails, eosData, agentOutputs, financialInsights, pipelineData, bdInsights, opsInsights, marketingInsights, transcriptHighlights, coachingHighlights, ownerNames, industryNews, patternAlerts] = await Promise.all([
+  const [calendarEvents, recentEmails, eosData, agentOutputs, financialInsights, pipelineData, bdInsights, opsInsights, marketingInsights, innovationInsights, transcriptHighlights, coachingHighlights, ownerNames, industryNews, patternAlerts] = await Promise.all([
     getCalendarEvents(organizationId, timezone),
     getRecentEmails(organizationId),
     getEOSData(organizationId),
@@ -67,6 +67,7 @@ export async function generateBriefing(
     getBDStrategistInsights(organizationId),
     getOperationsInsights(organizationId),
     getMarketingInsights(organizationId),
+    getInnovationInsights(organizationId),
     getTranscriptHighlights(organizationId),
     getRecentCoaching(organizationId),
     getOwnerNames(organizationId),
@@ -85,6 +86,7 @@ export async function generateBriefing(
     bdInsights,
     opsInsights,
     marketingInsights,
+    innovationInsights,
     transcriptHighlights,
     coachingHighlights,
     ownerNames,
@@ -424,6 +426,7 @@ async function getPendingAgentOutputs(organizationId: string) {
     'operations-architect': 'Operations Architect',
     'marketing-strategist': 'Marketing Strategist',
     'pattern-detector': 'Pattern Detector',
+    'product-innovation': 'Product Innovation Officer',
     'ea': 'Executive Assistant',
   }
   return (data || []).map(d => ({
@@ -496,6 +499,25 @@ async function getMarketingInsights(organizationId: string) {
     .select('title, summary, content')
     .eq('organization_id', organizationId)
     .eq('agent_id', 'marketing-strategist')
+    .eq('output_type', 'analysis')
+    .gte('created_at', sevenDaysAgo)
+    .order('created_at', { ascending: false })
+    .limit(1)
+
+  if (!data || data.length === 0) return null
+
+  return data[0].content as Record<string, unknown>
+}
+
+async function getInnovationInsights(organizationId: string) {
+  // Innovation runs weekly — look back further (7 days)
+  const sevenDaysAgo = getSmartLookback(168)
+
+  const { data } = await supabaseAdmin
+    .from('agent_outputs')
+    .select('title, summary, content')
+    .eq('organization_id', organizationId)
+    .eq('agent_id', 'product-innovation')
     .eq('output_type', 'analysis')
     .gte('created_at', sevenDaysAgo)
     .order('created_at', { ascending: false })
@@ -619,6 +641,7 @@ function buildBriefingPrompt(data: {
   bdInsights: Record<string, unknown> | null
   opsInsights: Record<string, unknown> | null
   marketingInsights: Record<string, unknown> | null
+  innovationInsights: Record<string, unknown> | null
   transcriptHighlights: TranscriptHighlight[]
   coachingHighlights: CoachingHighlight[]
   ownerNames: Map<string, string>
@@ -910,6 +933,35 @@ function buildBriefingPrompt(data: {
 
     if (mktSections.length > 0) {
       sections.push(`## Marketing & Positioning (Marketing Strategist)\n${mktSections.join('\n')}`)
+    }
+  }
+
+  // Product Innovation insights (weekly)
+  if (data.innovationInsights) {
+    const inn = data.innovationInsights
+    const innSections: string[] = []
+
+    if (inn.headline) innSections.push(`**Headline: ${inn.headline}**`)
+
+    const trends = inn.technology_trends as Array<{ trend: string; relevance: number; opportunity_type: string; time_horizon: string }> | undefined
+    if (trends && trends.length > 0) {
+      const highRelevance = trends.filter(t => t.relevance >= 7).slice(0, 3)
+      if (highRelevance.length > 0) {
+        innSections.push('Key Tech Trends:\n' + highRelevance.map(t =>
+          `- ${t.trend} (relevance: ${t.relevance}/10, ${t.opportunity_type}, ${t.time_horizon})`
+        ).join('\n'))
+      }
+    }
+
+    const seeds = inn.opportunity_seeds as Array<{ idea: string; origin: string; potential: string }> | undefined
+    if (seeds && seeds.length > 0) {
+      innSections.push('Opportunity Seeds:\n' + seeds.slice(0, 3).map(s =>
+        `- ${s.idea} [${s.origin}] — ${s.potential}`
+      ).join('\n'))
+    }
+
+    if (innSections.length > 0) {
+      sections.push(`## Product & Innovation (Innovation Officer)\n${innSections.join('\n')}`)
     }
   }
 
