@@ -256,26 +256,6 @@ export interface FYIItem {
   source: string
 }
 
-export interface BriefingV2 {
-  id: string
-  organization_id: string
-  partner_id: string
-  briefing_date: string
-  briefing_version: 2
-  is_monday: boolean
-  tactical_items: TacticalItem[]
-  strategic_items: StrategicItem[]
-  fyi_item: FYIItem | null
-  agent_work_queue: AgentWorkItem[]
-  agent_work_queue_overflow: number
-  agent_insights: AgentInsightItem[]
-  slack_message_ts: string | null
-  slack_channel_id: string | null
-  delivered_at: string | null
-  commands_processed: BriefingCommand[]
-  created_at: string
-}
-
 export interface BriefingInsertV2 {
   id?: string
   organization_id: string
@@ -332,38 +312,6 @@ export interface PartnerPreferencesInsert {
 }
 
 // =============================================
-// Agent Runtime Types
-// =============================================
-
-export interface AgentInvocation {
-  agentId: string
-  trigger: AgentTriggerType
-  triggerContext: Record<string, unknown>
-  requestingAgent?: string
-  requestingPartner?: string
-}
-
-export interface AgentResult {
-  outputs: AgentOutputInsert[]
-  notifications: SlackNotification[]
-  eosActions: EOSAction[]
-  errors: AgentRunError[]
-  tokenUsage: { input: number; output: number }
-}
-
-export interface SlackNotification {
-  channel: string
-  text: string
-  blocks?: Record<string, unknown>[]
-  thread_ts?: string
-}
-
-export interface EOSAction {
-  type: 'create_issue' | 'create_todo' | 'update_scorecard'
-  payload: Record<string, unknown>
-}
-
-// =============================================
 // Command Parser Types
 // =============================================
 
@@ -382,31 +330,8 @@ export interface ParsedCommand {
 
 export type EmailCategory = 'client' | 'prospect' | 'vendor' | 'internal' | 'newsletter' | 'other'
 
-export interface ClassifiedEmail {
-  id: string
-  from: string
-  subject: string
-  snippet: string
-  category: EmailCategory
-  entities: IngestedEntities
-  action_needed: boolean
-  priority: 'high' | 'medium' | 'low'
-  timestamp: string
-}
-
 // =============================================
 // Calendar Types
 // =============================================
 
 export type CalendarEventType = 'client_meeting' | 'internal' | 'l10' | '1on1' | 'external' | 'other'
-
-export interface ClassifiedCalendarEvent {
-  id: string
-  title: string
-  start: string
-  end: string
-  attendees: string[]
-  event_type: CalendarEventType
-  entities: IngestedEntities
-  prep_notes?: string
-}

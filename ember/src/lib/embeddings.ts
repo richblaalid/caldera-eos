@@ -33,12 +33,12 @@ function getOpenAIClient(): OpenAI {
 // Types
 // =============================================
 
-export interface EmbeddingResult {
+interface EmbeddingResult {
   embedding: number[]
   tokenCount: number
 }
 
-export interface BatchEmbeddingResult {
+interface BatchEmbeddingResult {
   embeddings: number[][]
   totalTokens: number
 }
@@ -58,7 +58,7 @@ export async function generateEmbedding(text: string): Promise<number[]> {
 /**
  * Generate an embedding with token count metadata
  */
-export async function generateEmbeddingWithMetadata(
+async function generateEmbeddingWithMetadata(
   text: string
 ): Promise<EmbeddingResult> {
   const client = getOpenAIClient()
@@ -113,7 +113,7 @@ export async function generateEmbeddings(texts: string[]): Promise<number[][]> {
 /**
  * Generate embeddings for multiple texts with metadata
  */
-export async function generateEmbeddingsWithMetadata(
+async function generateEmbeddingsWithMetadata(
   texts: string[]
 ): Promise<BatchEmbeddingResult> {
   if (texts.length === 0) {
@@ -208,14 +208,3 @@ function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms))
 }
 
-// =============================================
-// Exports for Testing
-// =============================================
-
-export const __testing = {
-  EMBEDDING_MODEL,
-  EMBEDDING_DIMENSIONS,
-  MAX_BATCH_SIZE,
-  truncateText,
-  isRateLimitError,
-}

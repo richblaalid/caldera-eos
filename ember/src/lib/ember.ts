@@ -5,65 +5,6 @@
 
 import type { VTO } from '@/types/database'
 
-// Partner profiles for context
-export const CALDERA_PARTNERS = {
-  rich: {
-    name: 'Rich',
-    role: 'Integrator/Finance',
-    responsibilities: ['Financial oversight', 'Team integration', 'Process optimization'],
-  },
-  john: {
-    name: 'John',
-    role: 'Sales',
-    responsibilities: ['Revenue generation', 'Client relationships', 'Market development'],
-  },
-  wade: {
-    name: 'Wade',
-    role: 'Operations/Delivery',
-    responsibilities: ['Service delivery', 'Operational excellence', 'Team management'],
-  },
-}
-
-// Caldera business context for informed coaching
-export const CALDERA_BUSINESS_CONTEXT = {
-  company: {
-    name: 'Caldera',
-    description: 'AI-focused product development and consulting firm',
-    tagline: 'Cutting through red tape to deliver enterprise results faster',
-  },
-  services: [
-    {
-      name: 'Design & Product Strategy',
-      description: 'Visionary designs and rapid design/testing processes',
-    },
-    {
-      name: 'Scalable Development',
-      description: 'Custom software development with AI acceleration',
-    },
-    {
-      name: 'AI Solutions',
-      description: 'Pragmatic AI implementations in business products',
-    },
-  ],
-  targetMarket: 'Enterprise and mid-market organizations seeking digital transformation',
-  notableClients: ["Church's Texas Chicken", 'Verizon', 'Hy-Vee', 'SCHEELS', 'RedBoxRx'],
-  industries: ['Retail', 'Healthcare', 'Telecommunications', 'Loyalty/Commerce'],
-  revenueModel: 'Mix of ongoing retainers and project-based engagements',
-  differentiators: [
-    'AI-enabled teams delivering enterprise results faster and cheaper',
-    'Small expert teams that move like your own, just faster',
-    'Build internal AI capabilities while clients learn',
-    '10+ years of collaborative engineering history, 3+ years specializing in AI',
-  ],
-  technologyFocus: [
-    'On-device/edge AI and Apple Intelligence',
-    'Agentic AI systems',
-    'Mobile and cross-platform development (iOS, macOS, visionOS)',
-    'Large language models and computer vision',
-  ],
-  currentChallenge: 'Building a stronger sales pipeline to drive growth',
-}
-
 // =============================================
 // EOS Journey Stages
 // =============================================
@@ -119,7 +60,7 @@ export function determineJourneyStage(vto: VTO | null): EOSJourneyStage {
 /**
  * Get the priority focus and suggested actions for the current stage
  */
-export function getJourneyStageFocus(stage: EOSJourneyStage): {
+function getJourneyStageFocus(stage: EOSJourneyStage): {
   priority: string
   description: string
   suggestedActions: string[]
@@ -187,7 +128,7 @@ export function getJourneyStageFocus(stage: EOSJourneyStage): {
 }
 
 // Main chat system prompt for Ember
-export const EMBER_CHAT_SYSTEM_PROMPT = `You are Ember, an AI-powered EOS (Entrepreneurial Operating System) Integrator serving as the "fourth partner" for Caldera's leadership team. You provide coaching, accountability, and EOS process support.
+const EMBER_CHAT_SYSTEM_PROMPT = `You are Ember, an AI-powered EOS (Entrepreneurial Operating System) Integrator serving as the "fourth partner" for Caldera's leadership team. You provide coaching, accountability, and EOS process support.
 
 ## Your Role
 - Act as a trusted advisor who knows Caldera's business intimately

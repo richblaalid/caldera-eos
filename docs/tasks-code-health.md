@@ -164,54 +164,54 @@
 
 ### 3.1 Remove v1 briefing stack
 
-- [ ] **3.1.1** Remove `generateBriefingV1` and v1 helpers from ea-briefing.ts
+- [x] **3.1.1** Remove `generateBriefingV1` and v1 helpers from ea-briefing.ts
   - Remove: `generateBriefingV1`, `briefingSchemaV1`, `buildEASystemPrompt`, `buildBriefingPrompt`
   - **File:** `ember/src/lib/agents/ea-briefing.ts`
 
-- [ ] **3.1.2** Remove v1 formatter and v1 branch from slack-briefing.ts
+- [x] **3.1.2** Remove v1 formatter and v1 branch from slack-briefing.ts
   - Remove: `formatBriefingBlocks`, v1 conditional in `deliverBriefing`
   - **File:** `ember/src/lib/agents/slack-briefing.ts`
 
 ### 3.2 Remove unused orchestration layer
 
-- [ ] **3.2.1** Remove `invokeAgent` and dead exports from agent-runtime.ts
+- [x] **3.2.1** Remove `invokeAgent` and dead exports from agent-runtime.ts
   - Keep: `saveAgentOutput`, `loadAgentDefinition` (if used elsewhere)
   - Remove: `invokeAgent`, dead re-exports
   - **File:** `ember/src/lib/agents/agent-runtime.ts`
 
-- [ ] **3.2.2** Delete prompt-manager.ts
+- [x] **3.2.2** Delete prompt-manager.ts
   - Entire file is dead code
   - **Delete:** `ember/src/lib/agents/prompt-manager.ts`
 
 ### 3.3 Remove unused exports
 
-- [ ] **3.3.1** Remove unused exports from slack.ts
+- [x] **3.3.1** Remove unused exports from slack.ts
   - Remove: `findSlackUserByEmail`, `syncSlackUserIds`
   - **File:** `ember/src/lib/slack.ts`
 
-- [ ] **3.3.2** Remove unused exports from hybrid-search.ts
+- [x] **3.3.2** Remove unused exports from hybrid-search.ts
   - Remove: `searchTranscripts`, `searchEOSKnowledge`, `keywordSearch`, `semanticSearch`
   - **File:** `ember/src/lib/hybrid-search.ts`
 
-- [ ] **3.3.3** Remove unused exports from ember.ts
+- [x] **3.3.3** Remove unused exports from ember.ts
   - Remove: `CALDERA_PARTNERS`, `CALDERA_BUSINESS_CONTEXT`
   - Un-export (make private): `EMBER_CHAT_SYSTEM_PROMPT`, `getJourneyStageFocus`
   - **File:** `ember/src/lib/ember.ts`
 
-- [ ] **3.3.4** Remove unused exports from embeddings.ts
+- [x] **3.3.4** Remove unused exports from embeddings.ts
   - Remove: `generateEmbeddingWithMetadata`, `generateEmbeddingsWithMetadata`, `EmbeddingResult`, `BatchEmbeddingResult`, `__testing`
   - **File:** `ember/src/lib/embeddings.ts`
 
-- [ ] **3.3.5** Remove `EMBER_TOOLS` array from ember-tools.ts
+- [x] **3.3.5** Remove `EMBER_TOOLS` array from ember-tools.ts
   - Remove the Anthropic SDK format tool array (superseded by Vercel AI SDK format)
   - **File:** `ember/src/lib/ember-tools.ts`
 
 ### 3.4 Remove orphaned files and unused types
 
-- [ ] **3.4.1** Delete orphaned proxy.ts
+- [x] **3.4.1** Delete orphaned proxy.ts
   - **Delete:** `ember/src/proxy.ts`
 
-- [ ] **3.4.2** Remove unused types from agents.ts
+- [x] **3.4.2** Remove unused types from agents.ts
   - Remove: `BriefingV2`, `ClassifiedEmail`, `ClassifiedCalendarEvent`, `AgentInvocation`, `AgentResult`, `SlackNotification`, `EOSAction`
   - **File:** `ember/src/types/agents.ts`
 
@@ -328,3 +328,4 @@
 | 0.3.1-0.3.2 | 2026-03-01 | Phase 0 commit |
 | 1.1.1-1.5.1 | 2026-03-01 | Phase 1 commit |
 | 2.1.1-2.2.4 | 2026-03-01 | Phase 2 commit |
+| 3.1.1-3.4.2 | 2026-03-01 | Phase 3 commit |
