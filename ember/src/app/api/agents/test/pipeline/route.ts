@@ -82,12 +82,14 @@ export async function GET(request: NextRequest) {
         results.briefing = {
           status: 'success',
           briefing_id: briefingId,
-          tier1_count: briefing.tier1_urgent?.length || 0,
-          tier2_count: briefing.tier2_business?.length || 0,
-          tier3_count: briefing.tier3_industry?.length || 0,
+          briefing_version: briefing.briefing_version,
+          is_monday: briefing.is_monday,
+          tactical_count: briefing.tactical_items?.length || 0,
+          strategic_count: briefing.strategic_items?.length || 0,
+          has_fyi: !!briefing.fyi_item,
           work_queue_count: briefing.agent_work_queue?.length || 0,
-          tier1_items: briefing.tier1_urgent?.map(i => i.title),
-          tier2_items: briefing.tier2_business?.map(i => i.title),
+          tactical_items: briefing.tactical_items?.map(i => ({ title: i.title, urgency: i.urgency })),
+          strategic_items: briefing.strategic_items?.map(i => ({ title: i.title, category: i.category, trend: i.trend })),
         }
 
         // Step 3: Deliver via Slack
@@ -126,7 +128,7 @@ export async function GET(request: NextRequest) {
         .limit(5),
       supabaseAdmin
         .from('briefings')
-        .select('id, briefing_date, delivered_at, slack_message_ts')
+        .select('id, briefing_date, briefing_version, is_monday, delivered_at, slack_message_ts')
         .eq('partner_id', partnerId)
         .order('created_at', { ascending: false })
         .limit(3),

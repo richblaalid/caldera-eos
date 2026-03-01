@@ -2,7 +2,7 @@ import { createClient } from '@supabase/supabase-js'
 import { getSlackClient, postBlockMessage, openDM } from '@/lib/connectors/slack-connector'
 import { markBriefingDelivered } from './ea-briefing'
 import { escapeSlackMrkdwn, chunkForSlackSections } from '@/lib/slack-format'
-import type { BriefingInsert } from '@/types/agents'
+import type { BriefingInsert, BriefingInsertV2, AgentWorkItem } from '@/types/agents'
 
 /** Shorthand for escaping user content */
 const esc = escapeSlackMrkdwn
@@ -191,16 +191,164 @@ export function formatBriefingBlocks(briefing: BriefingInsert, timezone: string 
   return blocks
 }
 
+// ============================================
+// v2 Formatter — Tactical Daily + Strategic Monday
+// ============================================
+
+/** Urgency emoji for tactical items */
+function urgencyEmoji(urgency: string): string {
+  return urgency === 'must-do' ? ':red_circle:' : ':large_yellow_circle:'
+}
+
+/** Category emoji for strategic items */
+function categoryEmoji(category: string): string {
+  const map: Record<string, string> = {
+    financial: ':bank:',
+    pipeline: ':dart:',
+    rocks: ':mountain:',
+    positioning: ':mega:',
+    pattern: ':mag:',
+  }
+  return map[category] || ':chart_with_upwards_trend:'
+}
+
+/** Trend indicator for strategic items */
+function trendIcon(trend: string): string {
+  const map: Record<string, string> = {
+    improving: ':arrow_upper_right:',
+    stable: ':arrow_right:',
+    declining: ':arrow_lower_right:',
+    new: ':new:',
+  }
+  return map[trend] || ''
+}
+
+/**
+ * Format a v2 briefing into Slack Block Kit blocks.
+ * Daily (Tue-Fri): numbered tactical items only.
+ * Monday: tactical items + strategic pulse section.
+ */
+export function formatV2Blocks(briefing: BriefingInsertV2, timezone: string = 'America/Chicago'): Record<string, unknown>[] {
+  const blocks: Record<string, unknown>[] = []
+  const tactical = briefing.tactical_items || []
+  const strategic = briefing.strategic_items || []
+  const fyi = briefing.fyi_item
+  const workQueue = briefing.agent_work_queue || []
+
+  // Header with greeting
+  blocks.push({
+    type: 'header',
+    text: { type: 'plain_text', text: `${getGreeting(timezone)} — ${formatDate(briefing.briefing_date)}`, emoji: true },
+  })
+
+  // Quick stats
+  const statsLine = [
+    `${tactical.length} priorities`,
+    workQueue.length > 0 ? `${workQueue.length} for review` : null,
+    briefing.is_monday ? ':chart_with_upwards_trend: strategic pulse' : null,
+  ].filter(Boolean).join(' · ')
+  blocks.push({
+    type: 'context',
+    elements: [{ type: 'mrkdwn', text: statsLine }],
+  })
+
+  // Tactical items — numbered, action-oriented
+  blocks.push({ type: 'divider' })
+  blocks.push({
+    type: 'section',
+    text: { type: 'mrkdwn', text: ':pushpin: *Today\'s Priorities*' },
+  })
+
+  for (const item of tactical) {
+    const emoji = urgencyEmoji(item.urgency)
+    blocks.push({
+      type: 'section',
+      text: {
+        type: 'mrkdwn',
+        text: `${emoji} *${item.id}.* ${esc(item.title)}\n      ${esc(item.context)}`,
+      },
+    })
+  }
+
+  // Strategic Pulse (Monday only)
+  if (briefing.is_monday && strategic.length > 0) {
+    blocks.push({ type: 'divider' })
+    blocks.push({
+      type: 'section',
+      text: { type: 'mrkdwn', text: ':chart_with_upwards_trend: *Strategic Pulse*' },
+    })
+
+    for (const item of strategic) {
+      const catEmoji = categoryEmoji(item.category)
+      const trend = trendIcon(item.trend)
+      blocks.push({
+        type: 'section',
+        text: {
+          type: 'mrkdwn',
+          text: `${catEmoji} *${esc(item.title)}* ${trend}\n      ${esc(item.detail)}`,
+        },
+      })
+    }
+  }
+
+  // FYI (single item, if present)
+  if (fyi) {
+    blocks.push({ type: 'divider' })
+    blocks.push({
+      type: 'context',
+      elements: [{
+        type: 'mrkdwn',
+        text: `:bulb: ${fyi.source?.startsWith('http') ? `<${fyi.source}|${esc(fyi.text)}>` : esc(fyi.text)}`,
+      }],
+    })
+  }
+
+  // Agent Work Queue (compact — same as v1)
+  if (workQueue.length > 0) {
+    blocks.push({ type: 'divider' })
+    blocks.push({
+      type: 'section',
+      text: { type: 'mrkdwn', text: ':crystal_ball: *Ember Work Queue*' },
+    })
+    const queueLines = workQueue.map((item: AgentWorkItem) => {
+      const emoji = agentEmoji(item.agent_id)
+      const statusIcon = item.status === 'pending_review' ? ':yellow-card:' : ':green-card:'
+      return `${statusIcon} *${item.id}.* ${esc(item.title)} _[${emoji} ${esc(item.agent_name)}]_\n      ${esc(item.summary)}`
+    })
+    for (const chunk of chunkForSlackSections(queueLines, '\n')) {
+      blocks.push({
+        type: 'section',
+        text: { type: 'mrkdwn', text: chunk },
+      })
+    }
+    blocks.push({
+      type: 'context',
+      elements: [{ type: 'mrkdwn', text: '_Reply: "approve 1", "reject 2 — reason", or "defer 3 to Friday"_' }],
+    })
+  }
+
+  // Footer
+  blocks.push({ type: 'divider' })
+  blocks.push({
+    type: 'context',
+    elements: [{
+      type: 'mrkdwn',
+      text: '_Reply to chat with Ember · React with :white_check_mark: :pause_button: :x: for quick actions_',
+    }],
+  })
+
+  return blocks
+}
+
 /**
  * Deliver a briefing to a partner's Slack DM.
- * Looks up their slack_user_id, opens a DM, posts the briefing,
- * and stores the message_ts for threading.
+ * Supports both v1 and v2 briefing formats.
  */
 export async function deliverBriefing(
   partnerId: string,
   organizationId: string,
   briefingId: string,
-  briefing: BriefingInsert,
+  briefing: BriefingInsert | BriefingInsertV2,
   timezone: string = 'America/Chicago'
 ): Promise<{ success: boolean; error?: string }> {
   // Get partner's Slack user ID
@@ -231,17 +379,35 @@ export async function deliverBriefing(
     return { success: false, error: msg }
   }
 
-  // Format and post
-  const blocks = formatBriefingBlocks(briefing, timezone)
-  const tier1 = briefing.tier1_urgent || []
-  const tier2 = briefing.tier2_business || []
-  const wq = briefing.agent_work_queue || []
-  const fallbackParts = [
-    tier1.length > 0 ? `${tier1.length} urgent` : null,
-    tier2.length > 0 ? `${tier2.length} updates` : null,
-    wq.length > 0 ? `${wq.length} items for review` : null,
-  ].filter(Boolean).join(', ')
-  const fallbackText = `Morning Briefing — ${briefing.briefing_date}${fallbackParts ? ` | ${fallbackParts}` : ''}`
+  // Format and post — route based on briefing version
+  const isV2 = 'briefing_version' in briefing && briefing.briefing_version === 2
+  const blocks = isV2
+    ? formatV2Blocks(briefing as BriefingInsertV2, timezone)
+    : formatBriefingBlocks(briefing as BriefingInsert, timezone)
+
+  let fallbackText: string
+  if (isV2) {
+    const v2 = briefing as BriefingInsertV2
+    const tactical = v2.tactical_items || []
+    const wq = v2.agent_work_queue || []
+    const parts = [
+      `${tactical.length} priorities`,
+      wq.length > 0 ? `${wq.length} for review` : null,
+      v2.is_monday ? '+ strategic pulse' : null,
+    ].filter(Boolean).join(', ')
+    fallbackText = `Morning Briefing — ${briefing.briefing_date} | ${parts}`
+  } else {
+    const v1 = briefing as BriefingInsert
+    const tier1 = v1.tier1_urgent || []
+    const tier2 = v1.tier2_business || []
+    const wq = v1.agent_work_queue || []
+    const parts = [
+      tier1.length > 0 ? `${tier1.length} urgent` : null,
+      tier2.length > 0 ? `${tier2.length} updates` : null,
+      wq.length > 0 ? `${wq.length} items for review` : null,
+    ].filter(Boolean).join(', ')
+    fallbackText = `Morning Briefing — ${briefing.briefing_date}${parts ? ` | ${parts}` : ''}`
+  }
 
   const result = await postBlockMessage(client, channelId, fallbackText, blocks, { unfurl_links: false, unfurl_media: false })
   if (!result?.ts) {

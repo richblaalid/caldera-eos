@@ -1132,7 +1132,7 @@ All 48 tasks completed. See `docs/archive/v1.0/` for original task definitions.
 
 ### 17.2 Prompt & Generation
 
-- [ ] **17.2.1** Rewrite `briefingSchema` Zod schema in `ea-briefing.ts`
+- [x] **17.2.1** Rewrite `briefingSchema` Zod schema in `ea-briefing.ts`
   - `tactical_items`: array of 1-5, each with action-verb title, one-line context, source, urgency
   - `strategic_items`: array of 0-5, each with metric headline, trend detail, category, direction
   - `fyi_item`: nullable single item with text and source
@@ -1141,7 +1141,7 @@ All 48 tasks completed. See `docs/archive/v1.0/` for original task definitions.
   - **Depends on:** 17.1.1
   - **Acceptance:** New schema compiles, old schema preserved
 
-- [ ] **17.2.2** Rewrite `buildEASystemPrompt()` with new directives
+- [x] **17.2.2** Rewrite `buildEASystemPrompt()` with new directives
   - Core question: "What must this person DO today?"
   - Data accuracy mandate: use exact deal names/amounts/dates from VERIFIED FACTS
   - Transcript data caveat: flag as potentially inaccurate
@@ -1152,7 +1152,7 @@ All 48 tasks completed. See `docs/archive/v1.0/` for original task definitions.
   - **Files:** `ember/src/lib/agents/ea-briefing.ts`
   - **Acceptance:** System prompt rewrites complete, focused on tactical + accuracy
 
-- [ ] **17.2.3** Add `buildVerifiedFacts()` helper
+- [x] **17.2.3** Add `buildVerifiedFacts()` helper
   - Extract deal names + amounts from HubSpot raw data as verbatim reference block
   - Extract financial metrics from QBO data (cash runway, AR, margins)
   - Extract Rock/Todo/Scorecard data with owner names
@@ -1162,7 +1162,7 @@ All 48 tasks completed. See `docs/archive/v1.0/` for original task definitions.
   - **Depends on:** 17.2.1
   - **Acceptance:** Verified facts section appears first in generated prompt
 
-- [ ] **17.2.4** Rewrite `buildBriefingPrompt()` with `isMonday` parameter
+- [x] **17.2.4** Rewrite `buildBriefingPrompt()` with `isMonday` parameter
   - Always include: calendar today, overdue/due-today todos, high-priority emails, deals closing today/overdue, yesterday's transcript action items
   - Monday only: financial insights, full pipeline, BD/ops/marketing/innovation insights, industry news, pattern detection, scorecard trends, all rocks
   - Move verified facts to top of prompt
@@ -1171,7 +1171,7 @@ All 48 tasks completed. See `docs/archive/v1.0/` for original task definitions.
   - **Depends on:** 17.2.2, 17.2.3
   - **Acceptance:** Prompt changes based on isMonday flag, daily prompt is shorter
 
-- [ ] **17.2.5** Update `generateBriefing()` to use v2 schema with `isMonday` flag
+- [x] **17.2.5** Update `generateBriefing()` to use v2 schema with `isMonday` flag
   - Detect Monday from partner's local timezone
   - Skip expensive data fetches on Tue-Fri (financial, full pipeline, BD, ops, marketing, innovation, news, patterns)
   - Still fetch lightweight deal data for tactical items (closing today, overdue)
@@ -1182,7 +1182,7 @@ All 48 tasks completed. See `docs/archive/v1.0/` for original task definitions.
 
 ### 17.3 Slack Formatting
 
-- [ ] **17.3.1** Add `formatV2Blocks()` to `slack-briefing.ts`
+- [x] **17.3.1** Add `formatV2Blocks()` to `slack-briefing.ts`
   - **Daily layout (Tue-Fri)**: Header → stats → numbered priorities → work queue count → footer (~10 blocks)
   - **Monday layout**: Daily + divider + Strategic Pulse with category emojis and trend icons (~15-20 blocks)
   - Reuse existing `esc()`, `chunkForSlackSections()`, `agentEmoji()` utilities
@@ -1190,7 +1190,7 @@ All 48 tasks completed. See `docs/archive/v1.0/` for original task definitions.
   - **Depends on:** 17.1.1
   - **Acceptance:** Two distinct Slack layouts render correctly
 
-- [ ] **17.3.2** Make `formatBriefingBlocks()` version-aware and update delivery
+- [x] **17.3.2** Make `formatBriefingBlocks()` version-aware and update delivery
   - Check `briefing.briefing_version` — route to v2 or v1 (fallback)
   - Keep existing formatter as `formatV1Blocks` for old briefings
   - Update `deliverBriefing()` fallback text for v2: `"3 priorities today"` instead of `"2 urgent, 5 updates"`
@@ -1200,7 +1200,7 @@ All 48 tasks completed. See `docs/archive/v1.0/` for original task definitions.
 
 ### 17.4 Pipeline & Verification
 
-- [ ] **17.4.1** Update `test/pipeline/route.ts` for v2 output
+- [x] **17.4.1** Update `test/pipeline/route.ts` for v2 output
   - Show `briefing_version`, `tactical_count`, `strategic_count`, `has_fyi`, `work_queue_count`
   - Show `tactical_items` and `strategic_items` titles in response
   - **Files:** `ember/src/app/api/agents/test/pipeline/route.ts`
