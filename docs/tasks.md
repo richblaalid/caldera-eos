@@ -1120,7 +1120,7 @@ All 48 tasks completed. See `docs/archive/v1.0/` for original task definitions.
   - **Files:** `ember/src/types/agents.ts`
   - **Acceptance:** New types exported alongside existing ones, typecheck passes
 
-- [ ] **17.1.2** Create DB migration adding v2 columns to `briefings` table
+- [x] **17.1.2** Create DB migration adding v2 columns to `briefings` table
   - `briefing_version INTEGER DEFAULT 1`
   - `is_monday BOOLEAN DEFAULT false`
   - `tactical_items JSONB DEFAULT '[]'`
