@@ -267,6 +267,7 @@ export interface BriefingV2 {
   strategic_items: StrategicItem[]
   fyi_item: FYIItem | null
   agent_work_queue: AgentWorkItem[]
+  agent_work_queue_overflow: number
   agent_insights: AgentInsightItem[]
   slack_message_ts: string | null
   slack_channel_id: string | null
@@ -286,6 +287,7 @@ export interface BriefingInsertV2 {
   strategic_items?: StrategicItem[]
   fyi_item?: FYIItem | null
   agent_work_queue?: AgentWorkItem[]
+  agent_work_queue_overflow?: number
   agent_insights?: AgentInsightItem[]
 }
 

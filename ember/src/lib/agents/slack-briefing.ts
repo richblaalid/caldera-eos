@@ -155,11 +155,16 @@ export function formatBriefingBlocks(briefing: BriefingInsert, timezone: string 
   }
 
   // "Needs Your Decision" — zone-2 items requiring partner action
+  const v1Overflow = (briefing as BriefingInsert & { agent_work_queue_overflow?: number }).agent_work_queue_overflow || 0
   if (workQueue.length > 0) {
     blocks.push({ type: 'divider' })
+    const v1Total = workQueue.length + v1Overflow
+    const v1Header = v1Overflow > 0
+      ? `:crystal_ball: *Needs Your Decision* (top ${workQueue.length} of ${v1Total})`
+      : ':crystal_ball: *Needs Your Decision*'
     blocks.push({
       type: 'section',
-      text: { type: 'mrkdwn', text: ':crystal_ball: *Needs Your Decision*' },
+      text: { type: 'mrkdwn', text: v1Header },
     })
     const queueLines = workQueue.map(item => {
       const emoji = agentEmoji(item.agent_id)
@@ -171,9 +176,12 @@ export function formatBriefingBlocks(briefing: BriefingInsert, timezone: string 
         text: { type: 'mrkdwn', text: chunk },
       })
     }
+    const v1Hint = v1Overflow > 0
+      ? `_${v1Overflow} more pending — reply "approve 1", "reject 2 — reason", or "defer 3 to Friday"_`
+      : '_Reply: "approve 1", "reject 2 — reason", or "defer 3 to Friday"_'
     blocks.push({
       type: 'context',
-      elements: [{ type: 'mrkdwn', text: '_Reply: "approve 1", "reject 2 — reason", or "defer 3 to Friday"_' }],
+      elements: [{ type: 'mrkdwn', text: v1Hint }],
     })
   }
 
@@ -253,6 +261,7 @@ export function formatV2Blocks(briefing: BriefingInsertV2, timezone: string = 'A
   const strategic = briefing.strategic_items || []
   const fyi = briefing.fyi_item
   const workQueue = briefing.agent_work_queue || []
+  const overflow = briefing.agent_work_queue_overflow || 0
   const insights = briefing.agent_insights || []
 
   // Header with greeting
@@ -262,9 +271,10 @@ export function formatV2Blocks(briefing: BriefingInsertV2, timezone: string = 'A
   })
 
   // Quick stats
+  const totalDecisions = workQueue.length + overflow
   const statsLine = [
     `${tactical.length} priorities`,
-    workQueue.length > 0 ? `${workQueue.length} for decision` : null,
+    totalDecisions > 0 ? `${totalDecisions} for decision` : null,
     insights.length > 0 ? `${insights.length} insights` : null,
     briefing.is_monday ? ':chart_with_upwards_trend: strategic pulse' : null,
   ].filter(Boolean).join(' · ')
@@ -327,9 +337,12 @@ export function formatV2Blocks(briefing: BriefingInsertV2, timezone: string = 'A
   // "Needs Your Decision" — zone-2 items requiring partner action
   if (workQueue.length > 0) {
     blocks.push({ type: 'divider' })
+    const headerText = overflow > 0
+      ? `:crystal_ball: *Needs Your Decision* (top ${workQueue.length} of ${totalDecisions})`
+      : ':crystal_ball: *Needs Your Decision*'
     blocks.push({
       type: 'section',
-      text: { type: 'mrkdwn', text: ':crystal_ball: *Needs Your Decision*' },
+      text: { type: 'mrkdwn', text: headerText },
     })
     const queueLines = workQueue.map((item: AgentWorkItem) => {
       const emoji = agentEmoji(item.agent_id)
@@ -341,9 +354,12 @@ export function formatV2Blocks(briefing: BriefingInsertV2, timezone: string = 'A
         text: { type: 'mrkdwn', text: chunk },
       })
     }
+    const hint = overflow > 0
+      ? `_${overflow} more pending — reply "approve 1", "reject 2 — reason", or "defer 3 to Friday"_`
+      : '_Reply: "approve 1", "reject 2 — reason", or "defer 3 to Friday"_'
     blocks.push({
       type: 'context',
-      elements: [{ type: 'mrkdwn', text: '_Reply: "approve 1", "reject 2 — reason", or "defer 3 to Friday"_' }],
+      elements: [{ type: 'mrkdwn', text: hint }],
     })
   }
 

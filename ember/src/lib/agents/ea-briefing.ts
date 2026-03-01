@@ -168,7 +168,9 @@ export async function generateBriefing(
   })
 
   // "Needs Your Decision" — zone-2 pending_review items, numbered for approve/reject/defer
-  const agentWorkQueue: AgentWorkItem[] = decisionItems.map((output, idx) => ({
+  // Cap at 10 displayed items (priority-sorted), track overflow for Slack hint
+  const MAX_DECISION_ITEMS = 10
+  const agentWorkQueue: AgentWorkItem[] = decisionItems.slice(0, MAX_DECISION_ITEMS).map((output, idx) => ({
     id: String(idx + 1),
     agent_id: output.agent_id,
     agent_name: output.agent_name || output.agent_id,
@@ -178,6 +180,7 @@ export async function generateBriefing(
     trust_zone: output.trust_zone as 1 | 2,
     status: output.status,
   }))
+  const agentWorkQueueOverflow = Math.max(0, decisionItems.length - MAX_DECISION_ITEMS)
 
   // Add IDs to tactical and strategic items
   const tacticalItems: TacticalItem[] = object.tactical_items.map((item, idx) => ({
@@ -202,6 +205,7 @@ export async function generateBriefing(
     strategic_items: strategicItems,
     fyi_item: fyiItem,
     agent_work_queue: agentWorkQueue,
+    agent_work_queue_overflow: agentWorkQueueOverflow,
     agent_insights: agentInsights,
   }
 }
