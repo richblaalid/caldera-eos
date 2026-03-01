@@ -113,7 +113,8 @@ export async function GET(request: NextRequest) {
           partner.partner_id,
           partner.organization_id,
           briefingId,
-          briefing
+          briefing,
+          partner.briefing_timezone || 'America/Chicago'
         )
 
         if (delivered.success) {

@@ -41,7 +41,7 @@ const briefingSchema = z.object({
   tier3_industry: z.array(z.object({
     title: z.string().describe('Short headline'),
     detail: z.string().describe('Brief note'),
-    source: z.string().describe('Where this came from'),
+    source: z.string().describe('Where this came from. For industry news items, use the full URL (e.g. https://...). For other items use: calendar, email, rock, todo, scorecard, financial'),
   })).describe('Tier 3: Industry context and lower-priority items (0-3 items)'),
 })
 
@@ -996,9 +996,9 @@ function buildBriefingPrompt(data: {
   // Industry news (Brave Search)
   if (data.industryNews.length > 0) {
     const news = data.industryNews.map(n =>
-      `- ${n.title}: ${n.detail} (${n.source})`
+      `- ${n.title}: ${n.detail}\n  URL: ${n.source}`
     ).join('\n')
-    sections.push(`## Industry News (${data.industryNews.length} items)\n${news}`)
+    sections.push(`## Industry News (${data.industryNews.length} items)\nUse the URL as the "source" field for each news item in Tier 3.\n${news}`)
   }
 
   // Agent outputs
@@ -1016,7 +1016,7 @@ ${sections.join('\n\n')}
 Instructions:
 - Tier 1 (Urgent, 0-3 items): Items needing action TODAY. Include: overdue EOS items, critical emails needing response, meetings with external attendees requiring prep, financial threshold breaches (AR > 45 days, margin < 30%, concentration > 60%), Rocks that are off-track with milestones overdue, deals closing today or with overdue close dates.
 - Tier 2 (Business, 3-7 items): Calendar overview (today and upcoming), EOS status updates (Rocks progress, Scorecard trends, To-do completion rate), financial highlights, pipeline summary (total value, deals closing soon, top deals), agent insights, important-but-not-urgent context.
-- Tier 3 (FYI, 0-3 items): Industry news relevant to Caldera's positioning (AI services, digital transformation, competitive landscape), lower-priority items, upcoming deadlines. When industry news data is available, use it to create sourced Tier 3 items with specific citations. Focus on news connecting to Caldera's shift from "dev services" to "AI-powered product consultancy."
+- Tier 3 (FYI, 0-3 items): Industry news relevant to Caldera's positioning (AI services, digital transformation, competitive landscape), lower-priority items, upcoming deadlines. When industry news data is available, use it to create sourced Tier 3 items. IMPORTANT: For news items, set the "source" field to the full URL from the Industry News data (e.g. "https://example.com/article") — NOT a label like "industry" or "news". This enables clickable links in Slack. Focus on news connecting to Caldera's shift from "dev services" to "AI-powered product consultancy."
 - Include specific names, dollar amounts, dates, percentages, and trends (↑↓→). Never say "some items" or "several issues" — be exact.
 - For Rocks, mention milestone progress and days until due.
 - For Scorecard metrics, mention consecutive misses and trend direction.

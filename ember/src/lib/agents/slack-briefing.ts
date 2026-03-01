@@ -23,9 +23,11 @@ const AGENT_EMOJI: Record<string, string> = {
   'nudge-engine': ':bell:',                  // Accountability nudges
 }
 
-/** Get a time-of-day greeting */
-function getGreeting(): string {
-  const hour = new Date().getHours()
+/** Get a time-of-day greeting in the partner's local timezone */
+function getGreeting(timezone: string = 'America/Chicago'): string {
+  const hour = parseInt(
+    new Date().toLocaleString('en-US', { hour: 'numeric', hour12: false, timeZone: timezone })
+  )
   if (hour < 12) return 'Good morning'
   if (hour < 17) return 'Good afternoon'
   return 'Good evening'
@@ -56,17 +58,17 @@ function sourceEmoji(source: string): string {
 /**
  * Format a briefing into Slack Block Kit blocks.
  */
-export function formatBriefingBlocks(briefing: BriefingInsert): Record<string, unknown>[] {
+export function formatBriefingBlocks(briefing: BriefingInsert, timezone: string = 'America/Chicago'): Record<string, unknown>[] {
   const blocks: Record<string, unknown>[] = []
   const tier1 = briefing.tier1_urgent || []
   const tier2 = briefing.tier2_business || []
   const tier3 = briefing.tier3_industry || []
   const workQueue = briefing.agent_work_queue || []
 
-  // Header with greeting
+  // Header with greeting (using partner's local timezone)
   blocks.push({
     type: 'header',
-    text: { type: 'plain_text', text: `${getGreeting()} — ${formatDate(briefing.briefing_date)}`, emoji: true },
+    text: { type: 'plain_text', text: `${getGreeting(timezone)} — ${formatDate(briefing.briefing_date)}`, emoji: true },
   })
 
   // Quick stats line
@@ -190,7 +192,8 @@ export async function deliverBriefing(
   partnerId: string,
   organizationId: string,
   briefingId: string,
-  briefing: BriefingInsert
+  briefing: BriefingInsert,
+  timezone: string = 'America/Chicago'
 ): Promise<{ success: boolean; error?: string }> {
   // Get partner's Slack user ID
   const { data: profile, error: profileError } = await supabaseAdmin
@@ -221,7 +224,7 @@ export async function deliverBriefing(
   }
 
   // Format and post
-  const blocks = formatBriefingBlocks(briefing)
+  const blocks = formatBriefingBlocks(briefing, timezone)
   const fallbackText = `Morning Briefing — ${briefing.briefing_date}`
 
   const result = await postBlockMessage(client, channelId, fallbackText, blocks)
