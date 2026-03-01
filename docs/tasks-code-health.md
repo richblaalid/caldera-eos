@@ -133,26 +133,26 @@
 
 ### 2.1 Create fetchWithTimeout utility
 
-- [ ] **2.1.1** Create `lib/fetch-utils.ts` with fetchWithTimeout
+- [x] **2.1.1** Create `lib/fetch-utils.ts` with fetchWithTimeout
   - AbortController wrapper with configurable timeout (default 30s)
   - **New file:** `ember/src/lib/fetch-utils.ts`
 
 ### 2.2 Add timeouts to connectors
 
-- [ ] **2.2.1** Add timeouts to QuickBooks connector
+- [x] **2.2.1** Add timeouts to QuickBooks connector
   - Replace `fetch` calls with `fetchWithTimeout`
   - **File:** `ember/src/lib/connectors/quickbooks-connector.ts`
 
-- [ ] **2.2.2** Add timeouts to HubSpot connector + pagination guard
+- [x] **2.2.2** Add timeouts to HubSpot connector + pagination guard
   - Replace `fetch` calls with `fetchWithTimeout`
   - Add MAX_PAGES=10, stuck-pagination detection to engagement loop
   - **File:** `ember/src/lib/connectors/hubspot-connector.ts`
 
-- [ ] **2.2.3** Add timeout to Grain MCP client token refresh
+- [x] **2.2.3** Add timeout to Grain MCP client token refresh
   - Replace `fetch` in token refresh with `fetchWithTimeout`
   - **File:** `ember/src/lib/connectors/grain-mcp-client.ts`
 
-- [ ] **2.2.4** Add timeouts to Slack API calls
+- [x] **2.2.4** Add timeouts to Slack API calls
   - Replace `fetch` calls in slack.ts with `fetchWithTimeout`
   - **File:** `ember/src/lib/slack.ts`
 
@@ -327,3 +327,4 @@
 | 0.2.1 | 2026-03-01 | Phase 0 commit |
 | 0.3.1-0.3.2 | 2026-03-01 | Phase 0 commit |
 | 1.1.1-1.5.1 | 2026-03-01 | Phase 1 commit |
+| 2.1.1-2.2.4 | 2026-03-01 | Phase 2 commit |

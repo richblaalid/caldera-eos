@@ -4,6 +4,7 @@
  */
 
 import { escapeSlackMrkdwn } from '@/lib/slack-format'
+import { fetchWithTimeout } from '@/lib/fetch-utils'
 
 const esc = escapeSlackMrkdwn
 const SLACK_API_BASE = 'https://slack.com/api'
@@ -66,7 +67,7 @@ export async function exchangeCodeForToken(code: string): Promise<SlackOAuthResp
   const clientSecret = process.env.SLACK_CLIENT_SECRET
   const redirectUri = `${process.env.NEXT_PUBLIC_APP_URL || 'https://caldera-eos.vercel.app'}/api/integrations/slack/callback`
 
-  const response = await fetch(`${SLACK_API_BASE}/oauth.v2.access`, {
+  const response = await fetchWithTimeout(`${SLACK_API_BASE}/oauth.v2.access`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/x-www-form-urlencoded',
@@ -118,7 +119,7 @@ export async function getChannels(botToken: string): Promise<SlackChannel[]> {
 
 // Fetch Slack users for profile mapping
 export async function getSlackUsers(botToken: string): Promise<SlackUser[]> {
-  const response = await fetch(`${SLACK_API_BASE}/users.list?limit=200`, {
+  const response = await fetchWithTimeout(`${SLACK_API_BASE}/users.list?limit=200`, {
     headers: {
       Authorization: `Bearer ${botToken}`,
     },
@@ -160,7 +161,7 @@ export async function postMessage(
     body.blocks = blocks
   }
 
-  const response = await fetch(`${SLACK_API_BASE}/chat.postMessage`, {
+  const response = await fetchWithTimeout(`${SLACK_API_BASE}/chat.postMessage`, {
     method: 'POST',
     headers: {
       Authorization: `Bearer ${botToken}`,
@@ -243,7 +244,7 @@ export function buildCheckupReminderBlocks(
 // Look up a Slack user by email
 export async function findSlackUserByEmail(botToken: string, email: string): Promise<SlackUser | null> {
   // Use users.lookupByEmail for direct lookup (more efficient than fetching all users)
-  const response = await fetch(
+  const response = await fetchWithTimeout(
     `${SLACK_API_BASE}/users.lookupByEmail?email=${encodeURIComponent(email)}`,
     {
       headers: {
@@ -307,7 +308,7 @@ export async function syncSlackUserIds(
 
 // Test the bot token by calling auth.test
 export async function testConnection(botToken: string): Promise<{ ok: boolean; team?: string; error?: string }> {
-  const response = await fetch(`${SLACK_API_BASE}/auth.test`, {
+  const response = await fetchWithTimeout(`${SLACK_API_BASE}/auth.test`, {
     headers: {
       Authorization: `Bearer ${botToken}`,
     },

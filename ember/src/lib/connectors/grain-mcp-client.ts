@@ -1,4 +1,5 @@
 import Anthropic from '@anthropic-ai/sdk'
+import { fetchWithTimeout } from '@/lib/fetch-utils'
 
 // =============================================
 // Types
@@ -69,7 +70,7 @@ export async function getAccessToken(config?: GrainTokenConfig): Promise<GrainTo
   // Try to refresh if we have the refresh token and client ID
   if (refreshToken && clientId) {
     try {
-      const response = await fetch(GRAIN_TOKEN_URL, {
+      const response = await fetchWithTimeout(GRAIN_TOKEN_URL, {
         method: 'POST',
         headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
         body: new URLSearchParams({
@@ -77,6 +78,7 @@ export async function getAccessToken(config?: GrainTokenConfig): Promise<GrainTo
           refresh_token: refreshToken,
           client_id: clientId,
         }),
+        timeout: 15_000,
       })
 
       if (response.ok) {

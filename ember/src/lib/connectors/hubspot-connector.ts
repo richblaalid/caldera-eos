@@ -132,8 +132,11 @@ async function fetchRecentEngagements(client: Client): Promise<ConnectorRecord[]
 
   let offset = 0
   let hasMore = true
+  const MAX_PAGES = 10
+  let pageCount = 0
 
-  while (hasMore) {
+  while (hasMore && pageCount < MAX_PAGES) {
+    pageCount++
     const response = await client.apiRequest({
       method: 'GET',
       path: `/engagements/v1/engagements/recent/modified?since=${sevenDaysAgo}&count=100&offset=${offset}`,
@@ -149,8 +152,10 @@ async function fetchRecentEngagements(client: Client): Promise<ConnectorRecord[]
     }
 
     hasMore = data.hasMore === true
-    offset = data.offset ?? 0
-    // Safety: stop after 500 engagements to avoid runaway pagination
+    const nextOffset = data.offset ?? 0
+    // Stuck pagination detection: if offset doesn't advance, stop
+    if (nextOffset <= offset && hasMore) break
+    offset = nextOffset
     if (records.length >= 500) break
   }
 

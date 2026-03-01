@@ -1,4 +1,5 @@
 import type { DataConnector, ConnectorPullParams, ConnectorResult, ConnectorRecord, ConnectorError } from './types'
+import { fetchWithTimeout } from '@/lib/fetch-utils'
 
 const QBO_BASE_URL = process.env.QUICKBOOKS_ENVIRONMENT === 'sandbox'
   ? 'https://sandbox-quickbooks.api.intuit.com'
@@ -147,7 +148,7 @@ async function refreshQBOToken(refreshToken: string): Promise<{ access_token: st
     refresh_token: refreshToken,
   })
 
-  const response = await fetch('https://oauth.platform.intuit.com/oauth2/v1/tokens/bearer', {
+  const response = await fetchWithTimeout('https://oauth.platform.intuit.com/oauth2/v1/tokens/bearer', {
     method: 'POST',
     headers: {
       'Authorization': `Basic ${basicAuth}`,
@@ -155,6 +156,7 @@ async function refreshQBOToken(refreshToken: string): Promise<{ access_token: st
       'Accept': 'application/json',
     },
     body: body.toString(),
+    timeout: 15_000,
   })
 
   const data = await response.json()
@@ -171,7 +173,7 @@ async function refreshQBOToken(refreshToken: string): Promise<{ access_token: st
  */
 async function queryQBO(accessToken: string, realmId: string, query: string): Promise<Record<string, unknown>[]> {
   const url = `${QBO_BASE_URL}/v3/company/${realmId}/query?query=${encodeURIComponent(query)}`
-  const response = await fetch(url, {
+  const response = await fetchWithTimeout(url, {
     headers: {
       Authorization: `Bearer ${accessToken}`,
       Accept: 'application/json',
@@ -201,7 +203,7 @@ async function fetchReport(
     const qs = new URLSearchParams(params).toString()
     url += `?${qs}`
   }
-  const response = await fetch(url, {
+  const response = await fetchWithTimeout(url, {
     headers: {
       Authorization: `Bearer ${accessToken}`,
       Accept: 'application/json',
