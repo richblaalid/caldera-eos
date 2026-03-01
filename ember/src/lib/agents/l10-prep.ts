@@ -3,6 +3,7 @@ import { anthropic } from '@ai-sdk/anthropic'
 import { z } from 'zod'
 import { createClient } from '@supabase/supabase-js'
 import { saveAgentOutput } from './agent-runtime'
+import { daysAgo } from '@/lib/dates'
 import type { AgentOutputInsert } from '@/types/agents'
 
 const supabaseAdmin = createClient(
@@ -170,7 +171,7 @@ async function getRocks(organizationId: string) {
 }
 
 async function getTodos(organizationId: string) {
-  const twoWeeksAgo = new Date(Date.now() - 14 * 24 * 60 * 60 * 1000).toISOString()
+  const twoWeeksAgo = daysAgo(14)
 
   const { data } = await supabaseAdmin
     .from('todos')
@@ -441,7 +442,7 @@ export async function detectUpcomingL10(organizationId: string, withinDays: numb
  */
 export async function hasL10PrepBeenGenerated(organizationId: string): Promise<boolean> {
   // Check if we've generated a prep in the last 5 days
-  const fiveDaysAgo = new Date(Date.now() - 5 * 24 * 60 * 60 * 1000).toISOString()
+  const fiveDaysAgo = daysAgo(5)
 
   const { count } = await supabaseAdmin
     .from('agent_outputs')

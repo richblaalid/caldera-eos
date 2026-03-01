@@ -1,27 +1,9 @@
 import { createInsight, createInsightAdmin } from './eos'
+import { isSimilarTitle } from './suggestion-utils'
 import type { InsightInsert } from '@/types/database'
 import type { ExtractedItem } from './transcripts'
 import { createClient } from '@/lib/supabase/server'
 import { createClient as createAdminClient } from '@supabase/supabase-js'
-
-/**
- * Check if an issue title is similar to any existing titles.
- */
-function isSimilar(title: string, existingTitles: string[]): boolean {
-  const normalized = title.toLowerCase().trim()
-
-  for (const existing of existingTitles) {
-    if (normalized === existing) return true
-    if (normalized.includes(existing) || existing.includes(normalized)) return true
-
-    const newWords = normalized.split(/\s+/).filter(w => w.length > 2)
-    const existingWords = existing.split(/\s+/).filter(w => w.length > 2)
-    const commonWords = newWords.filter(w => existingWords.includes(w))
-    if (commonWords.length >= 2) return true
-  }
-
-  return false
-}
 
 /**
  * Get existing open issue titles for dedup comparison.
@@ -96,7 +78,7 @@ export async function generateIssueSuggestions(
   ])
 
   const allExisting = [...existingTitles, ...pendingTitles]
-  const newIssues = issues.filter(i => !isSimilar(i.title, allExisting))
+  const newIssues = issues.filter(i => !isSimilarTitle(i.title, allExisting))
 
   if (newIssues.length === 0) return []
 

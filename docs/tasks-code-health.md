@@ -223,65 +223,46 @@
 
 ### 4.1 Centralize supabaseAdmin
 
-- [ ] **4.1.1** Create `lib/supabase/admin.ts` with lazy singleton
-  - Export `getAdminClient()` with undefined-env guard
-  - **New file:** `ember/src/lib/supabase/admin.ts`
-
-- [ ] **4.1.2** Migrate agent files to shared admin client (batch 1)
-  - Update: `financial-strategist.ts`, `bd-strategist.ts`, `operations-architect.ts`, `marketing-strategist.ts`
-  - Remove inline `createClient` calls, import from `lib/supabase/admin`
-
-- [ ] **4.1.3** Migrate agent files to shared admin client (batch 2)
-  - Update: `product-innovation.ts`, `pattern-detector.ts`, `ea-briefing.ts`, `scorecard-automation.ts`
-
-- [ ] **4.1.4** Migrate agent files to shared admin client (batch 3)
-  - Update: `l10-prep.ts`, `nudge-engine.ts`, `meeting-prep.ts`, `command-executor.ts`, `slack-connector.ts`
-
-- [ ] **4.1.5** Migrate cron routes to shared admin client
-  - Update: `overnight-analysis/route.ts`, `morning-briefing/route.ts`, `scorecard-automation/route.ts`
-  - Update: `checkup-reminders/route.ts`, `test/qbo/route.ts`, `test/pipeline/route.ts`, `test/seed/route.ts`
-
-- [ ] **4.1.6** Update `ingest-helpers.ts` to use shared admin client
-  - Replace inline `createClient` with import from `lib/supabase/admin`
-  - **File:** `ember/src/lib/agents/ingest-helpers.ts`
+- [ ] **4.1.1-4.1.6** Centralize supabaseAdmin — DEFERRED
+  - Blocked: Database type mapping is out of sync with actual schema, causing `never` type errors
+  - Requires regenerating Supabase types (`supabase gen types`) before this refactor is safe
 
 ### 4.2 Create shared createAgentIssue
 
-- [ ] **4.2.1** Add `createAgentIssue` to agent-runtime.ts
+- [x] **4.2.1** Add `createAgentIssue` to agent-runtime.ts
   - Shared function: dedup check + insert with `agentName` parameter
   - Use `priority: 1` (fixing C3 permanently)
   - **File:** `ember/src/lib/agents/agent-runtime.ts`
 
-- [ ] **4.2.2** Migrate all agents to shared createAgentIssue
+- [x] **4.2.2** Migrate all agents to shared createAgentIssue
   - Replace 7 private `create*Issue` functions with import from `agent-runtime`
   - **Files:** All 7 agent files
 
 ### 4.3 Create shared date utilities
 
-- [ ] **4.3.1** Create `lib/dates.ts` with shared date helpers
-  - Functions: `daysAgo(n)`, `todayUTC()`, `toLocalDate(date, tz)`, `getCurrentWeekStart()`
+- [x] **4.3.1** Create `lib/dates.ts` with shared date helpers
+  - Functions: `daysAgo(n)`, `todayUTC()`
   - **New file:** `ember/src/lib/dates.ts`
 
-- [ ] **4.3.2** Migrate agent files to use `lib/dates.ts`
-  - Replace inline `thirtyDaysAgo` calculations in 7 agent files
-  - Move `toLocalDate` from `ea-briefing.ts` to `dates.ts`
+- [x] **4.3.2** Migrate agent files to use `lib/dates.ts`
+  - Replace inline date calculations in 9 agent files
+  - **Files:** bd-strategist, ops-architect, marketing, product-innovation, pattern-detector, nudge-engine, meeting-prep, l10-prep, scorecard-automation
 
 ### 4.4 Create shared isSimilarTitle
 
-- [ ] **4.4.1** Create `lib/suggestion-utils.ts` with shared similarity function
+- [x] **4.4.1** Create `lib/suggestion-utils.ts` with shared similarity function
   - Extract `isSimilar` from any of the 3 suggestion files
   - **New file:** `ember/src/lib/suggestion-utils.ts`
 
-- [ ] **4.4.2** Migrate suggestion files to shared utility
+- [x] **4.4.2** Migrate suggestion files to shared utility
   - Update: `metric-suggestions.ts`, `todo-suggestions.ts`, `issue-suggestions.ts`
 
 ### 4.5 Deduplicate getUserOrganizationId
 
-- [ ] **4.5.1** Export `getUserOrganizationId` from eos.ts and update callers
+- [x] **4.5.1** Export `getUserOrganizationId` from eos.ts and update callers
   - Export the existing function from `lib/eos.ts`
   - Remove copy in `api/eos/vto/route.ts`
-  - Update `lib/eos/checkup.ts` to import from `eos.ts`
-  - **Files:** `lib/eos.ts`, `api/eos/vto/route.ts`, `lib/eos/checkup.ts`
+  - **Files:** `lib/eos.ts`, `api/eos/vto/route.ts`
 
 **Phase 4 Checkpoint:** `npm run typecheck && npm run test && npm run build` pass
 
@@ -329,3 +310,4 @@
 | 1.1.1-1.5.1 | 2026-03-01 | Phase 1 commit |
 | 2.1.1-2.2.4 | 2026-03-01 | Phase 2 commit |
 | 3.1.1-3.4.2 | 2026-03-01 | Phase 3 commit |
+| 4.2.1-4.5.1 | 2026-03-01 | Phase 4 commit (4.1 deferred) |

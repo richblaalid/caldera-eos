@@ -1,29 +1,6 @@
 import { getExistingMetricNames, createInsight } from './eos'
+import { isSimilarTitle } from './suggestion-utils'
 import type { ExtractedMetric, InsightInsert } from '@/types/database'
-
-/**
- * Check if a metric name is similar to any existing metric names
- * Uses simple string matching for now - could be enhanced with fuzzy matching
- */
-function isMetricSimilar(name: string, existingNames: string[]): boolean {
-  const normalized = name.toLowerCase().trim()
-
-  for (const existing of existingNames) {
-    // Exact match
-    if (normalized === existing) return true
-
-    // Check if one contains the other (handles variations like "Sales Calls" vs "Weekly Sales Calls")
-    if (normalized.includes(existing) || existing.includes(normalized)) return true
-
-    // Check word overlap (if 2+ significant words match)
-    const newWords = normalized.split(/\s+/).filter((w) => w.length > 2)
-    const existingWords = existing.split(/\s+/).filter((w) => w.length > 2)
-    const commonWords = newWords.filter((w) => existingWords.includes(w))
-    if (commonWords.length >= 2) return true
-  }
-
-  return false
-}
 
 /**
  * Generate insight suggestions for new metrics extracted from a transcript
@@ -42,7 +19,7 @@ export async function generateMetricSuggestions(
   const existingNames = await getExistingMetricNames()
 
   // Filter to only new metrics (not similar to existing)
-  const newMetrics = metrics.filter((m) => !isMetricSimilar(m.name, existingNames))
+  const newMetrics = metrics.filter((m) => !isSimilarTitle(m.name, existingNames))
 
   if (newMetrics.length === 0) {
     return []

@@ -1,28 +1,9 @@
 import { createInsight, createInsightAdmin } from './eos'
+import { isSimilarTitle } from './suggestion-utils'
 import type { InsightInsert } from '@/types/database'
 import type { ExtractedItem } from './transcripts'
 import { createClient } from '@/lib/supabase/server'
 import { createClient as createAdminClient } from '@supabase/supabase-js'
-
-/**
- * Check if a todo title is similar to any existing titles.
- * Uses same matching logic as metric-suggestions.ts.
- */
-function isSimilar(title: string, existingTitles: string[]): boolean {
-  const normalized = title.toLowerCase().trim()
-
-  for (const existing of existingTitles) {
-    if (normalized === existing) return true
-    if (normalized.includes(existing) || existing.includes(normalized)) return true
-
-    const newWords = normalized.split(/\s+/).filter(w => w.length > 2)
-    const existingWords = existing.split(/\s+/).filter(w => w.length > 2)
-    const commonWords = newWords.filter(w => existingWords.includes(w))
-    if (commonWords.length >= 2) return true
-  }
-
-  return false
-}
 
 /**
  * Get existing open todo titles for dedup comparison.
@@ -98,7 +79,7 @@ export async function generateTodoSuggestions(
   ])
 
   const allExisting = [...existingTitles, ...pendingTitles]
-  const newTodos = todos.filter(t => !isSimilar(t.title, allExisting))
+  const newTodos = todos.filter(t => !isSimilarTitle(t.title, allExisting))
 
   if (newTodos.length === 0) return []
 

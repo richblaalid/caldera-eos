@@ -1,5 +1,6 @@
 import { createClient } from '@supabase/supabase-js'
 import { extractCashBalance, extractTotalExpenses, extractTotalIncome, extractNetIncome } from '@/lib/qbo-report-parser'
+import { daysAgo } from '@/lib/dates'
 
 const supabaseAdmin = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -205,7 +206,7 @@ async function computeNetMargin(orgId: string): Promise<{ value: number; notes: 
 const CALDERA_DOMAINS = ['withcaldera.com', 'bko.group']
 
 async function computeBDOutreach(orgId: string): Promise<{ value: number; notes: string } | null> {
-  const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString()
+  const sevenDaysAgo = daysAgo(7)
 
   // Count 1: HubSpot engagements (calls, emails, meetings) from last 7 days
   const { data: engagements } = await supabaseAdmin

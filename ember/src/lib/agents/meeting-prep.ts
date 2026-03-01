@@ -1,6 +1,7 @@
 import { generateText } from 'ai'
 import { anthropic } from '@ai-sdk/anthropic'
 import { createClient } from '@supabase/supabase-js'
+import { daysAgo } from '@/lib/dates'
 
 const supabaseAdmin = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -175,7 +176,7 @@ interface EmailInfo {
 }
 
 async function getEmailContext(organizationId: string, identifiers: string[]): Promise<EmailInfo[]> {
-  const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString()
+  const thirtyDaysAgo = daysAgo(30)
 
   const { data } = await supabaseAdmin
     .from('ingested_data')
@@ -213,7 +214,7 @@ interface MeetingInfo {
 }
 
 async function getMeetingHistory(organizationId: string, identifiers: string[]): Promise<MeetingInfo[]> {
-  const ninetyDaysAgo = new Date(Date.now() - 90 * 24 * 60 * 60 * 1000).toISOString()
+  const ninetyDaysAgo = daysAgo(90)
 
   const { data } = await supabaseAdmin
     .from('ingested_data')
