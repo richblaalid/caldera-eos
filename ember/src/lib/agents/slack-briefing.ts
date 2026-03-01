@@ -2,7 +2,7 @@ import { createClient } from '@supabase/supabase-js'
 import { getSlackClient, postBlockMessage, openDM } from '@/lib/connectors/slack-connector'
 import { markBriefingDelivered } from './ea-briefing'
 import { escapeSlackMrkdwn, chunkForSlackSections } from '@/lib/slack-format'
-import type { BriefingInsert, BriefingInsertV2, AgentWorkItem } from '@/types/agents'
+import type { BriefingInsert, BriefingInsertV2, AgentWorkItem, AgentInsightItem } from '@/types/agents'
 
 /** Shorthand for escaping user content */
 const esc = escapeSlackMrkdwn
@@ -79,7 +79,7 @@ export function formatBriefingBlocks(briefing: BriefingInsert, timezone: string 
   const statsLine = [
     tier1.length > 0 ? `:red-card: ${tier1.length} urgent` : null,
     tier2.length > 0 ? `${tier2.length} updates` : null,
-    workQueue.length > 0 ? `${workQueue.length} items for review` : null,
+    workQueue.length > 0 ? `${workQueue.length} for decision` : null,
   ].filter(Boolean).join(' · ')
   if (statsLine) {
     blocks.push({
@@ -154,17 +154,16 @@ export function formatBriefingBlocks(briefing: BriefingInsert, timezone: string 
     })
   }
 
-  // Agent Work Queue (compact)
+  // "Needs Your Decision" — zone-2 items requiring partner action
   if (workQueue.length > 0) {
     blocks.push({ type: 'divider' })
     blocks.push({
       type: 'section',
-      text: { type: 'mrkdwn', text: ':crystal_ball: *Ember Work Queue*' },
+      text: { type: 'mrkdwn', text: ':crystal_ball: *Needs Your Decision*' },
     })
     const queueLines = workQueue.map(item => {
       const emoji = agentEmoji(item.agent_id)
-      const statusIcon = item.status === 'pending_review' ? ':yellow-card:' : ':green-card:'
-      return `${statusIcon} *${item.id}.* ${esc(item.title)} _[${emoji} ${esc(item.agent_name)}]_\n      ${esc(item.summary)}`
+      return `:yellow-card: *${item.id}.* ${esc(item.title)} _[${emoji} ${esc(item.agent_name)}]_\n      ${esc(item.summary)}`
     })
     for (const chunk of chunkForSlackSections(queueLines, '\n')) {
       blocks.push({
@@ -176,6 +175,26 @@ export function formatBriefingBlocks(briefing: BriefingInsert, timezone: string 
       type: 'context',
       elements: [{ type: 'mrkdwn', text: '_Reply: "approve 1", "reject 2 — reason", or "defer 3 to Friday"_' }],
     })
+  }
+
+  // "Agent Insights" — informational one-liner per agent (v1 backward compat: may not exist)
+  const insights = (briefing as BriefingInsert & { agent_insights?: AgentInsightItem[] }).agent_insights || []
+  if (insights.length > 0) {
+    blocks.push({ type: 'divider' })
+    blocks.push({
+      type: 'section',
+      text: { type: 'mrkdwn', text: ':robot_face: *Agent Insights*' },
+    })
+    const insightLines = insights.map(item => {
+      const emoji = agentEmoji(item.agent_id)
+      return `${emoji} *${esc(item.agent_name)}* — ${esc(item.title)}`
+    })
+    for (const chunk of chunkForSlackSections(insightLines, '\n')) {
+      blocks.push({
+        type: 'context',
+        elements: [{ type: 'mrkdwn', text: chunk }],
+      })
+    }
   }
 
   // Footer
@@ -234,6 +253,7 @@ export function formatV2Blocks(briefing: BriefingInsertV2, timezone: string = 'A
   const strategic = briefing.strategic_items || []
   const fyi = briefing.fyi_item
   const workQueue = briefing.agent_work_queue || []
+  const insights = briefing.agent_insights || []
 
   // Header with greeting
   blocks.push({
@@ -244,7 +264,8 @@ export function formatV2Blocks(briefing: BriefingInsertV2, timezone: string = 'A
   // Quick stats
   const statsLine = [
     `${tactical.length} priorities`,
-    workQueue.length > 0 ? `${workQueue.length} for review` : null,
+    workQueue.length > 0 ? `${workQueue.length} for decision` : null,
+    insights.length > 0 ? `${insights.length} insights` : null,
     briefing.is_monday ? ':chart_with_upwards_trend: strategic pulse' : null,
   ].filter(Boolean).join(' · ')
   blocks.push({
@@ -303,17 +324,16 @@ export function formatV2Blocks(briefing: BriefingInsertV2, timezone: string = 'A
     })
   }
 
-  // Agent Work Queue (compact — same as v1)
+  // "Needs Your Decision" — zone-2 items requiring partner action
   if (workQueue.length > 0) {
     blocks.push({ type: 'divider' })
     blocks.push({
       type: 'section',
-      text: { type: 'mrkdwn', text: ':crystal_ball: *Ember Work Queue*' },
+      text: { type: 'mrkdwn', text: ':crystal_ball: *Needs Your Decision*' },
     })
     const queueLines = workQueue.map((item: AgentWorkItem) => {
       const emoji = agentEmoji(item.agent_id)
-      const statusIcon = item.status === 'pending_review' ? ':yellow-card:' : ':green-card:'
-      return `${statusIcon} *${item.id}.* ${esc(item.title)} _[${emoji} ${esc(item.agent_name)}]_\n      ${esc(item.summary)}`
+      return `:yellow-card: *${item.id}.* ${esc(item.title)} _[${emoji} ${esc(item.agent_name)}]_\n      ${esc(item.summary)}`
     })
     for (const chunk of chunkForSlackSections(queueLines, '\n')) {
       blocks.push({
@@ -325,6 +345,25 @@ export function formatV2Blocks(briefing: BriefingInsertV2, timezone: string = 'A
       type: 'context',
       elements: [{ type: 'mrkdwn', text: '_Reply: "approve 1", "reject 2 — reason", or "defer 3 to Friday"_' }],
     })
+  }
+
+  // "Agent Insights" — informational one-liner per agent
+  if (insights.length > 0) {
+    blocks.push({ type: 'divider' })
+    blocks.push({
+      type: 'section',
+      text: { type: 'mrkdwn', text: ':robot_face: *Agent Insights*' },
+    })
+    const insightLines = insights.map((item: AgentInsightItem) => {
+      const emoji = agentEmoji(item.agent_id)
+      return `${emoji} *${esc(item.agent_name)}* — ${esc(item.title)}`
+    })
+    for (const chunk of chunkForSlackSections(insightLines, '\n')) {
+      blocks.push({
+        type: 'context',
+        elements: [{ type: 'mrkdwn', text: chunk }],
+      })
+    }
   }
 
   // Footer
@@ -390,9 +429,11 @@ export async function deliverBriefing(
     const v2 = briefing as BriefingInsertV2
     const tactical = v2.tactical_items || []
     const wq = v2.agent_work_queue || []
+    const ins = v2.agent_insights || []
     const parts = [
       `${tactical.length} priorities`,
-      wq.length > 0 ? `${wq.length} for review` : null,
+      wq.length > 0 ? `${wq.length} for decision` : null,
+      ins.length > 0 ? `${ins.length} insights` : null,
       v2.is_monday ? '+ strategic pulse' : null,
     ].filter(Boolean).join(', ')
     fallbackText = `Morning Briefing — ${briefing.briefing_date} | ${parts}`
@@ -404,7 +445,7 @@ export async function deliverBriefing(
     const parts = [
       tier1.length > 0 ? `${tier1.length} urgent` : null,
       tier2.length > 0 ? `${tier2.length} updates` : null,
-      wq.length > 0 ? `${wq.length} items for review` : null,
+      wq.length > 0 ? `${wq.length} for decision` : null,
     ].filter(Boolean).join(', ')
     fallbackText = `Morning Briefing — ${briefing.briefing_date}${parts ? ` | ${parts}` : ''}`
   }

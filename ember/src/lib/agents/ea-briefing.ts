@@ -2,7 +2,7 @@ import { generateObject } from 'ai'
 import { anthropic } from '@ai-sdk/anthropic'
 import { z } from 'zod'
 import { createClient } from '@supabase/supabase-js'
-import type { BriefingItem, AgentWorkItem, BriefingInsert, TacticalItem, StrategicItem, FYIItem, BriefingInsertV2 } from '@/types/agents'
+import type { BriefingItem, AgentWorkItem, AgentInsightItem, BriefingInsert, TacticalItem, StrategicItem, FYIItem, BriefingInsertV2 } from '@/types/agents'
 import { getSmartLookback, getTranscriptLabel } from './lookback'
 import { fetchIndustryNews, type NewsItem } from '@/lib/connectors/brave-search-client'
 import { runPatternDetection, type PatternAlert } from './pattern-detector'
@@ -82,11 +82,12 @@ export async function generateBriefing(
   const isMonday = dayOfWeek === 1
 
   // Daily data sources (always fetched) — lightweight
-  const [calendarEvents, recentEmails, eosData, agentOutputs, pipelineData, transcriptHighlights, ownerNames] = await Promise.all([
+  const [calendarEvents, recentEmails, eosData, decisionItems, agentInsights, pipelineData, transcriptHighlights, ownerNames] = await Promise.all([
     getCalendarEvents(organizationId, timezone),
     getRecentEmails(organizationId),
     getEOSData(organizationId),
-    getPendingAgentOutputs(organizationId),
+    getDecisionItems(organizationId),
+    getAgentInsights(organizationId, isMonday),
     getLightweightPipelineData(organizationId),
     getTranscriptHighlights(organizationId),
     getOwnerNames(organizationId),
@@ -139,7 +140,7 @@ export async function generateBriefing(
     calendarEvents,
     recentEmails,
     eosData,
-    agentOutputs,
+    agentOutputs: decisionItems,
     financialInsights,
     pipelineData: fullPipelineData || pipelineData,
     bdInsights,
@@ -166,8 +167,8 @@ export async function generateBriefing(
     schema: briefingSchemaV2,
   })
 
-  // Map agent outputs to the work queue
-  const agentWorkQueue: AgentWorkItem[] = agentOutputs.map((output, idx) => ({
+  // "Needs Your Decision" — zone-2 pending_review items, numbered for approve/reject/defer
+  const agentWorkQueue: AgentWorkItem[] = decisionItems.map((output, idx) => ({
     id: String(idx + 1),
     agent_id: output.agent_id,
     agent_name: output.agent_name || output.agent_id,
@@ -201,6 +202,7 @@ export async function generateBriefing(
     strategic_items: strategicItems,
     fyi_item: fyiItem,
     agent_work_queue: agentWorkQueue,
+    agent_insights: agentInsights,
   }
 }
 
@@ -218,7 +220,7 @@ export async function generateBriefingV1(
     getCalendarEvents(organizationId, timezone),
     getRecentEmails(organizationId),
     getEOSData(organizationId),
-    getPendingAgentOutputs(organizationId),
+    getDecisionItems(organizationId),
     getFinancialInsights(organizationId),
     getPipelineData(organizationId),
     getBDStrategistInsights(organizationId),
@@ -678,30 +680,95 @@ async function getEOSData(organizationId: string): Promise<EOSData> {
   }
 }
 
-async function getPendingAgentOutputs(organizationId: string) {
+// Priority ranking for output types — lower number = higher priority
+const OUTPUT_TYPE_PRIORITY: Record<string, number> = {
+  alert: 0,
+  issue: 1,
+  recommendation: 2,
+  analysis: 3,
+  draft: 4,
+  briefing: 5,
+}
+
+const AGENT_NAMES: Record<string, string> = {
+  'financial-strategist': 'Financial Strategist',
+  'bd-strategist': 'BD Strategist',
+  'operations-architect': 'Operations Architect',
+  'marketing-strategist': 'Marketing Strategist',
+  'pattern-detector': 'Pattern Detector',
+  'product-innovation': 'Product Innovation Officer',
+  'ea': 'Executive Assistant',
+  'scorecard-automation': 'Scorecard Automation',
+}
+
+/**
+ * Fetch zone-2 pending_review items that need partner decisions.
+ * No artificial limit — all pending decisions must surface.
+ * Sorted by output_type priority (alerts first).
+ */
+async function getDecisionItems(organizationId: string) {
   const oneDayAgo = getSmartLookback(24)
 
   const { data } = await supabaseAdmin
     .from('agent_outputs')
     .select('id, agent_id, output_type, title, summary, trust_zone, status, content')
     .eq('organization_id', organizationId)
-    .in('status', ['completed', 'pending_review'])
+    .eq('trust_zone', 2)
+    .eq('status', 'pending_review')
     .gte('created_at', oneDayAgo)
     .order('created_at', { ascending: false })
-    .limit(10)
 
-  const agentNames: Record<string, string> = {
-    'financial-strategist': 'Financial Strategist',
-    'bd-strategist': 'BD Strategist',
-    'operations-architect': 'Operations Architect',
-    'marketing-strategist': 'Marketing Strategist',
-    'pattern-detector': 'Pattern Detector',
-    'product-innovation': 'Product Innovation Officer',
-    'ea': 'Executive Assistant',
-  }
-  return (data || []).map(d => ({
+  return (data || [])
+    .map(d => ({
+      ...d,
+      agent_name: AGENT_NAMES[d.agent_id] || d.agent_id,
+    }))
+    .sort((a, b) =>
+      (OUTPUT_TYPE_PRIORITY[a.output_type] ?? 99) - (OUTPUT_TYPE_PRIORITY[b.output_type] ?? 99)
+    )
+}
+
+/**
+ * Fetch zone-1 completed items and pick the top 1 per agent by output_type priority.
+ * Filters out L10 Prep on non-Mondays (it has its own dedicated Slack message).
+ */
+async function getAgentInsights(organizationId: string, isMonday: boolean): Promise<AgentInsightItem[]> {
+  const oneDayAgo = getSmartLookback(24)
+
+  const { data } = await supabaseAdmin
+    .from('agent_outputs')
+    .select('agent_id, output_type, title')
+    .eq('organization_id', organizationId)
+    .eq('trust_zone', 1)
+    .eq('status', 'completed')
+    .gte('created_at', oneDayAgo)
+    .order('created_at', { ascending: false })
+
+  const items = (data || []).map(d => ({
     ...d,
-    agent_name: agentNames[d.agent_id] || d.agent_id,
+    agent_name: AGENT_NAMES[d.agent_id] || d.agent_id,
+  }))
+
+  // Filter out L10 prep on non-Mondays
+  const filtered = isMonday
+    ? items
+    : items.filter(item => !(item.agent_id === 'ea' && item.output_type === 'briefing'))
+
+  // Pick top 1 per agent (most important by output_type priority)
+  const byAgent = new Map<string, typeof filtered[0]>()
+  for (const item of filtered) {
+    const existing = byAgent.get(item.agent_id)
+    if (!existing ||
+        (OUTPUT_TYPE_PRIORITY[item.output_type] ?? 99) < (OUTPUT_TYPE_PRIORITY[existing.output_type] ?? 99)) {
+      byAgent.set(item.agent_id, item)
+    }
+  }
+
+  return Array.from(byAgent.values()).map(item => ({
+    agent_id: item.agent_id,
+    agent_name: item.agent_name,
+    title: item.title,
+    output_type: item.output_type,
   }))
 }
 
