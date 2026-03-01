@@ -793,8 +793,13 @@ All 48 tasks completed. See `docs/archive/v1.0/` for original task definitions.
 | 8 (Week 1) | 8.1-8.21 | 32 | Agent foundation, connectors, briefing, Slack, Financial Strategist |
 | 9 (Week 2) | 9.1-9.4 | 10 | Briefing excellence, HubSpot integration, settings page |
 | 10 (Week 3) | 10.1-10.7 | 14 | Grain MCP ingestion, Grain notes parser, BD Strategist, pre-meeting prep, nudges, L10 prep |
+| 11 (Slack Fixes) | 11.1-11.5 | 15 | mrkdwn escaping, section limits, date tokens, unfurl control, LLM sanitization |
 | 12 (Grain 2A) | 12.1-12.2 | 4 | Sales coaching ingestion, briefing + BD Strategist integration |
-| **Total** | | **60** | |
+| 13 (Pattern Detection) | 13.1-13.3 | 3 | Pattern detection engine, briefing + overnight integration |
+| 15 (Marketing) | 15.1-15.3 | 3 | Marketing Strategist agent, overnight + briefing wiring |
+| 16 (Innovation) | 16.1-16.3 | 3 | Product Innovation Officer agent, overnight + briefing wiring |
+| 2A (Enrichment) | 2A.1-2A.3 | 3 | Cowork assessment enrichment of Financial, BD, Operations agents |
+| **Total** | | **87** | |
 
 ---
 
@@ -859,6 +864,18 @@ All 48 tasks completed. See `docs/archive/v1.0/` for original task definitions.
 | 2026-02-26 | 12.1.2 | Add coaching_feedback data type to agent types | Complete |
 | 2026-02-26 | 12.1.3 | Surface coaching highlights in morning briefing | Complete |
 | 2026-02-26 | 12.1.4 | Feed coaching data into BD Strategist analysis | Complete |
+| 2026-02-27 | 13.1.1 | Create pattern detection engine with 6 detection rules | Complete |
+| 2026-02-27 | 13.2.1 | Wire pattern detection into morning briefing | Complete |
+| 2026-02-27 | 13.3.1 | Wire pattern detection into overnight analysis | Complete |
+| 2026-02-27 | 15.1.1 | Create Marketing Strategist agent | Complete |
+| 2026-02-27 | 15.2.1 | Seed Marketing Strategist + wire into overnight + briefing | Complete |
+| 2026-02-27 | 15.3.1 | Quality check Marketing Strategist | Complete |
+| 2026-02-27 | 16.1.1 | Create Product Innovation Officer agent | Complete |
+| 2026-02-27 | 16.2.1 | Seed Product Innovation Officer + wire into overnight + briefing | Complete |
+| 2026-02-27 | 16.3.1 | Quality check Product Innovation Officer | Complete |
+| 2026-02-28 | 2A.1 | Enrich Financial Strategist with Cowork assessment | Complete |
+| 2026-02-28 | 2A.2 | Enrich BD Strategist with Cowork assessment | Complete |
+| 2026-02-28 | 2A.3 | Enrich Operations Architect with Cowork assessment | Complete |
 
 ---
 
@@ -867,18 +884,18 @@ All 48 tasks completed. See `docs/archive/v1.0/` for original task definitions.
 ### Phase 13: Pattern Detection Engine
 > "Surface what's not being said" — the core differentiator
 
-- [ ] 13.1.1 Create pattern detection engine with 6 detection rules
+- [x] 13.1.1 Create pattern detection engine with 6 detection rules
   - **Files:** `src/lib/agents/pattern-detector.ts` (NEW)
   - Pure data queries (no LLM): stalled rocks, scorecard misses without issues, topic avoidance, untracked commitments, concentration worsening, partner workload imbalance
   - Output: `PatternAlert[]` with severity levels (observation/concern/escalation)
 
-- [ ] 13.2.1 Wire pattern detection into morning briefing
+- [x] 13.2.1 Wire pattern detection into morning briefing
   - **Files:** `src/lib/agents/ea-briefing.ts` (MODIFY)
   - Add `runPatternDetection(orgId)` to Promise.all data assembly
   - Add `## Pattern Observations` section to briefing prompt
   - Concerns → Tier 1, Observations → Tier 2, Escalations → auto-create Issues
 
-- [ ] 13.3.1 Wire pattern detection into overnight analysis
+- [x] 13.3.1 Wire pattern detection into overnight analysis
   - **Files:** `src/app/api/agents/cron/overnight-analysis/route.ts` (MODIFY)
   - Run pattern detection as part of nightly cron
   - Weekly deep scan on Sundays for cross-agent pattern analysis
@@ -889,19 +906,19 @@ All 48 tasks completed. See `docs/archive/v1.0/` for original task definitions.
 > Fractional CMO — competitive intel, positioning, content strategy, client language mining
 > Strategic foundation: `docs/Caldera_Marketing_Strategy_Assessment.md`
 
-- [ ] 15.1.1 Create Marketing Strategist agent
+- [x] 15.1.1 Create Marketing Strategist agent
   - **Files:** `src/lib/agents/marketing-strategist.ts` (NEW)
   - Follows `bd-strategist.ts` pattern: Zod schema → data fetch → prompt → generateObject → save → auto-Issue
   - Schema: positioning_score, competitive_landscape[], content_opportunities[], client_language_insights[], market_signals[]
   - Data: Grain transcripts (language mining), Brave Search (competitor news), HubSpot (deal narratives), existing Issues
 
-- [ ] 15.2.1 Seed Marketing Strategist + wire into overnight analysis + briefing
+- [x] 15.2.1 Seed Marketing Strategist + wire into overnight analysis + briefing
   - **Files:** `supabase/migrations/018_seed_marketing_strategist.sql` (NEW), `overnight-analysis/route.ts` (MODIFY), `ea-briefing.ts` (MODIFY), `slack-briefing.ts` (MODIFY)
   - Add `runMarketingAnalysis(orgId)` to overnight cron
   - Add `getMarketingInsights(orgId)` + `## Marketing & Positioning` section to briefing
   - Add `'marketing-strategist': ':mega:'` to AGENT_EMOJI
 
-- [ ] 15.3.1 Quality check Marketing Strategist
+- [x] 15.3.1 Quality check Marketing Strategist
   - Trigger overnight cron → verify analysis in `agent_outputs`
   - Trigger briefing → verify marketing insights appear
   - Quality gate: `npm run typecheck && npm run lint && npm run test && npm run build`
@@ -912,24 +929,177 @@ All 48 tasks completed. See `docs/archive/v1.0/` for original task definitions.
 > Continuous market radar and idea processor — surfaces trends and signals for leadership consideration
 > Strategic foundation: `docs/Caldera_Product_Innovation_Assessment.md`
 
-- [ ] 16.1.1 Create Product Innovation Officer agent
+- [x] 16.1.1 Create Product Innovation Officer agent
   - **Files:** `src/lib/agents/product-innovation.ts` (NEW)
   - Follows `bd-strategist.ts` pattern: Zod schema → data fetch → prompt → generateObject → save → auto-Issue
   - Schema: technology_trends[], market_signals[], competitor_product_moves[], opportunity_seeds[], bench_time_signals
   - Data: Brave Search (tech trends, competitor products), Grain transcripts (client patterns), Financial Strategist (utilization), existing Issues
 
-- [ ] 16.2.1 Seed Product Innovation Officer + wire into overnight analysis + briefing
+- [x] 16.2.1 Seed Product Innovation Officer + wire into overnight analysis + briefing
   - **Files:** `supabase/migrations/019_seed_product_innovation.sql` (NEW), `overnight-analysis/route.ts` (MODIFY), `ea-briefing.ts` (MODIFY), `slack-briefing.ts` (MODIFY)
   - Add `runInnovationAnalysis(orgId)` to overnight cron
   - Add `getInnovationInsights(orgId)` + `## Product & Innovation` section to briefing
   - Add `'product-innovation': ':rocket:'` to AGENT_EMOJI
 
-- [ ] 16.3.1 Quality check Product Innovation Officer
+- [x] 16.3.1 Quality check Product Innovation Officer
   - Trigger overnight cron → verify analysis in `agent_outputs`
   - Trigger briefing → verify innovation insights appear
   - Quality gate: `npm run typecheck && npm run lint && npm run test && npm run build`
 
 **Checkpoint:** Innovation analysis appears in overnight cron output. Briefing includes tech trends, market signals, and opportunity seeds. Agent philosophy: radar, not prescriber.
+
+### Phase 2A: Cowork Strategic Assessment Enrichment
+
+> Enrich existing agent personas with deep strategic intelligence from Cowork plugin assessments
+
+- [x] 2A.1 Enrich Financial Strategist with Cowork Financial Strategy Assessment
+  - **Files:** `src/lib/agents/financial-strategist.ts` (MODIFY)
+  - Added: health_score (composite 0-100), revenue_forecast (30/60/90d), scope_creep_signals, portfolio_classification, cash runway tiers, HHI concentration index, pricing intelligence, pipeline data fetching
+  - Strategic foundation: `docs/Caldera_Financial_Strategy_Assessment.md`
+
+- [x] 2A.2 Enrich BD Strategist with Cowork Sales & BD Strategy Assessment
+  - **Files:** `src/lib/agents/bd-strategist.ts` (MODIFY)
+  - Added: FIRE qualification framework (per-deal scoring), pipeline_velocity, diversification_tracker, competitive_signals, pricing_signals, coaching_themes, close-or-kill enforcement at 90 days
+  - Strategic foundation: `docs/Caldera_Sales_BD_Strategy_Assessment.md`
+
+- [x] 2A.3 Enrich Operations Architect with Cowork Operations Strategy Assessment
+  - **Files:** `src/lib/agents/operations-architect.ts` (MODIFY)
+  - Added: ops_maturity_score, engagement_scores with health predictions, Client Health Score model (churn/expansion), scope creep detection (5 signal types), SOW quality scoring, handoff quality scoring, capacity_forecast, process maturity model, auto-issue for churn-imminent clients
+  - Strategic foundation: `docs/Caldera_Operations_Strategy_Assessment.md`
+
+**Checkpoint:** All 3 existing agents enriched with Cowork strategic assessments. Expanded thresholds, schemas, system prompts, and detection logic. Quality gate passed.
+
+---
+
+## Phase 11: Slack Formatting Fixes
+
+**Plan:** `docs/plans/slack-formatting-fixes.md`
+**Goal:** Harden all Slack message formatting — mrkdwn escaping, Block Kit structural limits, and platform feature adoption. No new features; strictly audit-driven fixes.
+
+### 11.1 Formatting Utilities
+
+- [x] **11.1.1** Create `lib/slack-format.ts` with formatting utilities
+  - `escapeSlackMrkdwn(text)` — escape `&`, `<`, `>` for safe mrkdwn interpolation
+  - `slackDate(date, format, fallback)` — generate `<!date^unix^{tokens}|fallback>` strings
+  - `truncateForSlack(text, maxLen)` — truncate at word boundary, append `…` if truncated (default 2800 chars to stay under 3000 section limit)
+  - `sanitizeLLMForMrkdwn(text)` — convert common standard Markdown to mrkdwn (`**bold**` → `*bold*`, `[text](url)` → `<url|text>`, `## heading` → `*heading*`)
+  - Add unit tests in `__tests__/lib/slack-format.test.ts`
+  - **Files:** `ember/src/lib/slack-format.ts` (NEW), `ember/src/__tests__/lib/slack-format.test.ts` (NEW)
+  - **Acceptance:** All 4 utility functions exported, tests pass for edge cases (`&amp;` double-escaping, truncation at word boundary, date token generation, LLM markdown conversion)
+
+### 11.2 Phase 1 — Safety & Correctness (High Priority)
+
+- [ ] **11.2.1** Add mrkdwn escaping to `slack-briefing.ts`
+  - Import `escapeSlackMrkdwn` from `lib/slack-format`
+  - Escape all user-generated content: `item.title`, `item.detail`, `item.source` (in news links), `item.summary`, `item.agent_name`
+  - Do NOT escape mrkdwn syntax we build ourselves (e.g., `*bold*`, `<url|text>`)
+  - **Files:** `ember/src/lib/agents/slack-briefing.ts`
+  - **Depends on:** 11.1.1
+  - **Acceptance:** Rock title with `>` or `&` characters renders correctly in Slack briefing
+
+- [ ] **11.2.2** Add mrkdwn escaping to `morning-briefing/route.ts`
+  - Escape: `brief.meetingTitle`, `brief.attendees` (join), `prep.headline`, `prep.scorecard_review.summary`, `prep.rock_review.summary`, `prep.todo_review.note`, `prep.financial_snapshot`, `prep.pipeline_snapshot`, issue titles, rock titles/notes, todo carry-forward items
+  - **Files:** `ember/src/app/api/agents/cron/morning-briefing/route.ts`
+  - **Depends on:** 11.1.1
+  - **Acceptance:** L10 prep and pre-call brief render safely with special characters in EOS data
+
+- [ ] **11.2.3** Add mrkdwn escaping to `nudge-engine.ts`
+  - Escape: `nudge.itemTitle`, `nudge.message`, `nudge.targetPartnerName`
+  - **Files:** `ember/src/lib/agents/nudge-engine.ts`
+  - **Depends on:** 11.1.1
+  - **Acceptance:** Nudge for a todo titled `Fix login & signup` renders `&amp;` correctly
+
+- [ ] **11.2.4** Add mrkdwn escaping to `scorecard-automation/route.ts` and `command-executor.ts`
+  - Scorecard: escape `metricName` in metric list and reply instructions
+  - Command executor: escape `output.title` in approve/reject/defer confirmations
+  - **Files:** `ember/src/app/api/agents/cron/scorecard-automation/route.ts`, `ember/src/lib/agents/command-executor.ts`
+  - **Depends on:** 11.1.1
+  - **Acceptance:** Metric named `Revenue > Target` renders safely in scorecard prompt
+
+- [ ] **11.2.5** Add section text chunking to `slack-briefing.ts`
+  - Tier 2 business items: if joined text > 2800 chars, split into multiple section blocks (one per item)
+  - FYI items: same chunking logic
+  - Industry Pulse: same chunking logic
+  - Work queue items: same chunking logic
+  - Use `truncateForSlack()` for individual items that are themselves very long
+  - **Files:** `ember/src/lib/agents/slack-briefing.ts`
+  - **Depends on:** 11.1.1
+  - **Acceptance:** Briefing with 10+ business updates renders all items without truncation
+
+- [ ] **11.2.6** Add section text truncation to `morning-briefing/route.ts`
+  - Pre-call `brief.brief` (LLM output): truncate to 2800 chars with `truncateForSlack()`
+  - IDS priority list: chunk into multiple sections if > 2800 chars
+  - Ember observations: chunk into multiple sections if > 2800 chars
+  - **Files:** `ember/src/app/api/agents/cron/morning-briefing/route.ts`
+  - **Depends on:** 11.1.1
+  - **Acceptance:** Pre-call brief with long LLM output truncates gracefully with `…`
+
+### 11.3 Phase 2 — Platform Features (Medium Priority)
+
+- [ ] **11.3.1** Replace static dates with `<!date^>` tokens
+  - `slack-briefing.ts` line 71: briefing header date → `<!date^{unix}^{date_long}|{fallback}>`
+  - `slack-connector.ts` line 123: system alert timestamp → `<!date^{unix}^{date_short} {time}|{iso}>`
+  - `morning-briefing/route.ts` line 337: pre-call meeting time → `<!date^{unix}^{time}|{time}>`
+  - `nudge-engine.ts` line 502: "Last Updated" field → `<!date^{unix}^{date_short}|{date}>`
+  - **Files:** `ember/src/lib/agents/slack-briefing.ts`, `ember/src/lib/connectors/slack-connector.ts`, `ember/src/app/api/agents/cron/morning-briefing/route.ts`, `ember/src/lib/agents/nudge-engine.ts`
+  - **Depends on:** 11.1.1
+  - **Acceptance:** Dates render in reader's local timezone in Slack. Fallback text displays correctly for clients that don't support `<!date^>`.
+
+- [ ] **11.3.2** Suppress link unfurling on briefing and scorecard messages
+  - Add optional `unfurl_links` and `unfurl_media` params to `postBlockMessage()` in `slack-connector.ts`
+  - Pass `unfurl_links: false, unfurl_media: false` from `deliverBriefing()` in `slack-briefing.ts`
+  - Pass same from `promptForManualMetrics()` in `scorecard-automation/route.ts`
+  - **Files:** `ember/src/lib/connectors/slack-connector.ts`, `ember/src/lib/agents/slack-briefing.ts`, `ember/src/app/api/agents/cron/scorecard-automation/route.ts`
+  - **Acceptance:** Briefing with Industry Pulse news links does not show link preview cards
+
+- [ ] **11.3.3** Improve morning briefing fallback text
+  - Replace `"Morning Briefing — ${briefing.briefing_date}"` with summary: `"Morning Briefing — Mar 1 | 2 urgent, 3 updates, 4 items for review"`
+  - Build fallback from `tier1.length`, `tier2.length`, `tier3.length`, `workQueue.length`
+  - **Files:** `ember/src/lib/agents/slack-briefing.ts`
+  - **Acceptance:** Push notification shows item counts alongside the date
+
+### 11.4 Phase 3 — Structural Improvements (Low Priority)
+
+- [ ] **11.4.1** Add `action_id` to checkup reminder button
+  - Add `action_id: 'checkup_take_assessment'` to the button in `buildCheckupReminderBlocks()`
+  - **Files:** `ember/src/lib/slack.ts`
+  - **Acceptance:** Button element has `action_id` property
+
+- [ ] **11.4.2** Convert L10 prep to use section `fields` layout
+  - Combine Scorecard + Rocks into one section with `fields` (2-column)
+  - Combine Financial + Pipeline into one section with `fields` (2-column)
+  - Keep To-Dos as standalone section (multi-line content doesn't fit fields well)
+  - **Files:** `ember/src/app/api/agents/cron/morning-briefing/route.ts`
+  - **Acceptance:** L10 prep renders in compact 2-column layout for key-value data
+
+- [ ] **11.4.3** Sanitize LLM output in command executor
+  - Apply `sanitizeLLMForMrkdwn()` to EA query responses before posting to Slack
+  - **Files:** `ember/src/lib/agents/command-executor.ts`
+  - **Depends on:** 11.1.1
+  - **Acceptance:** EA response using `**bold**` converts to `*bold*` before posting
+
+- [ ] **11.4.4** Add mrkdwn escaping to `slack.ts` checkup reminders
+  - Escape `periodName` in `buildCheckupReminderBlocks()`
+  - **Files:** `ember/src/lib/slack.ts`
+  - **Depends on:** 11.1.1
+  - **Acceptance:** Period name with special characters renders safely
+
+### 11.5 Quality Gate
+
+- [ ] **11.5.1** Run quality gate and verify in production
+  - Run: `npm run typecheck && npm run lint && npm run test && npm run build`
+  - Trigger briefing pipeline via test endpoint: `/api/agents/test/pipeline?step=all`
+  - Verify Slack rendering: dates localized, no broken links, sections not truncated
+  - **Acceptance:** All quality checks pass, briefing renders correctly in Slack
+
+**Phase 11 Checkpoint:**
+- [ ] All user-generated content escaped before mrkdwn interpolation
+- [ ] No section text exceeds 3,000 char limit
+- [ ] Dates render in reader's local timezone via `<!date^>` tokens
+- [ ] Link unfurling suppressed on briefing messages
+- [ ] Push notification fallback text includes item counts
+- [ ] LLM output sanitized for mrkdwn before posting
+- [ ] All quality checks pass: typecheck, lint, test, build
 
 ---
 
