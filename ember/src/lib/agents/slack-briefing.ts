@@ -1,7 +1,7 @@
 import { createClient } from '@supabase/supabase-js'
 import { getSlackClient, postBlockMessage, openDM } from '@/lib/connectors/slack-connector'
 import { markBriefingDelivered } from './ea-briefing'
-import { escapeSlackMrkdwn } from '@/lib/slack-format'
+import { escapeSlackMrkdwn, chunkForSlackSections } from '@/lib/slack-format'
 import type { BriefingInsert } from '@/types/agents'
 
 /** Shorthand for escaping user content */
@@ -114,16 +114,16 @@ export function formatBriefingBlocks(briefing: BriefingInsert, timezone: string 
       type: 'section',
       text: { type: 'mrkdwn', text: ':briefcase: *Business Updates*' },
     })
-    const tier2Text = tier2
-      .map(item => {
-        const emoji = sourceEmoji(item.source)
-        return `${emoji ? emoji + ' ' : ''}*${esc(item.title)}*\n${esc(item.detail)}`
-      })
-      .join('\n\n')
-    blocks.push({
-      type: 'section',
-      text: { type: 'mrkdwn', text: tier2Text },
+    const tier2Items = tier2.map(item => {
+      const emoji = sourceEmoji(item.source)
+      return `${emoji ? emoji + ' ' : ''}*${esc(item.title)}*\n${esc(item.detail)}`
     })
+    for (const chunk of chunkForSlackSections(tier2Items)) {
+      blocks.push({
+        type: 'section',
+        text: { type: 'mrkdwn', text: chunk },
+      })
+    }
   }
 
   // Tier 3: Split into Industry Pulse (news with URL sources) and general FYI
@@ -132,23 +132,25 @@ export function formatBriefingBlocks(briefing: BriefingInsert, timezone: string 
 
   if (fyiItems.length > 0) {
     blocks.push({ type: 'divider' })
-    const fyiText = fyiItems
-      .map(item => `• ${esc(item.title)} — ${esc(item.detail)}`)
-      .join('\n')
-    blocks.push({
-      type: 'section',
-      text: { type: 'mrkdwn', text: `:bulb: *FYI*\n${fyiText}` },
+    const fyiLines = fyiItems.map(item => `• ${esc(item.title)} — ${esc(item.detail)}`)
+    const fyiChunks = chunkForSlackSections(fyiLines, '\n')
+    fyiChunks.forEach((chunk, i) => {
+      blocks.push({
+        type: 'section',
+        text: { type: 'mrkdwn', text: i === 0 ? `:bulb: *FYI*\n${chunk}` : chunk },
+      })
     })
   }
 
   if (newsItems.length > 0) {
     blocks.push({ type: 'divider' })
-    const newsText = newsItems
-      .map(item => `• <${item.source}|${esc(item.title)}> — ${esc(item.detail)}`)
-      .join('\n')
-    blocks.push({
-      type: 'section',
-      text: { type: 'mrkdwn', text: `:newspaper: *Industry Pulse*\n${newsText}` },
+    const newsLines = newsItems.map(item => `• <${item.source}|${esc(item.title)}> — ${esc(item.detail)}`)
+    const newsChunks = chunkForSlackSections(newsLines, '\n')
+    newsChunks.forEach((chunk, i) => {
+      blocks.push({
+        type: 'section',
+        text: { type: 'mrkdwn', text: i === 0 ? `:newspaper: *Industry Pulse*\n${chunk}` : chunk },
+      })
     })
   }
 
@@ -159,15 +161,17 @@ export function formatBriefingBlocks(briefing: BriefingInsert, timezone: string 
       type: 'section',
       text: { type: 'mrkdwn', text: ':crystal_ball: *Ember Work Queue*' },
     })
-    const queueText = workQueue.map(item => {
+    const queueLines = workQueue.map(item => {
       const emoji = agentEmoji(item.agent_id)
       const statusIcon = item.status === 'pending_review' ? ':yellow-card:' : ':green-card:'
       return `${statusIcon} *${item.id}.* ${esc(item.title)} _[${emoji} ${esc(item.agent_name)}]_\n      ${esc(item.summary)}`
-    }).join('\n')
-    blocks.push({
-      type: 'section',
-      text: { type: 'mrkdwn', text: queueText },
     })
+    for (const chunk of chunkForSlackSections(queueLines, '\n')) {
+      blocks.push({
+        type: 'section',
+        text: { type: 'mrkdwn', text: chunk },
+      })
+    }
     blocks.push({
       type: 'context',
       elements: [{ type: 'mrkdwn', text: '_Reply: "approve 1", "reject 2 — reason", or "defer 3 to Friday"_' }],
@@ -229,9 +233,17 @@ export async function deliverBriefing(
 
   // Format and post
   const blocks = formatBriefingBlocks(briefing, timezone)
-  const fallbackText = `Morning Briefing — ${briefing.briefing_date}`
+  const tier1 = briefing.tier1_urgent || []
+  const tier2 = briefing.tier2_business || []
+  const wq = briefing.agent_work_queue || []
+  const fallbackParts = [
+    tier1.length > 0 ? `${tier1.length} urgent` : null,
+    tier2.length > 0 ? `${tier2.length} updates` : null,
+    wq.length > 0 ? `${wq.length} items for review` : null,
+  ].filter(Boolean).join(', ')
+  const fallbackText = `Morning Briefing — ${briefing.briefing_date}${fallbackParts ? ` | ${fallbackParts}` : ''}`
 
-  const result = await postBlockMessage(client, channelId, fallbackText, blocks)
+  const result = await postBlockMessage(client, channelId, fallbackText, blocks, { unfurl_links: false, unfurl_media: false })
   if (!result?.ts) {
     const msg = 'Failed to post briefing message to Slack'
     console.error(msg)

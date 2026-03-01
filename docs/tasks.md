@@ -997,26 +997,26 @@ All 48 tasks completed. See `docs/archive/v1.0/` for original task definitions.
   - **Depends on:** 11.1.1
   - **Acceptance:** Rock title with `>` or `&` characters renders correctly in Slack briefing
 
-- [ ] **11.2.2** Add mrkdwn escaping to `morning-briefing/route.ts`
+- [x] **11.2.2** Add mrkdwn escaping to `morning-briefing/route.ts`
   - Escape: `brief.meetingTitle`, `brief.attendees` (join), `prep.headline`, `prep.scorecard_review.summary`, `prep.rock_review.summary`, `prep.todo_review.note`, `prep.financial_snapshot`, `prep.pipeline_snapshot`, issue titles, rock titles/notes, todo carry-forward items
   - **Files:** `ember/src/app/api/agents/cron/morning-briefing/route.ts`
   - **Depends on:** 11.1.1
   - **Acceptance:** L10 prep and pre-call brief render safely with special characters in EOS data
 
-- [ ] **11.2.3** Add mrkdwn escaping to `nudge-engine.ts`
+- [x] **11.2.3** Add mrkdwn escaping to `nudge-engine.ts`
   - Escape: `nudge.itemTitle`, `nudge.message`, `nudge.targetPartnerName`
   - **Files:** `ember/src/lib/agents/nudge-engine.ts`
   - **Depends on:** 11.1.1
   - **Acceptance:** Nudge for a todo titled `Fix login & signup` renders `&amp;` correctly
 
-- [ ] **11.2.4** Add mrkdwn escaping to `scorecard-automation/route.ts` and `command-executor.ts`
+- [x] **11.2.4** Add mrkdwn escaping to `scorecard-automation/route.ts` and `command-executor.ts`
   - Scorecard: escape `metricName` in metric list and reply instructions
   - Command executor: escape `output.title` in approve/reject/defer confirmations
   - **Files:** `ember/src/app/api/agents/cron/scorecard-automation/route.ts`, `ember/src/lib/agents/command-executor.ts`
   - **Depends on:** 11.1.1
   - **Acceptance:** Metric named `Revenue > Target` renders safely in scorecard prompt
 
-- [ ] **11.2.5** Add section text chunking to `slack-briefing.ts`
+- [x] **11.2.5** Add section text chunking to `slack-briefing.ts`
   - Tier 2 business items: if joined text > 2800 chars, split into multiple section blocks (one per item)
   - FYI items: same chunking logic
   - Industry Pulse: same chunking logic
@@ -1026,7 +1026,7 @@ All 48 tasks completed. See `docs/archive/v1.0/` for original task definitions.
   - **Depends on:** 11.1.1
   - **Acceptance:** Briefing with 10+ business updates renders all items without truncation
 
-- [ ] **11.2.6** Add section text truncation to `morning-briefing/route.ts`
+- [x] **11.2.6** Add section text truncation to `morning-briefing/route.ts`
   - Pre-call `brief.brief` (LLM output): truncate to 2800 chars with `truncateForSlack()`
   - IDS priority list: chunk into multiple sections if > 2800 chars
   - Ember observations: chunk into multiple sections if > 2800 chars
@@ -1036,7 +1036,7 @@ All 48 tasks completed. See `docs/archive/v1.0/` for original task definitions.
 
 ### 11.3 Phase 2 — Platform Features (Medium Priority)
 
-- [ ] **11.3.1** Replace static dates with `<!date^>` tokens
+- [x] **11.3.1** Replace static dates with `<!date^>` tokens
   - `slack-briefing.ts` line 71: briefing header date → `<!date^{unix}^{date_long}|{fallback}>`
   - `slack-connector.ts` line 123: system alert timestamp → `<!date^{unix}^{date_short} {time}|{iso}>`
   - `morning-briefing/route.ts` line 337: pre-call meeting time → `<!date^{unix}^{time}|{time}>`
@@ -1045,14 +1045,14 @@ All 48 tasks completed. See `docs/archive/v1.0/` for original task definitions.
   - **Depends on:** 11.1.1
   - **Acceptance:** Dates render in reader's local timezone in Slack. Fallback text displays correctly for clients that don't support `<!date^>`.
 
-- [ ] **11.3.2** Suppress link unfurling on briefing and scorecard messages
+- [x] **11.3.2** Suppress link unfurling on briefing and scorecard messages
   - Add optional `unfurl_links` and `unfurl_media` params to `postBlockMessage()` in `slack-connector.ts`
   - Pass `unfurl_links: false, unfurl_media: false` from `deliverBriefing()` in `slack-briefing.ts`
   - Pass same from `promptForManualMetrics()` in `scorecard-automation/route.ts`
   - **Files:** `ember/src/lib/connectors/slack-connector.ts`, `ember/src/lib/agents/slack-briefing.ts`, `ember/src/app/api/agents/cron/scorecard-automation/route.ts`
   - **Acceptance:** Briefing with Industry Pulse news links does not show link preview cards
 
-- [ ] **11.3.3** Improve morning briefing fallback text
+- [x] **11.3.3** Improve morning briefing fallback text
   - Replace `"Morning Briefing — ${briefing.briefing_date}"` with summary: `"Morning Briefing — Mar 1 | 2 urgent, 3 updates, 4 items for review"`
   - Build fallback from `tier1.length`, `tier2.length`, `tier3.length`, `workQueue.length`
   - **Files:** `ember/src/lib/agents/slack-briefing.ts`
@@ -1060,25 +1060,25 @@ All 48 tasks completed. See `docs/archive/v1.0/` for original task definitions.
 
 ### 11.4 Phase 3 — Structural Improvements (Low Priority)
 
-- [ ] **11.4.1** Add `action_id` to checkup reminder button
+- [x] **11.4.1** Add `action_id` to checkup reminder button
   - Add `action_id: 'checkup_take_assessment'` to the button in `buildCheckupReminderBlocks()`
   - **Files:** `ember/src/lib/slack.ts`
   - **Acceptance:** Button element has `action_id` property
 
-- [ ] **11.4.2** Convert L10 prep to use section `fields` layout
+- [x] **11.4.2** Convert L10 prep to use section `fields` layout
   - Combine Scorecard + Rocks into one section with `fields` (2-column)
   - Combine Financial + Pipeline into one section with `fields` (2-column)
   - Keep To-Dos as standalone section (multi-line content doesn't fit fields well)
   - **Files:** `ember/src/app/api/agents/cron/morning-briefing/route.ts`
   - **Acceptance:** L10 prep renders in compact 2-column layout for key-value data
 
-- [ ] **11.4.3** Sanitize LLM output in command executor
+- [x] **11.4.3** Sanitize LLM output in command executor
   - Apply `sanitizeLLMForMrkdwn()` to EA query responses before posting to Slack
   - **Files:** `ember/src/lib/agents/command-executor.ts`
   - **Depends on:** 11.1.1
   - **Acceptance:** EA response using `**bold**` converts to `*bold*` before posting
 
-- [ ] **11.4.4** Add mrkdwn escaping to `slack.ts` checkup reminders
+- [x] **11.4.4** Add mrkdwn escaping to `slack.ts` checkup reminders
   - Escape `periodName` in `buildCheckupReminderBlocks()`
   - **Files:** `ember/src/lib/slack.ts`
   - **Depends on:** 11.1.1
@@ -1086,20 +1086,20 @@ All 48 tasks completed. See `docs/archive/v1.0/` for original task definitions.
 
 ### 11.5 Quality Gate
 
-- [ ] **11.5.1** Run quality gate and verify in production
+- [x] **11.5.1** Run quality gate and verify in production
   - Run: `npm run typecheck && npm run lint && npm run test && npm run build`
   - Trigger briefing pipeline via test endpoint: `/api/agents/test/pipeline?step=all`
   - Verify Slack rendering: dates localized, no broken links, sections not truncated
   - **Acceptance:** All quality checks pass, briefing renders correctly in Slack
 
 **Phase 11 Checkpoint:**
-- [ ] All user-generated content escaped before mrkdwn interpolation
-- [ ] No section text exceeds 3,000 char limit
-- [ ] Dates render in reader's local timezone via `<!date^>` tokens
-- [ ] Link unfurling suppressed on briefing messages
-- [ ] Push notification fallback text includes item counts
-- [ ] LLM output sanitized for mrkdwn before posting
-- [ ] All quality checks pass: typecheck, lint, test, build
+- [x] All user-generated content escaped before mrkdwn interpolation
+- [x] No section text exceeds 3,000 char limit
+- [x] Dates render in reader's local timezone via `<!date^>` tokens
+- [x] Link unfurling suppressed on briefing messages
+- [x] Push notification fallback text includes item counts
+- [x] LLM output sanitized for mrkdwn before posting
+- [x] All quality checks pass: typecheck, lint, test, build
 
 ---
 

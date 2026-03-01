@@ -6,7 +6,10 @@ import { postSystemAlert, getSlackClient, openDM, postBlockMessage } from '@/lib
 import { generatePreCallBrief } from '@/lib/agents/meeting-prep'
 import { runNudgeCheck, formatNudgeForSlack, type Nudge } from '@/lib/agents/nudge-engine'
 import { detectUpcomingL10, hasL10PrepBeenGenerated, generateL10Prep, type L10Prep } from '@/lib/agents/l10-prep'
+import { escapeSlackMrkdwn, truncateForSlack, chunkForSlackSections, slackDate } from '@/lib/slack-format'
 import type { BriefingInsert } from '@/types/agents'
+
+const esc = escapeSlackMrkdwn
 
 export const dynamic = 'force-dynamic'
 export const maxDuration = 300
@@ -334,13 +337,13 @@ async function sendPreMeetingPreps(partnerId: string, organizationId: string): P
       {
         type: 'context',
         elements: [
-          { type: 'mrkdwn', text: `*Time:* ${new Date(brief.meetingTime).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })} | *Attendees:* ${brief.attendees.join(', ')}` },
+          { type: 'mrkdwn', text: `*Time:* ${slackDate(brief.meetingTime, '{time}')} | *Attendees:* ${esc(brief.attendees.join(', '))}` },
         ],
       },
       { type: 'divider' },
       {
         type: 'section',
-        text: { type: 'mrkdwn', text: brief.brief },
+        text: { type: 'mrkdwn', text: truncateForSlack(esc(brief.brief)) },
       },
     ]
 
@@ -363,73 +366,80 @@ async function deliverL10Prep(
   const client = await getSlackClient(organizationId)
   if (!client) return
 
-  const l10DateFormatted = new Date(l10Date).toLocaleDateString('en-US', {
+  // Static format for plain_text headers, dynamic for mrkdwn contexts
+  const l10DateStatic = new Date(l10Date).toLocaleDateString('en-US', {
     weekday: 'long',
     month: 'short',
     day: 'numeric',
   })
+  const l10DateToken = slackDate(l10Date, '{date_long}')
 
   // Build the main prep blocks
   const blocks: Record<string, unknown>[] = [
     {
       type: 'header',
-      text: { type: 'plain_text', text: `L10 Meeting Prep — ${l10DateFormatted}`, emoji: true },
+      text: { type: 'plain_text', text: `L10 Meeting Prep — ${l10DateStatic}`, emoji: true },
     },
     {
       type: 'section',
-      text: { type: 'mrkdwn', text: `*${prep.headline}*` },
+      text: { type: 'mrkdwn', text: `*${esc(prep.headline)}*` },
     },
     { type: 'divider' },
     {
       type: 'section',
-      text: { type: 'mrkdwn', text: `*Scorecard:* ${prep.scorecard_review.summary}` },
-    },
-    {
-      type: 'section',
-      text: { type: 'mrkdwn', text: `*Rocks:* ${prep.rock_review.summary}` },
+      fields: [
+        { type: 'mrkdwn', text: `*Scorecard*\n${esc(prep.scorecard_review.summary)}` },
+        { type: 'mrkdwn', text: `*Rocks*\n${esc(prep.rock_review.summary)}` },
+      ],
     },
     {
       type: 'section',
       text: {
         type: 'mrkdwn',
-        text: `*To-Dos:* ${prep.todo_review.completion_rate_2wk}% completion rate | ${prep.todo_review.overdue_count} overdue\n${prep.todo_review.note}`,
+        text: `*To-Dos:* ${prep.todo_review.completion_rate_2wk}% completion rate | ${prep.todo_review.overdue_count} overdue\n${esc(prep.todo_review.note)}`,
       },
     },
     { type: 'divider' },
     {
       type: 'section',
-      text: { type: 'mrkdwn', text: `*Financial:* ${prep.financial_snapshot}` },
-    },
-    {
-      type: 'section',
-      text: { type: 'mrkdwn', text: `*Pipeline:* ${prep.pipeline_snapshot}` },
+      fields: [
+        { type: 'mrkdwn', text: `*Financial*\n${esc(prep.financial_snapshot)}` },
+        { type: 'mrkdwn', text: `*Pipeline*\n${esc(prep.pipeline_snapshot)}` },
+      ],
     },
   ]
 
   // IDS priorities
   if (prep.issues_list.length > 0) {
     blocks.push({ type: 'divider' })
-    blocks.push({
-      type: 'section',
-      text: {
-        type: 'mrkdwn',
-        text: '*IDS Priority Order:*\n' + prep.issues_list
-          .sort((a, b) => a.recommended_order - b.recommended_order)
-          .map((issue, i) => `${i + 1}. ${issue.title} _(${issue.priority}, ${issue.age_days}d old)_`)
-          .join('\n'),
-      },
+    const issueLines = prep.issues_list
+      .sort((a, b) => a.recommended_order - b.recommended_order)
+      .map((issue, i) => `${i + 1}. ${esc(issue.title)} _(${esc(issue.priority)}, ${issue.age_days}d old)_`)
+    const issueChunks = chunkForSlackSections(issueLines, '\n')
+    issueChunks.forEach((chunk, i) => {
+      blocks.push({
+        type: 'section',
+        text: {
+          type: 'mrkdwn',
+          text: i === 0 ? `*IDS Priority Order:*\n${chunk}` : chunk,
+        },
+      })
     })
   }
 
   // Ember observations
   if (prep.ember_observations.length > 0) {
     blocks.push({ type: 'divider' })
-    blocks.push({
-      type: 'section',
-      text: {
-        type: 'mrkdwn',
-        text: '*Ember Observations:*\n' + prep.ember_observations.map(o => `• ${o}`).join('\n'),
-      },
+    const obsLines = prep.ember_observations.map(o => `• ${esc(o)}`)
+    const obsChunks = chunkForSlackSections(obsLines, '\n')
+    obsChunks.forEach((chunk, i) => {
+      blocks.push({
+        type: 'section',
+        text: {
+          type: 'mrkdwn',
+          text: i === 0 ? `*Ember Observations:*\n${chunk}` : chunk,
+        },
+      })
     })
   }
 
@@ -444,7 +454,7 @@ async function deliverL10Prep(
     await postBlockMessage(
       client,
       slackSettings.default_channel_id,
-      `L10 Meeting Prep — ${l10DateFormatted}: ${prep.headline}`,
+      `L10 Meeting Prep — ${l10DateToken}: ${prep.headline}`,
       blocks
     )
   }
@@ -473,7 +483,7 @@ async function deliverL10Prep(
         type: 'section',
         text: {
           type: 'mrkdwn',
-          text: `*Your L10 Prep — ${l10DateFormatted}*\n\nThe full prep has been posted to the team channel. Here's your personal summary:`,
+          text: `*Your L10 Prep — ${l10DateToken}*\n\nThe full prep has been posted to the team channel. Here's your personal summary:`,
         },
       },
     ]
@@ -484,7 +494,7 @@ async function deliverL10Prep(
         text: {
           type: 'mrkdwn',
           text: '*Your Rocks:*\n' + myRocks.map(r =>
-            `• ${r.title} — ${r.status} (${r.completion_pct}% done) ${r.note}`
+            `• ${esc(r.title)} — ${esc(r.status)} (${r.completion_pct}% done) ${esc(r.note)}`
           ).join('\n'),
         },
       })
@@ -495,11 +505,11 @@ async function deliverL10Prep(
         type: 'section',
         text: {
           type: 'mrkdwn',
-          text: '*Carried-Forward To-Dos:*\n' + myOverdue.map(t => `• ${t}`).join('\n'),
+          text: '*Carried-Forward To-Dos:*\n' + myOverdue.map(t => `• ${esc(t)}`).join('\n'),
         },
       })
     }
 
-    await postBlockMessage(client, dmChannel, `Your L10 Prep — ${l10DateFormatted}`, personalBlocks)
+    await postBlockMessage(client, dmChannel, `Your L10 Prep — ${l10DateToken}`, personalBlocks)
   }
 }

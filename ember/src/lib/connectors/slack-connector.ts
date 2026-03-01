@@ -1,5 +1,6 @@
 import { WebClient, type ChatPostMessageResponse, type KnownBlock } from '@slack/web-api'
 import { createClient } from '@supabase/supabase-js'
+import { slackDate } from '@/lib/slack-format'
 
 const supabaseAdmin = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -33,13 +34,16 @@ export async function postBlockMessage(
   client: WebClient,
   channel: string,
   text: string,
-  blocks: Record<string, unknown>[]
+  blocks: Record<string, unknown>[],
+  options?: { unfurl_links?: boolean; unfurl_media?: boolean }
 ): Promise<ChatPostMessageResponse | null> {
   try {
     const result = await client.chat.postMessage({
       channel,
       text, // Fallback text for notifications
       blocks: blocks as unknown as KnownBlock[],
+      ...(options?.unfurl_links !== undefined && { unfurl_links: options.unfurl_links }),
+      ...(options?.unfurl_media !== undefined && { unfurl_media: options.unfurl_media }),
     })
 
     return result
@@ -120,7 +124,7 @@ export async function postSystemAlert(
         type: 'context',
         elements: [{
           type: 'mrkdwn',
-          text: `_${new Date().toISOString()}_`,
+          text: `_${slackDate(new Date(), '{date_short} {time}')}_`,
         }],
       },
     ]

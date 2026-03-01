@@ -2,6 +2,9 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { computeWeeklyScorecard, getCurrentWeekStart } from '@/lib/agents/scorecard-automation'
 import { postSystemAlert, getSlackClient, openDM, postBlockMessage } from '@/lib/connectors/slack-connector'
+import { escapeSlackMrkdwn } from '@/lib/slack-format'
+
+const esc = escapeSlackMrkdwn
 
 export const dynamic = 'force-dynamic'
 export const maxDuration = 60
@@ -149,7 +152,7 @@ async function promptForManualMetrics(
     })
 
     const metricList = metricNames.map(name =>
-      `• *${name}* — reply: \`${name}: <value>\``
+      `• *${esc(name)}* — reply: \`${name}: <value>\``
     ).join('\n')
 
     const blocks: Record<string, unknown>[] = [

@@ -1,6 +1,9 @@
 import { createClient } from '@supabase/supabase-js'
 import { saveAgentOutput } from './agent-runtime'
+import { escapeSlackMrkdwn, slackDate } from '@/lib/slack-format'
 import type { AgentOutputInsert } from '@/types/agents'
+
+const esc = escapeSlackMrkdwn
 
 const supabaseAdmin = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -483,14 +486,14 @@ export function formatNudgeForSlack(nudge: Nudge): { text: string; blocks: Recor
       type: 'section',
       text: {
         type: 'mrkdwn',
-        text: `${emoji} *${levelLabel}: ${nudge.itemTitle}*`,
+        text: `${emoji} *${levelLabel}: ${esc(nudge.itemTitle)}*`,
       },
     },
     {
       type: 'section',
       text: {
         type: 'mrkdwn',
-        text: nudge.message,
+        text: esc(nudge.message),
       },
     },
   ]
@@ -499,7 +502,7 @@ export function formatNudgeForSlack(nudge: Nudge): { text: string; blocks: Recor
   if (nudge.escalation >= 2) {
     const fields: string[] = []
     if (nudge.daysOverdue) fields.push(`*Days Overdue:* ${nudge.daysOverdue}`)
-    if (nudge.lastUpdateDate) fields.push(`*Last Updated:* ${new Date(nudge.lastUpdateDate).toLocaleDateString()}`)
+    if (nudge.lastUpdateDate) fields.push(`*Last Updated:* ${slackDate(nudge.lastUpdateDate, '{date_short}')}`)
 
     if (fields.length > 0) {
       blocks.push({
@@ -521,7 +524,7 @@ export function formatNudgeForSlack(nudge: Nudge): { text: string; blocks: Recor
   }
 
   return {
-    text: `${levelLabel}: ${nudge.itemTitle} — ${nudge.message}`,
+    text: `${levelLabel}: ${esc(nudge.itemTitle)} — ${esc(nudge.message)}`,
     blocks,
   }
 }
