@@ -3,6 +3,9 @@
  * Handles OAuth, channel listing, and message posting
  */
 
+import { escapeSlackMrkdwn } from '@/lib/slack-format'
+
+const esc = escapeSlackMrkdwn
 const SLACK_API_BASE = 'https://slack.com/api'
 
 export interface SlackChannel {
@@ -208,7 +211,7 @@ export function buildCheckupReminderBlocks(
       type: 'section',
       text: {
         type: 'mrkdwn',
-        text: `*${periodName}* is open for completion.`,
+        text: `*${esc(periodName)}* is open for completion.`,
       },
     },
     {
@@ -228,6 +231,7 @@ export function buildCheckupReminderBlocks(
             text: 'Take Assessment',
             emoji: true,
           },
+          action_id: 'checkup_take_assessment',
           url: assessmentUrl,
           style: 'primary',
         },

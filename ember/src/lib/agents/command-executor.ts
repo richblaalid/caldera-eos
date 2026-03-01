@@ -1,7 +1,10 @@
 import { createClient } from '@supabase/supabase-js'
 import Anthropic from '@anthropic-ai/sdk'
 import { getSlackClient, postThreadReply } from '@/lib/connectors/slack-connector'
+import { escapeSlackMrkdwn, sanitizeLLMForMrkdwn } from '@/lib/slack-format'
 import type { ParsedCommand, AgentOutputStatus } from '@/types/agents'
+
+const esc = escapeSlackMrkdwn
 
 const supabaseAdmin = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -90,7 +93,7 @@ async function handleApproveReject(
       .eq('id', output.output_id)
 
     const icon = newStatus === 'approved' ? ':white_check_mark:' : ':x:'
-    updates.push(`${icon} *${output.title}* — ${newStatus}`)
+    updates.push(`${icon} *${esc(output.title)}* — ${newStatus}`)
   }
 
   await postThreadReply(client, ctx.channelId, ctx.threadTs, updates.join('\n'))
@@ -126,7 +129,7 @@ async function handleDefer(
       })
       .eq('id', output.output_id)
 
-    updates.push(`:pause_button: *${output.title}* — deferred to ${deferTo}`)
+    updates.push(`:pause_button: *${esc(output.title)}* — deferred to ${esc(deferTo)}`)
   }
 
   await postThreadReply(client, ctx.channelId, ctx.threadTs, updates.join('\n'))
@@ -274,7 +277,7 @@ ${context}`,
     })
 
     return response.content[0].type === 'text'
-      ? response.content[0].text
+      ? sanitizeLLMForMrkdwn(response.content[0].text)
       : 'I encountered an issue processing your question. Please try again.'
   } catch (error) {
     console.error('EA query error:', error)
