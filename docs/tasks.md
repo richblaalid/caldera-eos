@@ -989,7 +989,7 @@ All 48 tasks completed. See `docs/archive/v1.0/` for original task definitions.
 
 ### 11.2 Phase 1 — Safety & Correctness (High Priority)
 
-- [ ] **11.2.1** Add mrkdwn escaping to `slack-briefing.ts`
+- [x] **11.2.1** Add mrkdwn escaping to `slack-briefing.ts`
   - Import `escapeSlackMrkdwn` from `lib/slack-format`
   - Escape all user-generated content: `item.title`, `item.detail`, `item.source` (in news links), `item.summary`, `item.agent_name`
   - Do NOT escape mrkdwn syntax we build ourselves (e.g., `*bold*`, `<url|text>`)

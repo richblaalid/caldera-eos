@@ -1,7 +1,11 @@
 import { createClient } from '@supabase/supabase-js'
 import { getSlackClient, postBlockMessage, openDM } from '@/lib/connectors/slack-connector'
 import { markBriefingDelivered } from './ea-briefing'
+import { escapeSlackMrkdwn } from '@/lib/slack-format'
 import type { BriefingInsert } from '@/types/agents'
+
+/** Shorthand for escaping user content */
+const esc = escapeSlackMrkdwn
 
 const supabaseAdmin = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -97,7 +101,7 @@ export function formatBriefingBlocks(briefing: BriefingInsert, timezone: string 
         type: 'section',
         text: {
           type: 'mrkdwn',
-          text: `> *${item.title}*${actionTag}\n> ${item.detail}`,
+          text: `> *${esc(item.title)}*${actionTag}\n> ${esc(item.detail)}`,
         },
       })
     }
@@ -113,7 +117,7 @@ export function formatBriefingBlocks(briefing: BriefingInsert, timezone: string 
     const tier2Text = tier2
       .map(item => {
         const emoji = sourceEmoji(item.source)
-        return `${emoji ? emoji + ' ' : ''}*${item.title}*\n${item.detail}`
+        return `${emoji ? emoji + ' ' : ''}*${esc(item.title)}*\n${esc(item.detail)}`
       })
       .join('\n\n')
     blocks.push({
@@ -129,7 +133,7 @@ export function formatBriefingBlocks(briefing: BriefingInsert, timezone: string 
   if (fyiItems.length > 0) {
     blocks.push({ type: 'divider' })
     const fyiText = fyiItems
-      .map(item => `• ${item.title} — ${item.detail}`)
+      .map(item => `• ${esc(item.title)} — ${esc(item.detail)}`)
       .join('\n')
     blocks.push({
       type: 'section',
@@ -140,7 +144,7 @@ export function formatBriefingBlocks(briefing: BriefingInsert, timezone: string 
   if (newsItems.length > 0) {
     blocks.push({ type: 'divider' })
     const newsText = newsItems
-      .map(item => `• <${item.source}|${item.title}> — ${item.detail}`)
+      .map(item => `• <${item.source}|${esc(item.title)}> — ${esc(item.detail)}`)
       .join('\n')
     blocks.push({
       type: 'section',
@@ -158,7 +162,7 @@ export function formatBriefingBlocks(briefing: BriefingInsert, timezone: string 
     const queueText = workQueue.map(item => {
       const emoji = agentEmoji(item.agent_id)
       const statusIcon = item.status === 'pending_review' ? ':yellow-card:' : ':green-card:'
-      return `${statusIcon} *${item.id}.* ${item.title} _[${emoji} ${item.agent_name}]_\n      ${item.summary}`
+      return `${statusIcon} *${item.id}.* ${esc(item.title)} _[${emoji} ${esc(item.agent_name)}]_\n      ${esc(item.summary)}`
     }).join('\n')
     blocks.push({
       type: 'section',
