@@ -799,7 +799,8 @@ All 48 tasks completed. See `docs/archive/v1.0/` for original task definitions.
 | 15 (Marketing) | 15.1-15.3 | 3 | Marketing Strategist agent, overnight + briefing wiring |
 | 16 (Innovation) | 16.1-16.3 | 3 | Product Innovation Officer agent, overnight + briefing wiring |
 | 2A (Enrichment) | 2A.1-2A.3 | 3 | Cowork assessment enrichment of Financial, BD, Operations agents |
-| **Total** | | **87** | |
+| 17 (Briefing v2) | 17.1-17.4 | 11 | Tactical daily + strategic Monday briefing restructure |
+| **Total** | | **98** | |
 
 ---
 
@@ -1100,6 +1101,127 @@ All 48 tasks completed. See `docs/archive/v1.0/` for original task definitions.
 - [x] Push notification fallback text includes item counts
 - [x] LLM output sanitized for mrkdwn before posting
 - [x] All quality checks pass: typecheck, lint, test, build
+
+---
+
+## Phase 17: Briefing Restructure — Tactical Daily + Strategic Monday
+
+**Plan:** `.claude/plans/smooth-gliding-papert.md`
+**Goal:** Split the morning briefing into ultra-short daily tactical messages (3-5 action items) and a Monday-only strategic pulse. Fix data accuracy issues with verified facts layer.
+
+### 17.1 Schema & Types
+
+- [x] **17.1.1** Add v2 briefing types to `types/agents.ts`
+  - `TacticalItem`: `{ title, context, source, urgency: 'must-do'|'should-do', data_refs? }`
+  - `StrategicItem`: `{ title, detail, category, trend }`
+  - `FYIItem`: `{ text, source }`
+  - `BriefingInsertV2`: extends current with new fields + `briefing_version`, `is_monday`
+  - Keep existing types for backward compat
+  - **Files:** `ember/src/types/agents.ts`
+  - **Acceptance:** New types exported alongside existing ones, typecheck passes
+
+- [x] **17.1.2** Create DB migration adding v2 columns to `briefings` table
+  - `briefing_version INTEGER DEFAULT 1`
+  - `is_monday BOOLEAN DEFAULT false`
+  - `tactical_items JSONB DEFAULT '[]'`
+  - `strategic_items JSONB DEFAULT '[]'`
+  - `fyi_item JSONB`
+  - Additive only — existing columns stay
+  - **Files:** `ember/supabase/migrations/020_briefing_v2_columns.sql`
+  - **Acceptance:** Migration runs, new columns exist on briefings table
+
+### 17.2 Prompt & Generation
+
+- [x] **17.2.1** Rewrite `briefingSchema` Zod schema in `ea-briefing.ts`
+  - `tactical_items`: array of 1-5, each with action-verb title, one-line context, source, urgency
+  - `strategic_items`: array of 0-5, each with metric headline, trend detail, category, direction
+  - `fyi_item`: nullable single item with text and source
+  - Keep old schema as `briefingSchemaV1` for fallback
+  - **Files:** `ember/src/lib/agents/ea-briefing.ts`
+  - **Depends on:** 17.1.1
+  - **Acceptance:** New schema compiles, old schema preserved
+
+- [x] **17.2.2** Rewrite `buildEASystemPrompt()` with new directives
+  - Core question: "What must this person DO today?"
+  - Data accuracy mandate: use exact deal names/amounts/dates from VERIFIED FACTS
+  - Transcript data caveat: flag as potentially inaccurate
+  - Anti-hallucination: "If you don't have data for a number, say 'data unavailable'"
+  - Tactical items must start with action verb (Reply, Prepare, Follow up, Review, Sign)
+  - Monday: also generate strategic pulse with exact metrics and trend vs. last week
+  - Tue-Fri: `strategic_items` must be empty array
+  - **Files:** `ember/src/lib/agents/ea-briefing.ts`
+  - **Acceptance:** System prompt rewrites complete, focused on tactical + accuracy
+
+- [x] **17.2.3** Add `buildVerifiedFacts()` helper
+  - Extract deal names + amounts from HubSpot raw data as verbatim reference block
+  - Extract financial metrics from QBO data (cash runway, AR, margins)
+  - Extract Rock/Todo/Scorecard data with owner names
+  - Place at TOP of prompt before all other sections
+  - Tag `[VERIFIED]` or `[FROM TRANSCRIPTS]`
+  - **Files:** `ember/src/lib/agents/ea-briefing.ts`
+  - **Depends on:** 17.2.1
+  - **Acceptance:** Verified facts section appears first in generated prompt
+
+- [x] **17.2.4** Rewrite `buildBriefingPrompt()` with `isMonday` parameter
+  - Always include: calendar today, overdue/due-today todos, high-priority emails, deals closing today/overdue, yesterday's transcript action items
+  - Monday only: financial insights, full pipeline, BD/ops/marketing/innovation insights, industry news, pattern detection, scorecard trends, all rocks
+  - Move verified facts to top of prompt
+  - Reduce total prompt size on Tue-Fri by ~40%
+  - **Files:** `ember/src/lib/agents/ea-briefing.ts`
+  - **Depends on:** 17.2.2, 17.2.3
+  - **Acceptance:** Prompt changes based on isMonday flag, daily prompt is shorter
+
+- [x] **17.2.5** Update `generateBriefing()` to use v2 schema with `isMonday` flag
+  - Detect Monday from partner's local timezone
+  - Skip expensive data fetches on Tue-Fri (financial, full pipeline, BD, ops, marketing, innovation, news, patterns)
+  - Still fetch lightweight deal data for tactical items (closing today, overdue)
+  - Use new schema, return with `briefing_version: 2`
+  - **Files:** `ember/src/lib/agents/ea-briefing.ts`
+  - **Depends on:** 17.2.4
+  - **Acceptance:** generateBriefing returns v2 structure, Tue-Fri has empty strategic_items
+
+### 17.3 Slack Formatting
+
+- [x] **17.3.1** Add `formatV2Blocks()` to `slack-briefing.ts`
+  - **Daily layout (Tue-Fri)**: Header → stats → numbered priorities → work queue count → footer (~10 blocks)
+  - **Monday layout**: Daily + divider + Strategic Pulse with category emojis and trend icons (~15-20 blocks)
+  - Reuse existing `esc()`, `chunkForSlackSections()`, `agentEmoji()` utilities
+  - **Files:** `ember/src/lib/agents/slack-briefing.ts`
+  - **Depends on:** 17.1.1
+  - **Acceptance:** Two distinct Slack layouts render correctly
+
+- [x] **17.3.2** Make `formatBriefingBlocks()` version-aware and update delivery
+  - Check `briefing.briefing_version` — route to v2 or v1 (fallback)
+  - Keep existing formatter as `formatV1Blocks` for old briefings
+  - Update `deliverBriefing()` fallback text for v2: `"3 priorities today"` instead of `"2 urgent, 5 updates"`
+  - **Files:** `ember/src/lib/agents/slack-briefing.ts`
+  - **Depends on:** 17.3.1
+  - **Acceptance:** Old briefings still render, new briefings use v2 layout
+
+### 17.4 Pipeline & Verification
+
+- [x] **17.4.1** Update `test/pipeline/route.ts` for v2 output
+  - Show `briefing_version`, `tactical_count`, `strategic_count`, `has_fyi`, `work_queue_count`
+  - Show `tactical_items` and `strategic_items` titles in response
+  - **Files:** `ember/src/app/api/agents/test/pipeline/route.ts`
+  - **Depends on:** 17.2.5
+  - **Acceptance:** Test endpoint returns v2 fields
+
+- [ ] **17.4.2** End-to-end test via test pipeline
+  - Run `?step=all&partner_id={Rich}` and deliver to Slack
+  - Verify tactical items are action-oriented with verbs
+  - Verify deal names/amounts match HubSpot exactly
+  - Verify work queue still works with approve/reject
+  - **Acceptance:** Briefing renders in Slack with new format, data is accurate
+
+**Phase 17 Checkpoint:**
+- [ ] Daily briefing is 3-5 numbered tactical items (action verbs, one line of context)
+- [ ] Monday briefing includes strategic pulse section (3-5 items with trends)
+- [ ] Tue-Fri briefing has NO strategic items
+- [ ] Deal names and amounts match HubSpot source data exactly
+- [ ] Work queue approve/reject/defer still works
+- [ ] Prompt includes verified facts block at top
+- [ ] All quality checks pass: typecheck, lint, test, build
 
 ---
 

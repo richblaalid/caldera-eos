@@ -7,7 +7,7 @@ import { generatePreCallBrief } from '@/lib/agents/meeting-prep'
 import { runNudgeCheck, formatNudgeForSlack, type Nudge } from '@/lib/agents/nudge-engine'
 import { detectUpcomingL10, hasL10PrepBeenGenerated, generateL10Prep, type L10Prep } from '@/lib/agents/l10-prep'
 import { escapeSlackMrkdwn, truncateForSlack, chunkForSlackSections, slackDate } from '@/lib/slack-format'
-import type { BriefingInsert } from '@/types/agents'
+// briefing types inferred from generateBriefing() return type
 
 const esc = escapeSlackMrkdwn
 

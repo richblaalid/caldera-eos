@@ -220,6 +220,67 @@ export interface BriefingInsert {
 }
 
 // =============================================
+// Briefings v2 (Tactical Daily + Strategic Monday)
+// =============================================
+
+export type TacticalUrgency = 'must-do' | 'should-do'
+export type StrategicCategory = 'financial' | 'pipeline' | 'rocks' | 'positioning' | 'pattern'
+export type StrategicTrend = 'improving' | 'stable' | 'declining' | 'new'
+
+export interface TacticalItem {
+  id: string
+  title: string
+  context: string
+  source: string
+  urgency: TacticalUrgency
+  data_refs?: string[]
+}
+
+export interface StrategicItem {
+  id: string
+  title: string
+  detail: string
+  category: StrategicCategory
+  trend: StrategicTrend
+}
+
+export interface FYIItem {
+  text: string
+  source: string
+}
+
+export interface BriefingV2 {
+  id: string
+  organization_id: string
+  partner_id: string
+  briefing_date: string
+  briefing_version: 2
+  is_monday: boolean
+  tactical_items: TacticalItem[]
+  strategic_items: StrategicItem[]
+  fyi_item: FYIItem | null
+  agent_work_queue: AgentWorkItem[]
+  slack_message_ts: string | null
+  slack_channel_id: string | null
+  delivered_at: string | null
+  commands_processed: BriefingCommand[]
+  created_at: string
+}
+
+export interface BriefingInsertV2 {
+  id?: string
+  organization_id: string
+  partner_id: string
+  briefing_date: string
+  briefing_version?: number
+  is_monday?: boolean
+  tactical_items?: TacticalItem[]
+  strategic_items?: StrategicItem[]
+  fyi_item?: FYIItem | null
+  agent_work_queue?: AgentWorkItem[]
+}
+
+// =============================================
 // Partner Preferences
 // =============================================
 

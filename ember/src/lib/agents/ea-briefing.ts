@@ -2,7 +2,7 @@ import { generateObject } from 'ai'
 import { anthropic } from '@ai-sdk/anthropic'
 import { z } from 'zod'
 import { createClient } from '@supabase/supabase-js'
-import type { BriefingItem, AgentWorkItem, BriefingInsert } from '@/types/agents'
+import type { BriefingItem, AgentWorkItem, BriefingInsert, TacticalItem, StrategicItem, FYIItem, BriefingInsertV2 } from '@/types/agents'
 import { getSmartLookback, getTranscriptLabel } from './lookback'
 import { fetchIndustryNews, type NewsItem } from '@/lib/connectors/brave-search-client'
 import { runPatternDetection, type PatternAlert } from './pattern-detector'
@@ -23,21 +23,19 @@ function toDayLabel(dateStr: string, timezone: string): string {
   return date.toLocaleDateString('en-US', { weekday: 'long', timeZone: timezone })
 }
 
-// Zod schema for the three-tier briefing structure
-const briefingSchema = z.object({
+// v1 schema (kept for backward compat with old briefings)
+const briefingSchemaV1 = z.object({
   tier1_urgent: z.array(z.object({
     title: z.string().describe('Short headline for the urgent item'),
     detail: z.string().describe('1-2 sentence explanation of why this is urgent'),
     source: z.string().describe('Where this came from: calendar, email, rock, todo, scorecard, financial'),
     action_needed: z.boolean().describe('Whether the partner needs to take action'),
   })).describe('Tier 1: Urgent items requiring immediate attention (0-3 items)'),
-
   tier2_business: z.array(z.object({
     title: z.string().describe('Short headline'),
     detail: z.string().describe('1-2 sentence summary'),
     source: z.string().describe('Where this came from'),
   })).describe('Tier 2: Business updates and context (3-7 items)'),
-
   tier3_industry: z.array(z.object({
     title: z.string().describe('Short headline'),
     detail: z.string().describe('Brief note'),
@@ -45,18 +43,177 @@ const briefingSchema = z.object({
   })).describe('Tier 3: Industry context and lower-priority items (0-3 items)'),
 })
 
+// v2 schema: Tactical daily (3-5 items) + Strategic Monday (3-5 items)
+const briefingSchemaV2 = z.object({
+  tactical_items: z.array(z.object({
+    title: z.string().describe('Action-verb title: Reply, Prepare, Follow up, Review, Sign, Send, etc. Must start with a verb.'),
+    context: z.string().describe('One sentence of context — why this matters or what is at stake. Be specific: use exact names, amounts, dates from VERIFIED FACTS.'),
+    source: z.string().describe('Data source: calendar, email, todo, rock, deal, transcript, scorecard, financial'),
+    urgency: z.enum(['must-do', 'should-do']).describe('must-do = will cost money/reputation if skipped today. should-do = important but can wait 24h.'),
+  })).min(1).max(5).describe('3-5 tactical items the partner must DO today. Each starts with an action verb.'),
+
+  strategic_items: z.array(z.object({
+    title: z.string().describe('Metric headline — exact number from VERIFIED FACTS. e.g. "Pipeline at $425K across 8 deals"'),
+    detail: z.string().describe('One sentence: what changed vs. last week and what it means. Use exact numbers.'),
+    category: z.enum(['financial', 'pipeline', 'rocks', 'positioning', 'pattern']).describe('Which business area this covers'),
+    trend: z.enum(['improving', 'stable', 'declining', 'new']).describe('Direction vs. last week'),
+  })).describe('Strategic pulse items — ONLY populated on Mondays. Empty array on Tue-Fri.'),
+
+  fyi_item: z.object({
+    text: z.string().describe('One-line FYI if something notable but not actionable. Omit if nothing qualifies.'),
+    source: z.string().describe('Source URL or label'),
+  }).nullable().describe('Optional single FYI item. Null if nothing notable.'),
+})
+
 /**
- * Generate a morning briefing for a partner.
- * Pulls EOS data, ingested data, and agent outputs, then synthesizes via Claude.
+ * Generate a v2 morning briefing for a partner.
+ * Daily (Tue-Fri): 3-5 tactical items only.
+ * Monday: tactical items + strategic pulse (3-5 business health signals).
+ * Passes verified facts (deal names, amounts, dates) verbatim to prevent LLM hallucination.
  */
 export async function generateBriefing(
+  partnerId: string,
+  organizationId: string,
+  timezone: string = 'America/Chicago'
+): Promise<BriefingInsertV2> {
+  const now = new Date()
+  const today = toLocalDate(now, timezone)
+  const dayOfWeek = new Date(today + 'T12:00:00').getDay() // 0=Sun, 1=Mon
+  const isMonday = dayOfWeek === 1
+
+  // Daily data sources (always fetched) — lightweight
+  const [calendarEvents, recentEmails, eosData, agentOutputs, pipelineData, transcriptHighlights, ownerNames] = await Promise.all([
+    getCalendarEvents(organizationId, timezone),
+    getRecentEmails(organizationId),
+    getEOSData(organizationId),
+    getPendingAgentOutputs(organizationId),
+    getLightweightPipelineData(organizationId),
+    getTranscriptHighlights(organizationId),
+    getOwnerNames(organizationId),
+  ])
+
+  // Monday-only data sources (expensive — skip Tue-Fri to save cost + tokens)
+  let financialInsights: Record<string, unknown> | null = null
+  let fullPipelineData: PipelineData | null = null
+  let bdInsights: Record<string, unknown> | null = null
+  let opsInsights: Record<string, unknown> | null = null
+  let marketingInsights: Record<string, unknown> | null = null
+  let innovationInsights: Record<string, unknown> | null = null
+  let industryNews: NewsItem[] = []
+  let patternAlerts: PatternAlert[] = []
+  let coachingHighlights: CoachingHighlight[] = []
+
+  if (isMonday) {
+    const [fi, fpd, bd, ops, mkt, inn, news, patterns, coaching] = await Promise.all([
+      getFinancialInsights(organizationId),
+      getPipelineData(organizationId),
+      getBDStrategistInsights(organizationId),
+      getOperationsInsights(organizationId),
+      getMarketingInsights(organizationId),
+      getInnovationInsights(organizationId),
+      fetchIndustryNews(),
+      runPatternDetection(organizationId).catch(() => [] as PatternAlert[]),
+      getRecentCoaching(organizationId),
+    ])
+    financialInsights = fi
+    fullPipelineData = fpd
+    bdInsights = bd
+    opsInsights = ops
+    marketingInsights = mkt
+    innovationInsights = inn
+    industryNews = news
+    patternAlerts = patterns
+    coachingHighlights = coaching
+  }
+
+  // Build verified facts block (verbatim data the LLM must use exactly)
+  const verifiedFacts = buildVerifiedFacts({
+    pipelineData: fullPipelineData || pipelineData,
+    eosData,
+    financialInsights,
+    ownerNames,
+  })
+
+  // Build the user prompt with all available data
+  const prompt = buildBriefingPromptV2({
+    calendarEvents,
+    recentEmails,
+    eosData,
+    agentOutputs,
+    financialInsights,
+    pipelineData: fullPipelineData || pipelineData,
+    bdInsights,
+    opsInsights,
+    marketingInsights,
+    innovationInsights,
+    transcriptHighlights,
+    coachingHighlights,
+    ownerNames,
+    industryNews,
+    patternAlerts,
+    verifiedFacts,
+    today,
+    isMonday,
+  })
+
+  const model = process.env.AGENT_DEFAULT_MODEL || 'claude-sonnet-4-20250514'
+  const systemPrompt = buildEASystemPromptV2(today, isMonday)
+
+  const { object } = await generateObject({
+    model: anthropic(model),
+    system: systemPrompt,
+    prompt,
+    schema: briefingSchemaV2,
+  })
+
+  // Map agent outputs to the work queue
+  const agentWorkQueue: AgentWorkItem[] = agentOutputs.map((output, idx) => ({
+    id: String(idx + 1),
+    agent_id: output.agent_id,
+    agent_name: output.agent_name || output.agent_id,
+    title: output.title,
+    summary: output.summary || '',
+    output_id: output.id,
+    trust_zone: output.trust_zone as 1 | 2,
+    status: output.status,
+  }))
+
+  // Add IDs to tactical and strategic items
+  const tacticalItems: TacticalItem[] = object.tactical_items.map((item, idx) => ({
+    id: String(idx + 1),
+    ...item,
+  }))
+
+  const strategicItems: StrategicItem[] = object.strategic_items.map((item, idx) => ({
+    id: String(idx + 1),
+    ...item,
+  }))
+
+  const fyiItem: FYIItem | null = object.fyi_item || null
+
+  return {
+    organization_id: organizationId,
+    partner_id: partnerId,
+    briefing_date: today,
+    briefing_version: 2,
+    is_monday: isMonday,
+    tactical_items: tacticalItems,
+    strategic_items: strategicItems,
+    fyi_item: fyiItem,
+    agent_work_queue: agentWorkQueue,
+  }
+}
+
+/**
+ * Generate a v1 briefing (backward compat — used by old code paths if needed).
+ */
+export async function generateBriefingV1(
   partnerId: string,
   organizationId: string,
   timezone: string = 'America/Chicago'
 ): Promise<BriefingInsert> {
   const today = toLocalDate(new Date(), timezone)
 
-  // Gather all data sources in parallel
   const [calendarEvents, recentEmails, eosData, agentOutputs, financialInsights, pipelineData, bdInsights, opsInsights, marketingInsights, innovationInsights, transcriptHighlights, coachingHighlights, ownerNames, industryNews, patternAlerts] = await Promise.all([
     getCalendarEvents(organizationId, timezone),
     getRecentEmails(organizationId),
@@ -75,38 +232,20 @@ export async function generateBriefing(
     runPatternDetection(organizationId).catch(() => [] as PatternAlert[]),
   ])
 
-  // Build the user prompt with all available data
   const prompt = buildBriefingPrompt({
-    calendarEvents,
-    recentEmails,
-    eosData,
-    agentOutputs,
-    financialInsights,
-    pipelineData,
-    bdInsights,
-    opsInsights,
-    marketingInsights,
-    innovationInsights,
-    transcriptHighlights,
-    coachingHighlights,
-    ownerNames,
-    industryNews,
-    patternAlerts,
-    today,
+    calendarEvents, recentEmails, eosData, agentOutputs, financialInsights, pipelineData, bdInsights, opsInsights, marketingInsights, innovationInsights, transcriptHighlights, coachingHighlights, ownerNames, industryNews, patternAlerts, today,
   })
 
   const model = process.env.AGENT_DEFAULT_MODEL || 'claude-sonnet-4-20250514'
-
   const systemPrompt = buildEASystemPrompt(today)
 
   const { object } = await generateObject({
     model: anthropic(model),
     system: systemPrompt,
     prompt,
-    schema: briefingSchema,
+    schema: briefingSchemaV1,
   })
 
-  // Map agent outputs to the work queue
   const agentWorkQueue: AgentWorkItem[] = agentOutputs.map((output, idx) => ({
     id: String(idx + 1),
     agent_id: output.agent_id,
@@ -118,12 +257,8 @@ export async function generateBriefing(
     status: output.status,
   }))
 
-  // Add IDs to briefing items
   const addIds = (items: Array<{ title: string; detail: string; source: string; action_needed?: boolean }>): BriefingItem[] =>
-    items.map((item, idx) => ({
-      id: String(idx + 1),
-      ...item,
-    }))
+    items.map((item, idx) => ({ id: String(idx + 1), ...item }))
 
   return {
     organization_id: organizationId,
@@ -139,7 +274,7 @@ export async function generateBriefing(
 /**
  * Save a briefing to the database and return its ID.
  */
-export async function saveBriefing(briefing: BriefingInsert): Promise<string | null> {
+export async function saveBriefing(briefing: BriefingInsert | BriefingInsertV2): Promise<string | null> {
   const { data, error } = await supabaseAdmin
     .from('briefings')
     .upsert(briefing, { onConflict: 'organization_id,partner_id,briefing_date' })
@@ -211,6 +346,141 @@ Rich wears the most hats: CEO, CFO, COO, EOS Integrator. He needs to:
 8. **Be concise.** Each item should be 1-2 sentences max. The partner should scan the briefing in 60 seconds.
 
 Today is ${today}.`
+}
+
+// ============================================
+// v2 System Prompt — Tactical + Strategic
+// ============================================
+
+function buildEASystemPromptV2(today: string, isMonday: boolean): string {
+  return `You are Ember, preparing a concise daily briefing for a busy CEO. Your ONE job: tell them what to DO today.
+
+## Rules
+1. Every tactical item MUST start with an action verb: Reply, Prepare, Follow up, Review, Sign, Send, Schedule, Approve, Reject, Call.
+2. Use EXACT data from the VERIFIED FACTS section. Never round, rename, or paraphrase deal names, dollar amounts, or dates. If a deal is called "PLG Engagement" in verified facts, write "PLG Engagement" — not "PLG deal" or "PLG project."
+3. If you don't have a number for something, write "data unavailable" — never invent one.
+4. Data from meeting transcripts may contain transcription errors (e.g., "Shields" might be "SCHEELS"). Flag transcript-sourced data as approximate when names or numbers seem uncertain.
+5. Keep each item to 1-2 lines. The partner should scan the entire briefing in 15 seconds (daily) or 60 seconds (Monday).
+6. 3-5 tactical items max. Prioritize by: (a) will cost money/reputation if ignored today, (b) has a deadline today, (c) someone is waiting on a response.
+${isMonday ? `7. This is Monday — also generate 3-5 strategic pulse items with exact metrics and trend vs. last week. Use verified financial and pipeline data.` : `7. This is ${new Date(today + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'long' })} — strategic_items must be an empty array.`}
+
+## Caldera Context
+- 14-person software services company (~$2.5M revenue)
+- Three partners: Rich (CEO/CFO/COO/Integrator), John (Sales), Wade (Engineering/Solutions)
+- 73% revenue from single anchor client — diversification is existential
+- Running EOS (Traction) — L10 meetings, quarterly Rocks, weekly Scorecard
+- Transforming from T&M to value-based fixed-fee; repositioning as "AI-powered product consultancy"
+
+Today is ${today}.`
+}
+
+// ============================================
+// Verified Facts Builder
+// ============================================
+
+function buildVerifiedFacts(data: {
+  pipelineData: PipelineData | null
+  eosData: EOSData
+  financialInsights: Record<string, unknown> | null
+  ownerNames: Map<string, string>
+}): string {
+  const sections: string[] = []
+  const ownerName = (id: unknown) => (id && data.ownerNames.get(id as string)) || 'Unassigned'
+
+  // HubSpot deals — verbatim names, amounts, stages, close dates
+  if (data.pipelineData && data.pipelineData.deals.length > 0) {
+    const dealLines = data.pipelineData.deals.map(d => {
+      const amount = (d.amount as number) || 0
+      const stage = d.stage || 'Unknown'
+      const closeDate = d.close_date || 'No close date'
+      const daysUntil = d.days_until_close as number | null
+      const overdue = daysUntil !== null && daysUntil < 0
+      return `  - Deal: "${d.deal_name}" | Amount: $${amount.toLocaleString()} | Stage: ${stage} | Close: ${closeDate}${overdue ? ` (${Math.abs(daysUntil!)} days OVERDUE)` : daysUntil !== null ? ` (${daysUntil} days)` : ''}`
+    }).join('\n')
+    const total = data.pipelineData.totalPipelineValue
+    sections.push(`[VERIFIED — HubSpot Pipeline]\nTotal Pipeline: $${total.toLocaleString()} across ${data.pipelineData.deals.length} deals\n${dealLines}`)
+  }
+
+  // Financial metrics — verbatim from QBO/Financial Strategist
+  if (data.financialInsights) {
+    const fi = data.financialInsights
+    const fiLines: string[] = []
+
+    const cashFlow = fi.cash_flow_assessment as { net_position: string; runway_note: string; trend_indicator: string } | undefined
+    if (cashFlow) {
+      fiLines.push(`  - Cash Flow: ${cashFlow.net_position} ${cashFlow.trend_indicator} | Runway: ${cashFlow.runway_note}`)
+    }
+
+    const concentration = fi.concentration_risk as { top_client_name: string; top_client_pct: number; trend_indicator: string } | undefined
+    if (concentration) {
+      fiLines.push(`  - Concentration: ${concentration.top_client_name} at ${concentration.top_client_pct}% ${concentration.trend_indicator}`)
+    }
+
+    const arAlerts = fi.ar_aging_alerts as Array<{ client_name: string; days_outstanding: number; amount_due: number; risk_level: string }> | undefined
+    if (arAlerts && arAlerts.length > 0) {
+      for (const a of arAlerts) {
+        fiLines.push(`  - AR: "${a.client_name}" owes $${a.amount_due.toLocaleString()} — ${a.days_outstanding} days outstanding [${a.risk_level}]`)
+      }
+    }
+
+    const marginAnalysis = fi.margin_analysis as Array<{ client_name: string; estimated_margin_pct: number; trend_indicator: string }> | undefined
+    if (marginAnalysis && marginAnalysis.length > 0) {
+      for (const m of marginAnalysis) {
+        fiLines.push(`  - Margin: "${m.client_name}" at ${m.estimated_margin_pct}% ${m.trend_indicator}`)
+      }
+    }
+
+    if (fiLines.length > 0) {
+      sections.push(`[VERIFIED — QuickBooks/Financial]\n${fiLines.join('\n')}`)
+    }
+  }
+
+  // EOS data — verbatim rock titles, todo titles, scorecard values
+  const eosLines: string[] = []
+
+  if (data.eosData.rocks.length > 0) {
+    for (const r of data.eosData.rocks) {
+      const milestones = r.milestones as Array<{ title: string; completed: boolean }> | null
+      const total = milestones?.length || 0
+      const done = milestones?.filter(m => m.completed).length || 0
+      eosLines.push(`  - Rock: "${r.title}" | Status: ${r.status} | Owner: ${ownerName(r.owner_id)} | Progress: ${done}/${total} milestones | Due: ${r.due_date || 'No date'}`)
+    }
+  }
+
+  if (data.eosData.overdueTodos.length > 0) {
+    for (const t of data.eosData.overdueTodos) {
+      eosLines.push(`  - OVERDUE Todo: "${t.title}" | Owner: ${ownerName(t.owner_id)} | Due: ${t.due_date}`)
+    }
+  }
+
+  if (data.eosData.upcomingTodos.length > 0) {
+    for (const t of data.eosData.upcomingTodos) {
+      eosLines.push(`  - Todo: "${t.title}" | Owner: ${ownerName(t.owner_id)} | Due: ${t.due_date}`)
+    }
+  }
+
+  if (data.eosData.todoCompletionRate) {
+    const { completed, total } = data.eosData.todoCompletionRate
+    const rate = total > 0 ? Math.round((completed / total) * 100) : 0
+    eosLines.push(`  - Todo Completion (2 weeks): ${completed}/${total} = ${rate}% (target: 90%)`)
+  }
+
+  const scorecardWithData = data.eosData.scorecardTrends.filter(m => (m as Record<string, unknown>).latest_value !== null)
+  if (scorecardWithData.length > 0) {
+    for (const m of scorecardWithData) {
+      const metric = m as Record<string, unknown>
+      const misses = metric.consecutive_misses as number
+      eosLines.push(`  - Scorecard: "${metric.name}" = ${metric.latest_value} ${metric.unit} ${metric.trend || ''} (target: ${metric.target}) | Owner: ${ownerName(metric.owner_id)}${misses >= 2 ? ` | ${misses} weeks off track` : ''}`)
+    }
+  }
+
+  if (eosLines.length > 0) {
+    sections.push(`[VERIFIED — EOS/Supabase]\n${eosLines.join('\n')}`)
+  }
+
+  return sections.length > 0
+    ? `═══ VERIFIED FACTS — Use these EXACTLY. Do not rename, round, or paraphrase. ═══\n\n${sections.join('\n\n')}\n\n═══ END VERIFIED FACTS ═══`
+    : ''
 }
 
 // ============================================
@@ -533,6 +803,27 @@ interface PipelineData {
   totalPipelineValue: number
   closingSoon: Array<Record<string, unknown>>
   overdueDeals: Array<Record<string, unknown>>
+}
+
+/** Lightweight pipeline fetch — only deals closing soon or overdue (used daily Tue-Fri) */
+async function getLightweightPipelineData(organizationId: string): Promise<PipelineData | null> {
+  const { data } = await supabaseAdmin
+    .from('ingested_data')
+    .select('payload')
+    .eq('organization_id', organizationId)
+    .eq('source', 'hubspot')
+    .eq('data_type', 'deal')
+    .order('source_timestamp', { ascending: false })
+    .limit(100)
+
+  if (!data || data.length === 0) return null
+
+  const deals = data.map(d => d.payload as Record<string, unknown>)
+  const totalPipelineValue = deals.reduce((sum, d) => sum + ((d.amount as number) || 0), 0)
+  const closingSoon = deals.filter(d => d.is_closing_soon)
+  const overdueDeals = deals.filter(d => d.is_overdue)
+
+  return { deals, totalPipelineValue, closingSoon, overdueDeals }
 }
 
 async function getPipelineData(organizationId: string): Promise<PipelineData | null> {
@@ -1025,4 +1316,248 @@ Instructions:
 - If transcript highlights are available from yesterday's meetings, incorporate key follow-ups and action items into Tier 1 (if urgent) or Tier 2. Mention specific commitments people made and decisions that affect upcoming work.
 - If sales coaching highlights are available, include a summary in Tier 2 highlighting coaching opportunities and strengths. Reference specific meetings and participants.
 - If pattern observations are available, surface CONCERN and ESCALATION patterns in Tier 1 (these are behavioral gaps the team may be avoiding). OBSERVATION patterns go in Tier 2. Pattern detection reveals what's NOT being said — stalled rocks marked on-track, scorecard misses without issues, topics avoided in meetings, and untracked commitments.`
+}
+
+// ============================================
+// v2 Prompt builder — Tactical Daily + Strategic Monday
+// ============================================
+
+function buildBriefingPromptV2(data: {
+  calendarEvents: Array<Record<string, unknown>>
+  recentEmails: Array<Record<string, unknown>>
+  eosData: EOSData
+  agentOutputs: Array<Record<string, unknown>>
+  financialInsights: Record<string, unknown> | null
+  pipelineData: PipelineData | null
+  bdInsights: Record<string, unknown> | null
+  opsInsights: Record<string, unknown> | null
+  marketingInsights: Record<string, unknown> | null
+  innovationInsights: Record<string, unknown> | null
+  transcriptHighlights: TranscriptHighlight[]
+  coachingHighlights: CoachingHighlight[]
+  ownerNames: Map<string, string>
+  industryNews: NewsItem[]
+  patternAlerts: PatternAlert[]
+  verifiedFacts: string
+  today: string
+  isMonday: boolean
+}): string {
+  const sections: string[] = []
+  const ownerName = (id: unknown) => (id && data.ownerNames.get(id as string)) || 'Unassigned'
+
+  // VERIFIED FACTS at the top — the LLM must reference these exactly
+  if (data.verifiedFacts) {
+    sections.push(data.verifiedFacts)
+  }
+
+  // Calendar — today's events (always included)
+  const todayEvents = data.calendarEvents.filter(e => e._is_today)
+  if (todayEvents.length > 0) {
+    const events = todayEvents.map(e => {
+      const time = typeof e.start === 'string' ? e.start.split('T')[1]?.substring(0, 5) : ''
+      const attendees = (e.attendees as string[] || [])
+      return `- ${time ? time + ' ' : ''}${e.title} [${e.event_type}] — ${attendees.join(', ') || 'no attendees'}`
+    }).join('\n')
+    sections.push(`## Today's Calendar (${todayEvents.length} events)\n${events}`)
+  } else {
+    sections.push(`## Today's Calendar\nNo events scheduled today.`)
+  }
+
+  // Emails — high-priority only
+  if (data.recentEmails.length > 0) {
+    const highPriority = data.recentEmails.filter(e => e.priority === 'high' || e.action_needed)
+    if (highPriority.length > 0) {
+      const emails = highPriority.slice(0, 5).map(e =>
+        `- [${e.priority}] ${e.subject} — from ${e.from}${e.action_needed ? ' (ACTION NEEDED)' : ''}${e.snippet ? `\n  "${(e.snippet as string).substring(0, 120)}"` : ''}`
+      ).join('\n')
+      sections.push(`## Emails Needing Response (${highPriority.length})\n${emails}`)
+    }
+  }
+
+  // Overdue To-dos — these become tactical items
+  if (data.eosData.overdueTodos.length > 0) {
+    const todos = data.eosData.overdueTodos
+      .map(t => `- "${t.title}" — ${ownerName(t.owner_id)} (due ${t.due_date})`)
+      .join('\n')
+    sections.push(`## OVERDUE To-dos (${data.eosData.overdueTodos.length})\n${todos}`)
+  }
+
+  // Due-today or upcoming To-dos
+  if (data.eosData.upcomingTodos.length > 0) {
+    const todos = data.eosData.upcomingTodos
+      .map(t => `- "${t.title}" — ${ownerName(t.owner_id)} (due ${t.due_date})`)
+      .join('\n')
+    sections.push(`## Upcoming To-dos (next 7 days)\n${todos}`)
+  }
+
+  // Deals closing soon or overdue (daily — lightweight pipeline)
+  if (data.pipelineData) {
+    if (data.pipelineData.closingSoon.length > 0 || data.pipelineData.overdueDeals.length > 0) {
+      const dealLines: string[] = []
+      for (const d of data.pipelineData.overdueDeals) {
+        dealLines.push(`- OVERDUE: "${d.deal_name}" $${((d.amount as number) || 0).toLocaleString()} (was due ${d.close_date})`)
+      }
+      for (const d of data.pipelineData.closingSoon) {
+        dealLines.push(`- Closing soon: "${d.deal_name}" $${((d.amount as number) || 0).toLocaleString()} (closes ${d.close_date})`)
+      }
+      sections.push(`## Deals Needing Attention\n${dealLines.join('\n')}`)
+    }
+  }
+
+  // Transcript action items from yesterday's meetings
+  if (data.transcriptHighlights.length > 0) {
+    const actionItems: string[] = []
+    for (const t of data.transcriptHighlights) {
+      if (t.action_items.length > 0) {
+        actionItems.push(`From "${t.meeting_title}" [${t.meeting_type}]:`)
+        for (const a of t.action_items) {
+          actionItems.push(`  - ${a}`)
+        }
+      }
+    }
+    if (actionItems.length > 0) {
+      sections.push(`## [FROM TRANSCRIPTS — names/numbers may have transcription errors]\n${actionItems.join('\n')}`)
+    }
+  }
+
+  // Off-track Rocks (daily — always surface these)
+  const offTrackRocks = data.eosData.rocks.filter(r => r.status === 'off_track' || r.status === 'at_risk')
+  if (offTrackRocks.length > 0) {
+    const rocks = offTrackRocks.map(r => {
+      const milestones = r.milestones as Array<{ title: string; completed: boolean }> | null
+      const total = milestones?.length || 0
+      const done = milestones?.filter(m => m.completed).length || 0
+      return `- [${(r.status as string).toUpperCase()}] "${r.title}" — ${ownerName(r.owner_id)} (${done}/${total} milestones, due ${r.due_date || 'no date'})`
+    }).join('\n')
+    sections.push(`## Off-Track Rocks (${offTrackRocks.length})\n${rocks}`)
+  }
+
+  // === MONDAY-ONLY SECTIONS ===
+  if (data.isMonday) {
+    // All Rocks (Monday strategic view)
+    if (data.eosData.rocks.length > 0) {
+      const rocks = data.eosData.rocks.map(r => {
+        const milestones = r.milestones as Array<{ title: string; completed: boolean }> | null
+        const total = milestones?.length || 0
+        const done = milestones?.filter(m => m.completed).length || 0
+        const daysLeft = r.due_date ? Math.ceil((new Date(r.due_date as string).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24)) : null
+        return `- [${(r.status as string).toUpperCase()}] "${r.title}" — ${ownerName(r.owner_id)} (${done}/${total} milestones, ${daysLeft !== null ? (daysLeft <= 0 ? 'OVERDUE' : `${daysLeft}d left`) : 'no due date'})`
+      }).join('\n')
+      sections.push(`## All Rocks (${data.eosData.rocks.length} active)\n${rocks}`)
+    }
+
+    // Scorecard trends (Monday)
+    const scorecardWithData = data.eosData.scorecardTrends.filter(m => (m as Record<string, unknown>).latest_value !== null)
+    if (scorecardWithData.length > 0) {
+      const metrics = scorecardWithData.map(m => {
+        const metric = m as Record<string, unknown>
+        const misses = metric.consecutive_misses as number
+        return `- "${metric.name}": ${metric.latest_value} ${metric.unit} ${metric.trend || ''} (target: ${metric.target}) — ${ownerName(metric.owner_id)}${misses >= 2 ? ` [${misses} weeks off]` : ''}`
+      }).join('\n')
+      sections.push(`## Scorecard Trends\n${metrics}`)
+    }
+
+    // Financial insights (Monday)
+    if (data.financialInsights) {
+      const fi = data.financialInsights
+      const fiLines: string[] = []
+      if (fi.headline) fiLines.push(`Headline: ${fi.headline}`)
+      if (fi.summary) fiLines.push(`${fi.summary}`)
+      if (fiLines.length > 0) {
+        sections.push(`## Financial Analysis (Financial Strategist)\n${fiLines.join('\n')}`)
+      }
+    }
+
+    // Full pipeline (Monday)
+    if (data.pipelineData && data.pipelineData.deals.length > 0) {
+      const topDeals = [...data.pipelineData.deals]
+        .sort((a, b) => ((b.amount as number) || 0) - ((a.amount as number) || 0))
+        .slice(0, 5)
+        .map(d => `- "${d.deal_name}": $${((d.amount as number) || 0).toLocaleString()} — ${d.stage}`)
+        .join('\n')
+      sections.push(`## Full Pipeline (Monday)\nTotal: $${data.pipelineData.totalPipelineValue.toLocaleString()} across ${data.pipelineData.deals.length} deals\n${topDeals}`)
+    }
+
+    // BD Strategist insights (Monday)
+    if (data.bdInsights) {
+      const bd = data.bdInsights
+      const bdLines: string[] = []
+      if (bd.headline) bdLines.push(`${bd.headline}`)
+      const atRisk = bd.deals_at_risk as Array<{ deal_name: string; amount: number; risk_reason: string }> | undefined
+      if (atRisk && atRisk.length > 0) {
+        for (const d of atRisk) {
+          bdLines.push(`- At risk: "${d.deal_name}" $${d.amount.toLocaleString()} — ${d.risk_reason}`)
+        }
+      }
+      if (bdLines.length > 0) {
+        sections.push(`## BD Strategist Insights\n${bdLines.join('\n')}`)
+      }
+    }
+
+    // Operations insights (Monday)
+    if (data.opsInsights) {
+      const ops = data.opsInsights
+      if (ops.headline) {
+        sections.push(`## Operations (Monday)\n${ops.headline}`)
+      }
+    }
+
+    // Marketing insights (Monday)
+    if (data.marketingInsights) {
+      const mkt = data.marketingInsights
+      if (mkt.headline) {
+        sections.push(`## Marketing & Positioning (Monday)\n${mkt.headline}`)
+      }
+    }
+
+    // Innovation insights (Monday)
+    if (data.innovationInsights) {
+      const inn = data.innovationInsights
+      if (inn.headline) {
+        sections.push(`## Innovation (Monday)\n${inn.headline}`)
+      }
+    }
+
+    // Pattern alerts (Monday)
+    if (data.patternAlerts.length > 0) {
+      const alertLines = data.patternAlerts.map(a =>
+        `- [${a.severity.toUpperCase()}] ${a.title}: ${a.detail}`
+      ).join('\n')
+      sections.push(`## Pattern Observations\n${alertLines}`)
+    }
+
+    // Industry news (Monday)
+    if (data.industryNews.length > 0) {
+      const news = data.industryNews.map(n => `- ${n.title}: ${n.detail} (${n.source})`).join('\n')
+      sections.push(`## Industry News\n${news}`)
+    }
+
+    // Coaching highlights (Monday)
+    if (data.coachingHighlights.length > 0) {
+      const coaching = data.coachingHighlights.map(c =>
+        `- "${c.meeting_title}" (${c.meeting_date.split('T')[0]}): ${c.coaching_markdown.slice(0, 200)}`
+      ).join('\n')
+      sections.push(`## Sales Coaching\n${coaching}`)
+    }
+  }
+
+  // Agent work queue
+  if (data.agentOutputs.length > 0) {
+    const outputs = data.agentOutputs
+      .map(o => `- [${o.agent_id}/${o.output_type}] ${o.title}: ${o.summary || 'No summary'}`)
+      .join('\n')
+    sections.push(`## Agent Work for Review\n${outputs}`)
+  }
+
+  const dayType = data.isMonday ? 'Monday' : 'daily'
+  return `Generate the ${dayType} briefing for ${data.today}.
+
+${sections.join('\n\n')}
+
+Instructions:
+- Generate 3-5 tactical_items. Each MUST start with an action verb. Prioritize: (1) things that cost money/reputation if ignored today, (2) deadlines today, (3) someone waiting on a response.
+- Use EXACT deal names, dollar amounts, and dates from VERIFIED FACTS. Do not rename "PLG Engagement" to "PLG deal" — use the exact name.
+- For transcript-sourced data, note that names may have transcription errors.
+- fyi_item: only include if there's something genuinely notable but not actionable. Otherwise null.
+${data.isMonday ? `- This is MONDAY: generate 3-5 strategic_items covering financial health, pipeline status, Rock progress, and any positioning/pattern signals. Use exact metrics from VERIFIED FACTS.` : `- This is NOT Monday: strategic_items MUST be an empty array [].`}`
 }
