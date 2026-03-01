@@ -1,6 +1,7 @@
-import { NextResponse } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { postMessage, buildCheckupReminderBlocks } from '@/lib/slack'
+import { verifyCronAuth } from '@/lib/agents/ingest-helpers'
 
 // Use service role for cron job (no user session)
 const supabaseAdmin = createClient(
@@ -9,14 +10,11 @@ const supabaseAdmin = createClient(
 )
 
 // GET /api/cron/checkup-reminders - Send Slack reminders for active checkup periods
-export async function GET(request: Request) {
+export async function GET(request: NextRequest) {
   try {
     // Verify cron secret (Vercel cron protection)
-    const authHeader = request.headers.get('authorization')
-    if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
-      console.error('Unauthorized cron request')
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    }
+    const authError = verifyCronAuth(request)
+    if (authError) return authError
 
     // Get all organizations with active Slack integration
     const { data: slackSettings, error: settingsError } = await supabaseAdmin

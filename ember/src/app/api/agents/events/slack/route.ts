@@ -49,7 +49,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 })
   }
 
-  // Handle URL verification challenge (no signature check needed)
+  // Handle URL verification challenge (no signature check needed per Slack docs)
   if (payload.type === 'url_verification') {
     return new Response(payload.challenge as string, {
       status: 200,
@@ -57,13 +57,7 @@ export async function POST(request: NextRequest) {
     })
   }
 
-  // Reject Slack retries — our handler takes >3s due to AI calls,
-  // so Slack retries thinking we failed. Acknowledge retries immediately.
-  if (request.headers.get('x-slack-retry-num')) {
-    return NextResponse.json({ ok: true })
-  }
-
-  // Verify request signature
+  // Verify request signature BEFORE any other processing
   const signingSecret = process.env.SLACK_SIGNING_SECRET
   if (!signingSecret) {
     console.error('SLACK_SIGNING_SECRET not configured')
@@ -75,6 +69,12 @@ export async function POST(request: NextRequest) {
 
   if (!verifySlackSignature(signingSecret, timestamp, body, signature)) {
     return NextResponse.json({ error: 'Invalid signature' }, { status: 401 })
+  }
+
+  // Reject Slack retries — our handler takes >3s due to AI calls,
+  // so Slack retries thinking we failed. Acknowledge retries immediately.
+  if (request.headers.get('x-slack-retry-num')) {
+    return NextResponse.json({ ok: true })
   }
 
   // Acknowledge immediately (Slack requires response within 3 seconds)
@@ -209,7 +209,7 @@ async function tryScorecardReply(
     if (!match) continue
     const name = match[1].trim()
     const value = parseFloat(match[2].replace(/,/g, ''))
-    if (!isNaN(value) && name.length > 2) {
+    if (!isNaN(value) && isFinite(value) && value >= 0 && value <= 1_000_000 && name.length > 2) {
       parsed.push({ name, value })
     }
   }

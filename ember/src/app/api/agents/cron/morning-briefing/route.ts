@@ -7,6 +7,7 @@ import { generatePreCallBrief } from '@/lib/agents/meeting-prep'
 import { runNudgeCheck, formatNudgeForSlack, type Nudge } from '@/lib/agents/nudge-engine'
 import { detectUpcomingL10, hasL10PrepBeenGenerated, generateL10Prep, type L10Prep } from '@/lib/agents/l10-prep'
 import { escapeSlackMrkdwn, truncateForSlack, chunkForSlackSections, slackDate } from '@/lib/slack-format'
+import { verifyCronAuth } from '@/lib/agents/ingest-helpers'
 // briefing types inferred from generateBriefing() return type
 
 const esc = escapeSlackMrkdwn
@@ -26,12 +27,8 @@ export async function GET(request: NextRequest) {
 
   try {
     // Verify cron secret
-    const authHeader = request.headers.get('authorization')
-    if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
-      if (process.env.NODE_ENV !== 'development') {
-        return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-      }
-    }
+    const authError = verifyCronAuth(request)
+    if (authError) return authError
 
     // Get all partners with preferences
     const { data: partners, error: fetchError } = await supabaseAdmin

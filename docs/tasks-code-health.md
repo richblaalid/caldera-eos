@@ -62,66 +62,66 @@
 
 ### 1.1 Harden verifyCronAuth
 
-- [ ] **1.1.1** Update `verifyCronAuth` to fail closed when CRON_SECRET unset
+- [x] **1.1.1** Update `verifyCronAuth` to fail closed when CRON_SECRET unset
   - Add undefined check, remove dev bypass, return 500 when misconfigured
   - **File:** `ember/src/lib/agents/ingest-helpers.ts:11-18`
 
 ### 1.2 Migrate routes to verifyCronAuth
 
-- [ ] **1.2.1** Migrate overnight-analysis to verifyCronAuth
+- [x] **1.2.1** Migrate overnight-analysis to verifyCronAuth
   - Replace inline auth block with `verifyCronAuth(request)` import
   - **File:** `ember/src/app/api/agents/cron/overnight-analysis/route.ts`
 
-- [ ] **1.2.2** Migrate morning-briefing to verifyCronAuth
+- [x] **1.2.2** Migrate morning-briefing to verifyCronAuth
   - **File:** `ember/src/app/api/agents/cron/morning-briefing/route.ts`
 
-- [ ] **1.2.3** Migrate scorecard-automation to verifyCronAuth
+- [x] **1.2.3** Migrate scorecard-automation to verifyCronAuth
   - **File:** `ember/src/app/api/agents/cron/scorecard-automation/route.ts`
 
-- [ ] **1.2.4** Migrate checkup-reminders to verifyCronAuth
+- [x] **1.2.4** Migrate checkup-reminders to verifyCronAuth
   - **File:** `ember/src/app/api/cron/checkup-reminders/route.ts`
 
-- [ ] **1.2.5** Migrate generate-prep to verifyCronAuth
+- [x] **1.2.5** Migrate generate-prep to verifyCronAuth
   - **File:** `ember/src/app/api/cron/generate-prep/route.ts`
 
-- [ ] **1.2.6** Migrate test/qbo to verifyCronAuth
+- [x] **1.2.6** Migrate test/qbo to verifyCronAuth
   - **File:** `ember/src/app/api/agents/test/qbo/route.ts`
 
-- [ ] **1.2.7** Migrate test/pipeline to verifyCronAuth
+- [x] **1.2.7** Migrate test/pipeline to verifyCronAuth
   - **File:** `ember/src/app/api/agents/test/pipeline/route.ts`
 
-- [ ] **1.2.8** Migrate test/seed to verifyCronAuth
+- [x] **1.2.8** Migrate test/seed to verifyCronAuth
   - **File:** `ember/src/app/api/agents/test/seed/route.ts`
 
-- [ ] **1.2.9** Migrate seed/transcripts to verifyCronAuth
+- [x] **1.2.9** Migrate seed/transcripts to verifyCronAuth
   - **File:** `ember/src/app/api/agents/seed/transcripts/route.ts`
 
-- [ ] **1.2.10** Migrate seed/transcripts/process to verifyCronAuth
+- [x] **1.2.10** Migrate seed/transcripts/process to verifyCronAuth
   - **File:** `ember/src/app/api/agents/seed/transcripts/process/route.ts`
 
 ### 1.3 Fix Slack signature verification order
 
-- [ ] **1.3.1** Reorder Slack event handler: verify signature before retry check
+- [x] **1.3.1** Reorder Slack event handler: verify signature before retry check
   - Move signature verification block (lines 66-78) above the retry check (lines 60-64)
   - **File:** `ember/src/app/api/agents/events/slack/route.ts`
 
 ### 1.4 Add input validation
 
-- [ ] **1.4.1** Add UUID validation for `org_id` parameter in test/seed
+- [x] **1.4.1** Add UUID validation for `org_id` parameter in test/seed
   - Add regex check for UUID format, reject invalid values
   - **File:** `ember/src/app/api/agents/test/seed/route.ts`
 
-- [ ] **1.4.2** Add size limits to transcript seed endpoint
+- [x] **1.4.2** Add size limits to transcript seed endpoint
   - Max 50 transcripts, max 200K chars per transcript
   - **File:** `ember/src/app/api/agents/seed/transcripts/route.ts`
 
-- [ ] **1.4.3** Add scorecard value range validation in Slack handler
+- [x] **1.4.3** Add scorecard value range validation in Slack handler
   - Add `isFinite(value) && value >= 0 && value <= 1_000_000` to `tryScorecardReply`
   - **File:** `ember/src/app/api/agents/events/slack/route.ts`
 
 ### 1.5 Fix Slack OAuth cookie parsing
 
-- [ ] **1.5.1** Replace manual cookie parsing with Next.js cookies() API
+- [x] **1.5.1** Replace manual cookie parsing with Next.js cookies() API
   - Import `cookies` from `next/headers`, use `.get('slack_oauth_state')?.value`
   - **File:** `ember/src/app/api/integrations/slack/callback/route.ts`
 
@@ -326,3 +326,4 @@
 | 0.1.1-0.1.7 | 2026-03-01 | Phase 0 commit |
 | 0.2.1 | 2026-03-01 | Phase 0 commit |
 | 0.3.1-0.3.2 | 2026-03-01 | Phase 0 commit |
+| 1.1.1-1.5.1 | 2026-03-01 | Phase 1 commit |

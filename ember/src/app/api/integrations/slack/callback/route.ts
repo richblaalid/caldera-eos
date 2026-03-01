@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server'
+import { cookies } from 'next/headers'
 import { createClient } from '@/lib/supabase/server'
 import { exchangeCodeForToken, testConnection, getSlackUsers } from '@/lib/slack'
 
@@ -33,11 +34,8 @@ export async function GET(request: Request) {
     }
 
     // Verify state (CSRF protection)
-    const cookies = request.headers.get('cookie') || ''
-    const stateCookie = cookies
-      .split(';')
-      .find(c => c.trim().startsWith('slack_oauth_state='))
-      ?.split('=')[1]
+    const cookieStore = await cookies()
+    const stateCookie = cookieStore.get('slack_oauth_state')?.value
 
     if (!stateCookie || stateCookie !== state) {
       console.error('Slack OAuth state mismatch')
