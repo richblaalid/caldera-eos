@@ -191,7 +191,7 @@ export async function GET(request: NextRequest) {
       trigger_context: { cron: 'morning-briefing', results },
       completed_at: new Date().toISOString(),
       duration_ms: durationMs,
-      status: results.errors.length === 0 ? 'completed' : 'completed',
+      status: results.errors.length === 0 ? 'completed' : 'failed',
       outputs_created: results.briefings_generated,
       errors: results.errors.map(e => ({ message: e })),
     })

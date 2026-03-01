@@ -198,7 +198,7 @@ export async function GET(request: NextRequest) {
         trigger_context: { cron: 'overnight-analysis', results },
         completed_at: new Date().toISOString(),
         duration_ms: durationMs,
-        status: results.financial_analysis.errors.length === 0 ? 'completed' : 'completed',
+        status: results.financial_analysis.errors.length === 0 ? 'completed' : 'failed',
         outputs_created: results.financial_analysis.outputs_created,
         errors: [
           ...results.qb_ingestion.errors.map(e => ({ message: e })),
