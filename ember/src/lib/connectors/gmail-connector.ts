@@ -1,8 +1,21 @@
 import { google, type gmail_v1 } from 'googleapis'
 import Anthropic from '@anthropic-ai/sdk'
+import { z } from 'zod'
 import { createAuthenticatedGoogleClient } from './google-auth'
 import type { DataConnector, ConnectorPullParams, ConnectorResult, ConnectorRecord, ConnectorError } from './types'
 import type { EmailCategory, IngestedEntities } from '@/types/agents'
+
+const classificationSchema = z.object({
+  category: z.enum(['client', 'prospect', 'vendor', 'internal', 'newsletter', 'other']).catch('other'),
+  priority: z.enum(['high', 'medium', 'low']).catch('low'),
+  action_needed: z.boolean().catch(false),
+  entities: z.object({
+    people: z.array(z.string()).catch([]),
+    companies: z.array(z.string()).catch([]),
+    action_items: z.array(z.string()).catch([]),
+    topics: z.array(z.string()).catch([]),
+  }).catch({ people: [], companies: [], action_items: [], topics: [] }),
+})
 
 const anthropic = new Anthropic()
 
@@ -221,18 +234,18 @@ JSON format:
     })
 
     const text = response.content[0].type === 'text' ? response.content[0].text : ''
-    const parsed = JSON.parse(text)
+    const json: unknown = JSON.parse(text)
+    const result = classificationSchema.safeParse(json)
+
+    if (!result.success) {
+      return { category: 'other', priority: 'low', action_needed: false, entities: {} }
+    }
 
     return {
-      category: parsed.category || 'other',
-      priority: parsed.priority || 'low',
-      action_needed: parsed.action_needed || false,
-      entities: {
-        people: parsed.entities?.people || [],
-        companies: parsed.entities?.companies || [],
-        action_items: parsed.entities?.action_items || [],
-        topics: parsed.entities?.topics || [],
-      },
+      category: result.data.category as EmailCategory,
+      priority: result.data.priority,
+      action_needed: result.data.action_needed,
+      entities: result.data.entities,
     }
   } catch {
     // Fallback classification if AI fails

@@ -272,27 +272,27 @@
 
 ### 5.1 Fix type/schema drift
 
-- [ ] **5.1.1** Add missing columns to `PartnerPreferences` type
+- [x] **5.1.1** Add missing columns to `PartnerPreferences` type
   - Add: `grain_refresh_token`, `grain_client_id`, `hubspot_refresh_token`, `hubspot_portal_id`
   - **File:** `ember/src/types/agents.ts`
 
-- [ ] **5.1.2** Update `Database['briefings']` row type for v2 columns
+- [x] **5.1.2** Update `Briefing` row type for v2 columns
   - Add: `briefing_version`, `is_monday`, `tactical_items`, `strategic_items`, `fyi_item`, `agent_insights`, `agent_work_queue_overflow`
-  - **File:** `ember/src/types/database.ts`
+  - **File:** `ember/src/types/agents.ts`
 
 ### 5.2 Add Zod validation to LLM boundaries
 
-- [ ] **5.2.1** Add Zod schema for Gmail classifier response
-  - Validate `category`, `priority`, `action_needed` fields
+- [x] **5.2.1** Add Zod schema for Gmail classifier response
+  - Validate `category`, `priority`, `action_needed`, `entities` fields
   - **File:** `ember/src/lib/connectors/gmail-connector.ts`
 
-- [ ] **5.2.2** Add Zod schema for command parser response
+- [x] **5.2.2** Add Zod schema for command parser response
   - Validate `command_type`, `item_numbers`, `parameters` fields
   - **File:** `ember/src/lib/agents/command-parser.ts`
 
 ### 5.3 Type the Slack event payload
 
-- [ ] **5.3.1** Replace `payload: any` with `SlackEventPayload` interface
+- [x] **5.3.1** Replace `payload: any` with `SlackEventPayload` interface
   - Define structural type covering `type`, `event`, `team_id`, `challenge`
   - **File:** `ember/src/app/api/agents/events/slack/route.ts`
 
@@ -311,3 +311,4 @@
 | 2.1.1-2.2.4 | 2026-03-01 | Phase 2 commit |
 | 3.1.1-3.4.2 | 2026-03-01 | Phase 3 commit |
 | 4.2.1-4.5.1 | 2026-03-01 | Phase 4 commit (4.1 deferred) |
+| 5.1.1-5.3.1 | 2026-03-01 | Phase 5 commit |

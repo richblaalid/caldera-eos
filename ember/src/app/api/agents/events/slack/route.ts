@@ -4,6 +4,25 @@ import { createClient } from '@supabase/supabase-js'
 
 export const dynamic = 'force-dynamic'
 
+interface SlackEventPayload {
+  type: string
+  team_id?: string
+  challenge?: string
+  event?: {
+    type: string
+    bot_id?: string
+    subtype?: string
+    channel_type?: string
+    user?: string
+    text?: string
+    channel?: string
+    ts?: string
+    thread_ts?: string
+    reaction?: string
+    item?: { type: string; channel: string; ts: string }
+  }
+}
+
 function getSupabaseAdmin() {
   return createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -41,8 +60,7 @@ function verifySlackSignature(
 export async function POST(request: NextRequest) {
   const body = await request.text()
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  let payload: any
+  let payload: SlackEventPayload
   try {
     payload = JSON.parse(body)
   } catch {
@@ -51,7 +69,7 @@ export async function POST(request: NextRequest) {
 
   // Handle URL verification challenge (no signature check needed per Slack docs)
   if (payload.type === 'url_verification') {
-    return new Response(payload.challenge as string, {
+    return new Response(payload.challenge ?? '', {
       status: 200,
       headers: { 'Content-Type': 'text/plain' },
     })
@@ -90,11 +108,12 @@ export async function POST(request: NextRequest) {
   }
 
   // Route events
+  const teamId = payload.team_id || ''
   try {
-    if (event.type === 'message' && event.channel_type === 'im') {
-      await handleDirectMessage(event, payload.team_id)
-    } else if (event.type === 'reaction_added') {
-      await handleReactionAdded(event, payload.team_id)
+    if (event.type === 'message' && event.channel_type === 'im' && event.user && event.text && event.channel && event.ts) {
+      await handleDirectMessage({ user: event.user, text: event.text, channel: event.channel, ts: event.ts, thread_ts: event.thread_ts }, teamId)
+    } else if (event.type === 'reaction_added' && event.user && event.reaction && event.item) {
+      await handleReactionAdded({ user: event.user, reaction: event.reaction, item: event.item }, teamId)
     }
   } catch (error) {
     // Log but don't fail — Slack will retry on 5xx

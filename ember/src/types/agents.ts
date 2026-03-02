@@ -174,6 +174,14 @@ export interface Briefing {
   tier2_business: BriefingItem[]
   tier3_industry: BriefingItem[]
   agent_work_queue: AgentWorkItem[]
+  // v2 columns (added by migrations 020-021)
+  briefing_version?: number
+  is_monday?: boolean
+  tactical_items?: TacticalItem[]
+  strategic_items?: StrategicItem[]
+  fyi_item?: FYIItem | null
+  agent_insights?: AgentInsightItem[]
+  agent_work_queue_overflow?: number
   slack_message_ts: string | null
   slack_channel_id: string | null
   delivered_at: string | null
@@ -290,6 +298,10 @@ export interface PartnerPreferences {
   google_history_id: string | null
   quickbooks_refresh_token: string | null
   quickbooks_realm_id: string | null
+  hubspot_refresh_token: string | null
+  hubspot_portal_id: string | null
+  grain_refresh_token: string | null
+  grain_client_id: string | null
   config: Record<string, unknown>
   created_at: string
   updated_at: string
@@ -308,6 +320,10 @@ export interface PartnerPreferencesInsert {
   google_history_id?: string | null
   quickbooks_refresh_token?: string | null
   quickbooks_realm_id?: string | null
+  hubspot_refresh_token?: string | null
+  hubspot_portal_id?: string | null
+  grain_refresh_token?: string | null
+  grain_client_id?: string | null
   config?: Record<string, unknown>
 }
 
