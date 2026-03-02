@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getMeetings, getRocks, getIssues, getTodos, getMetrics, getAllMetricEntries, updateMeeting } from '@/lib/eos'
 import { generateMeetingPrep, PrepInput } from '@/lib/claude'
+import { verifyCronAuth } from '@/lib/agents/ingest-helpers'
 
 // Vercel Cron runs this endpoint on schedule
 // Configure in vercel.json: "crons": [{ "path": "/api/cron/generate-prep", "schedule": "0 9 * * *" }]
@@ -17,13 +18,8 @@ function getWeekStart(date: Date): string {
 export async function GET(request: NextRequest) {
   try {
     // Verify cron secret for security
-    const authHeader = request.headers.get('authorization')
-    if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
-      // In development, allow without auth
-      if (process.env.NODE_ENV !== 'development') {
-        return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-      }
-    }
+    const authError = verifyCronAuth(request)
+    if (authError) return authError
 
     // Get all upcoming meetings in the next 3 days that don't have prep
     const meetings = await getMeetings()

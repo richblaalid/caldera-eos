@@ -1,5 +1,12 @@
 import Anthropic from '@anthropic-ai/sdk'
+import { z } from 'zod'
 import type { ParsedCommand } from '@/types/agents'
+
+const parsedCommandSchema = z.object({
+  command_type: z.enum(['approve', 'reject', 'defer', 'status_query', 'freeform']).catch('freeform'),
+  item_numbers: z.array(z.number()).catch([]),
+  parameters: z.record(z.string(), z.string()).catch({} as Record<string, string>),
+})
 
 const anthropic = new Anthropic()
 
@@ -136,12 +143,17 @@ Rules:
     })
 
     const responseText = response.content[0].type === 'text' ? response.content[0].text : ''
-    const parsed = JSON.parse(responseText)
+    const json: unknown = JSON.parse(responseText)
+    const result = parsedCommandSchema.safeParse(json)
+
+    if (!result.success) {
+      return { command_type: 'freeform', item_numbers: [], parameters: { question: text }, raw_text: text }
+    }
 
     return {
-      command_type: parsed.command_type || 'freeform',
-      item_numbers: parsed.item_numbers || [],
-      parameters: parsed.parameters || { question: text },
+      command_type: result.data.command_type,
+      item_numbers: result.data.item_numbers,
+      parameters: Object.keys(result.data.parameters).length > 0 ? result.data.parameters : { question: text },
       raw_text: text,
     }
   } catch {

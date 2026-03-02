@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
+import { verifyCronAuth } from '@/lib/agents/ingest-helpers'
 
 export const dynamic = 'force-dynamic'
 
@@ -19,14 +20,15 @@ const supabaseAdmin = createClient(
 export async function GET(request: NextRequest) {
   try {
     // Auth check
-    const authHeader = request.headers.get('authorization')
-    if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
-      if (process.env.NODE_ENV !== 'development') {
-        return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-      }
-    }
+    const authError = verifyCronAuth(request)
+    if (authError) return authError
 
-    const orgId = request.nextUrl.searchParams.get('org_id') || '00000000-0000-0000-0000-000000000002'
+    const orgIdParam = request.nextUrl.searchParams.get('org_id')
+    const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+    if (orgIdParam && !UUID_RE.test(orgIdParam)) {
+      return NextResponse.json({ error: 'Invalid org_id format (must be UUID)' }, { status: 400 })
+    }
+    const orgId = orgIdParam || '00000000-0000-0000-0000-000000000002'
 
     // Get partner profiles to assign ownership
     const { data: profiles } = await supabaseAdmin

@@ -31,7 +31,7 @@ import type {
 // =============================================
 
 // Helper to get user's organization ID
-async function getUserOrganizationId(supabase: Awaited<ReturnType<typeof createClient>>): Promise<string | null> {
+export async function getUserOrganizationId(supabase: Awaited<ReturnType<typeof createClient>>): Promise<string | null> {
   const { data: membership } = await supabase
     .from('organization_members')
     .select('organization_id')

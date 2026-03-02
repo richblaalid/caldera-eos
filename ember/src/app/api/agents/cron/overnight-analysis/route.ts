@@ -8,6 +8,7 @@ import { runPatternDetection } from '@/lib/agents/pattern-detector'
 import { runMarketingAnalysis } from '@/lib/agents/marketing-strategist'
 import { runInnovationAnalysis } from '@/lib/agents/product-innovation'
 import { postSystemAlert } from '@/lib/connectors/slack-connector'
+import { verifyCronAuth } from '@/lib/agents/ingest-helpers'
 
 export const dynamic = 'force-dynamic'
 export const maxDuration = 300
@@ -24,12 +25,8 @@ export async function GET(request: NextRequest) {
 
   try {
     // Verify cron secret
-    const authHeader = request.headers.get('authorization')
-    if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
-      if (process.env.NODE_ENV !== 'development') {
-        return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-      }
-    }
+    const authError = verifyCronAuth(request)
+    if (authError) return authError
 
     // Get all partners with QuickBooks tokens
     const { data: partners, error: fetchError } = await supabaseAdmin
@@ -198,7 +195,7 @@ export async function GET(request: NextRequest) {
         trigger_context: { cron: 'overnight-analysis', results },
         completed_at: new Date().toISOString(),
         duration_ms: durationMs,
-        status: results.financial_analysis.errors.length === 0 ? 'completed' : 'completed',
+        status: results.financial_analysis.errors.length === 0 ? 'completed' : 'failed',
         outputs_created: results.financial_analysis.outputs_created,
         errors: [
           ...results.qb_ingestion.errors.map(e => ({ message: e })),

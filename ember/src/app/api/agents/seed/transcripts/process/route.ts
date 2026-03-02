@@ -10,6 +10,7 @@ import {
 import { generateMetricSuggestions } from '@/lib/metric-suggestions'
 import { generateTodoSuggestions } from '@/lib/todo-suggestions'
 import { generateIssueSuggestions } from '@/lib/issue-suggestions'
+import { verifyCronAuth } from '@/lib/agents/ingest-helpers'
 
 export const dynamic = 'force-dynamic'
 export const maxDuration = 300
@@ -29,12 +30,8 @@ const supabaseAdmin = createClient(
  */
 export async function POST(request: NextRequest) {
   try {
-    const authHeader = request.headers.get('authorization')
-    if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
-      if (process.env.NODE_ENV !== 'development') {
-        return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-      }
-    }
+    const authError = verifyCronAuth(request)
+    if (authError) return authError
 
     const { transcript_id } = await request.json()
     if (!transcript_id) {

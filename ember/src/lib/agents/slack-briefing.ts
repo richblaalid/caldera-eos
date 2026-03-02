@@ -2,7 +2,7 @@ import { createClient } from '@supabase/supabase-js'
 import { getSlackClient, postBlockMessage, openDM } from '@/lib/connectors/slack-connector'
 import { markBriefingDelivered } from './ea-briefing'
 import { escapeSlackMrkdwn, chunkForSlackSections } from '@/lib/slack-format'
-import type { BriefingInsert, BriefingInsertV2, AgentWorkItem, AgentInsightItem } from '@/types/agents'
+import type { BriefingInsertV2, AgentWorkItem, AgentInsightItem } from '@/types/agents'
 
 /** Shorthand for escaping user content */
 const esc = escapeSlackMrkdwn
@@ -46,176 +46,6 @@ function formatDate(dateStr: string): string {
 /** Get the emoji for an agent, with fallback */
 function agentEmoji(agentId: string): string {
   return AGENT_EMOJI[agentId] || ':robot_face:'
-}
-
-/** Map source string to a status card emoji */
-function sourceEmoji(source: string): string {
-  const s = source.toLowerCase()
-  if (s.includes('rock') || s.includes('todo')) return ':green-card:'
-  if (s.includes('scorecard') || s.includes('financial')) return ':yellow-card:'
-  if (s.includes('calendar')) return ':date:'
-  if (s.includes('email')) return ':email:'
-  if (s.includes('pipeline') || s.includes('deal')) return ':dart:'
-  return ''
-}
-
-/**
- * Format a briefing into Slack Block Kit blocks.
- */
-export function formatBriefingBlocks(briefing: BriefingInsert, timezone: string = 'America/Chicago'): Record<string, unknown>[] {
-  const blocks: Record<string, unknown>[] = []
-  const tier1 = briefing.tier1_urgent || []
-  const tier2 = briefing.tier2_business || []
-  const tier3 = briefing.tier3_industry || []
-  const workQueue = briefing.agent_work_queue || []
-
-  // Header with greeting (using partner's local timezone)
-  blocks.push({
-    type: 'header',
-    text: { type: 'plain_text', text: `${getGreeting(timezone)} — ${formatDate(briefing.briefing_date)}`, emoji: true },
-  })
-
-  // Quick stats line
-  const statsLine = [
-    tier1.length > 0 ? `:red-card: ${tier1.length} urgent` : null,
-    tier2.length > 0 ? `${tier2.length} updates` : null,
-    workQueue.length > 0 ? `${workQueue.length} for decision` : null,
-  ].filter(Boolean).join(' · ')
-  if (statsLine) {
-    blocks.push({
-      type: 'context',
-      elements: [{ type: 'mrkdwn', text: statsLine }],
-    })
-  }
-
-  // Tier 1: Urgent
-  if (tier1.length > 0) {
-    blocks.push({ type: 'divider' })
-    blocks.push({
-      type: 'section',
-      text: { type: 'mrkdwn', text: ':rotating_light: *Needs Your Attention*' },
-    })
-    for (const item of tier1) {
-      const actionTag = item.action_needed ? '  :point_right: _Action needed_' : ''
-      blocks.push({
-        type: 'section',
-        text: {
-          type: 'mrkdwn',
-          text: `> *${esc(item.title)}*${actionTag}\n> ${esc(item.detail)}`,
-        },
-      })
-    }
-  }
-
-  // Tier 2: Business
-  if (tier2.length > 0) {
-    blocks.push({ type: 'divider' })
-    blocks.push({
-      type: 'section',
-      text: { type: 'mrkdwn', text: ':briefcase: *Business Updates*' },
-    })
-    const tier2Items = tier2.map(item => {
-      const emoji = sourceEmoji(item.source)
-      return `${emoji ? emoji + ' ' : ''}*${esc(item.title)}*\n${esc(item.detail)}`
-    })
-    for (const chunk of chunkForSlackSections(tier2Items)) {
-      blocks.push({
-        type: 'section',
-        text: { type: 'mrkdwn', text: chunk },
-      })
-    }
-  }
-
-  // Tier 3: Split into Industry Pulse (news with URL sources) and general FYI
-  const newsItems = tier3.filter(item => item.source?.startsWith('http'))
-  const fyiItems = tier3.filter(item => !item.source?.startsWith('http'))
-
-  if (fyiItems.length > 0) {
-    blocks.push({ type: 'divider' })
-    const fyiLines = fyiItems.map(item => `• ${esc(item.title)} — ${esc(item.detail)}`)
-    const fyiChunks = chunkForSlackSections(fyiLines, '\n')
-    fyiChunks.forEach((chunk, i) => {
-      blocks.push({
-        type: 'section',
-        text: { type: 'mrkdwn', text: i === 0 ? `:bulb: *FYI*\n${chunk}` : chunk },
-      })
-    })
-  }
-
-  if (newsItems.length > 0) {
-    blocks.push({ type: 'divider' })
-    const newsLines = newsItems.map(item => `• <${item.source}|${esc(item.title)}> — ${esc(item.detail)}`)
-    const newsChunks = chunkForSlackSections(newsLines, '\n')
-    newsChunks.forEach((chunk, i) => {
-      blocks.push({
-        type: 'section',
-        text: { type: 'mrkdwn', text: i === 0 ? `:newspaper: *Industry Pulse*\n${chunk}` : chunk },
-      })
-    })
-  }
-
-  // "Needs Your Decision" — zone-2 items requiring partner action
-  const v1Overflow = (briefing as BriefingInsert & { agent_work_queue_overflow?: number }).agent_work_queue_overflow || 0
-  if (workQueue.length > 0) {
-    blocks.push({ type: 'divider' })
-    const v1Total = workQueue.length + v1Overflow
-    const v1Header = v1Overflow > 0
-      ? `:crystal_ball: *Needs Your Decision* (top ${workQueue.length} of ${v1Total})`
-      : ':crystal_ball: *Needs Your Decision*'
-    blocks.push({
-      type: 'section',
-      text: { type: 'mrkdwn', text: v1Header },
-    })
-    const queueLines = workQueue.map(item => {
-      const emoji = agentEmoji(item.agent_id)
-      return `:yellow-card: *${item.id}.* ${esc(item.title)} _[${emoji} ${esc(item.agent_name)}]_\n      ${esc(item.summary)}`
-    })
-    for (const chunk of chunkForSlackSections(queueLines, '\n')) {
-      blocks.push({
-        type: 'section',
-        text: { type: 'mrkdwn', text: chunk },
-      })
-    }
-    const v1Hint = v1Overflow > 0
-      ? `_${v1Overflow} more pending — reply "approve 1", "reject 2 — reason", or "defer 3 to Friday"_`
-      : '_Reply: "approve 1", "reject 2 — reason", or "defer 3 to Friday"_'
-    blocks.push({
-      type: 'context',
-      elements: [{ type: 'mrkdwn', text: v1Hint }],
-    })
-  }
-
-  // "Agent Insights" — informational one-liner per agent (v1 backward compat: may not exist)
-  const insights = (briefing as BriefingInsert & { agent_insights?: AgentInsightItem[] }).agent_insights || []
-  if (insights.length > 0) {
-    blocks.push({ type: 'divider' })
-    blocks.push({
-      type: 'section',
-      text: { type: 'mrkdwn', text: ':robot_face: *Agent Insights*' },
-    })
-    const insightLines = insights.map(item => {
-      const emoji = agentEmoji(item.agent_id)
-      return `${emoji} *${esc(item.agent_name)}* — ${esc(item.title)}`
-    })
-    for (const chunk of chunkForSlackSections(insightLines, '\n')) {
-      blocks.push({
-        type: 'context',
-        elements: [{ type: 'mrkdwn', text: chunk }],
-      })
-    }
-  }
-
-  // Footer
-  blocks.push({ type: 'divider' })
-  blocks.push({
-    type: 'context',
-    elements: [{
-      type: 'mrkdwn',
-      text: '_Reply to chat with Ember · React with :white_check_mark: :pause_button: :x: for quick actions_',
-    }],
-  })
-
-  return blocks
 }
 
 // ============================================
@@ -396,16 +226,22 @@ export function formatV2Blocks(briefing: BriefingInsertV2, timezone: string = 'A
 }
 
 /**
- * Deliver a briefing to a partner's Slack DM.
- * Supports both v1 and v2 briefing formats.
+ * Deliver a v2 briefing to a partner's Slack DM.
  */
 export async function deliverBriefing(
   partnerId: string,
   organizationId: string,
   briefingId: string,
-  briefing: BriefingInsert | BriefingInsertV2,
+  briefing: BriefingInsertV2,
   timezone: string = 'America/Chicago'
 ): Promise<{ success: boolean; error?: string }> {
+  // Reject non-v2 briefings
+  if (briefing.briefing_version !== 2) {
+    const msg = `Skipping delivery for briefing ${briefingId}: unsupported version ${briefing.briefing_version} (only v2 supported)`
+    console.warn(msg)
+    return { success: false, error: msg }
+  }
+
   // Get partner's Slack user ID
   const { data: profile, error: profileError } = await supabaseAdmin
     .from('profiles')
@@ -434,37 +270,20 @@ export async function deliverBriefing(
     return { success: false, error: msg }
   }
 
-  // Format and post — route based on briefing version
-  const isV2 = 'briefing_version' in briefing && briefing.briefing_version === 2
-  const blocks = isV2
-    ? formatV2Blocks(briefing as BriefingInsertV2, timezone)
-    : formatBriefingBlocks(briefing as BriefingInsert, timezone)
+  // Format blocks
+  const blocks = formatV2Blocks(briefing, timezone)
 
-  let fallbackText: string
-  if (isV2) {
-    const v2 = briefing as BriefingInsertV2
-    const tactical = v2.tactical_items || []
-    const wq = v2.agent_work_queue || []
-    const ins = v2.agent_insights || []
-    const parts = [
-      `${tactical.length} priorities`,
-      wq.length > 0 ? `${wq.length} for decision` : null,
-      ins.length > 0 ? `${ins.length} insights` : null,
-      v2.is_monday ? '+ strategic pulse' : null,
-    ].filter(Boolean).join(', ')
-    fallbackText = `Morning Briefing — ${briefing.briefing_date} | ${parts}`
-  } else {
-    const v1 = briefing as BriefingInsert
-    const tier1 = v1.tier1_urgent || []
-    const tier2 = v1.tier2_business || []
-    const wq = v1.agent_work_queue || []
-    const parts = [
-      tier1.length > 0 ? `${tier1.length} urgent` : null,
-      tier2.length > 0 ? `${tier2.length} updates` : null,
-      wq.length > 0 ? `${wq.length} for decision` : null,
-    ].filter(Boolean).join(', ')
-    fallbackText = `Morning Briefing — ${briefing.briefing_date}${parts ? ` | ${parts}` : ''}`
-  }
+  // Build fallback text
+  const tactical = briefing.tactical_items || []
+  const wq = briefing.agent_work_queue || []
+  const ins = briefing.agent_insights || []
+  const parts = [
+    `${tactical.length} priorities`,
+    wq.length > 0 ? `${wq.length} for decision` : null,
+    ins.length > 0 ? `${ins.length} insights` : null,
+    briefing.is_monday ? '+ strategic pulse' : null,
+  ].filter(Boolean).join(', ')
+  const fallbackText = `Morning Briefing — ${briefing.briefing_date} | ${parts}`
 
   const result = await postBlockMessage(client, channelId, fallbackText, blocks, { unfurl_links: false, unfurl_media: false })
   if (!result?.ts) {

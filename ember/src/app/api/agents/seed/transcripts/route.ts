@@ -13,6 +13,7 @@ import {
 import { generateMetricSuggestions } from '@/lib/metric-suggestions'
 import { generateTodoSuggestions } from '@/lib/todo-suggestions'
 import { generateIssueSuggestions } from '@/lib/issue-suggestions'
+import { verifyCronAuth } from '@/lib/agents/ingest-helpers'
 
 export const dynamic = 'force-dynamic'
 export const maxDuration = 300 // 5 minutes for bulk processing
@@ -54,17 +55,16 @@ const transcriptMetadataSchema = z.object({
 export async function POST(request: NextRequest) {
   try {
     // Auth check
-    const authHeader = request.headers.get('authorization')
-    if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
-      if (process.env.NODE_ENV !== 'development') {
-        return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-      }
-    }
+    const authError = verifyCronAuth(request)
+    if (authError) return authError
 
     const body = await request.json()
     const orgId = body.organization_id || '00000000-0000-0000-0000-000000000001'
 
     // Normalize input: support both single transcript and batch
+    const MAX_TRANSCRIPTS = 50
+    const MAX_TEXT_LENGTH = 200_000
+
     let transcriptInputs: Array<{
       text: string
       title?: string
@@ -74,6 +74,9 @@ export async function POST(request: NextRequest) {
     }>
 
     if (body.transcripts) {
+      if (!Array.isArray(body.transcripts) || body.transcripts.length > MAX_TRANSCRIPTS) {
+        return NextResponse.json({ error: `Too many transcripts (max ${MAX_TRANSCRIPTS})` }, { status: 400 })
+      }
       transcriptInputs = body.transcripts
     } else if (body.text) {
       transcriptInputs = [body]
@@ -95,6 +98,12 @@ export async function POST(request: NextRequest) {
       if (!input.text || input.text.trim().length < 50) {
         results.skipped++
         results.errors.push(`Transcript ${i}: text too short or empty`)
+        continue
+      }
+
+      if (input.text.length > MAX_TEXT_LENGTH) {
+        results.skipped++
+        results.errors.push(`Transcript ${i}: text too long (max ${MAX_TEXT_LENGTH} chars)`)
         continue
       }
 

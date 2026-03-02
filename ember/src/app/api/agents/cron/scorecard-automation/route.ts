@@ -3,6 +3,7 @@ import { createClient } from '@supabase/supabase-js'
 import { computeWeeklyScorecard, getCurrentWeekStart } from '@/lib/agents/scorecard-automation'
 import { postSystemAlert, getSlackClient, openDM, postBlockMessage } from '@/lib/connectors/slack-connector'
 import { escapeSlackMrkdwn } from '@/lib/slack-format'
+import { verifyCronAuth } from '@/lib/agents/ingest-helpers'
 
 const esc = escapeSlackMrkdwn
 
@@ -22,12 +23,8 @@ export async function GET(request: NextRequest) {
 
   try {
     // Verify cron secret
-    const authHeader = request.headers.get('authorization')
-    if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
-      if (process.env.NODE_ENV !== 'development') {
-        return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-      }
-    }
+    const authError = verifyCronAuth(request)
+    if (authError) return authError
 
     // Get all organizations
     const { data: orgs, error: fetchError } = await supabaseAdmin
