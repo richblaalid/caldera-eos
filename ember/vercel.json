@@ -23,7 +23,7 @@
     },
     {
       "path": "/api/agents/cron/ingest/transcripts",
-      "schedule": "0 */6 * * *"
+      "schedule": "*/30 14-22 * * 1-5"
     },
     {
       "path": "/api/agents/cron/ingest/google-drive",
