@@ -36,17 +36,17 @@ export async function GET(request: NextRequest) {
     // Post to #caldera-eos channel
     const { data: slackSettings } = await supabaseAdmin
       .from('slack_settings')
-      .select('default_channel_id')
+      .select('channel_id')
       .eq('organization_id', orgId)
       .single()
 
     let channelPosted = false
     const client = await getSlackClient(orgId)
 
-    if (client && slackSettings?.default_channel_id) {
+    if (client && slackSettings?.channel_id) {
       await postBlockMessage(
         client,
-        slackSettings.default_channel_id,
+        slackSettings.channel_id,
         `L10 Meeting Prep — ${l10DateToken}: ${prep.headline}`,
         blocks
       )
