@@ -38,7 +38,7 @@ export interface AgentBaselineTask {
 // Agent Outputs
 // =============================================
 
-export type AgentOutputType = 'analysis' | 'draft' | 'alert' | 'issue' | 'recommendation' | 'briefing'
+export type AgentOutputType = 'analysis' | 'draft' | 'alert' | 'issue' | 'recommendation' | 'briefing' | 'l10_recap'
 export type AgentOutputStatus = 'completed' | 'pending_review' | 'approved' | 'rejected' | 'deferred' | 'expired'
 export type TrustZone = 1 | 2
 

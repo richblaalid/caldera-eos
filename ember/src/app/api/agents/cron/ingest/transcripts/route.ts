@@ -4,6 +4,8 @@ import { listMeetings, fetchTranscript, fetchNotes, fetchCoaching } from '@/lib/
 import type { GrainTokenConfig } from '@/lib/connectors/grain-mcp-client'
 import { parseGrainNotes } from '@/lib/connectors/grain-notes-parser'
 import { verifyCronAuth, loadPartners, persistRecords, supabaseAdmin } from '@/lib/agents/ingest-helpers'
+import { generateL10Recap, hasL10RecapBeenGenerated, formatL10RecapBlocks, formatPersonalL10Blocks } from '@/lib/agents/l10-recap'
+import { getSlackClient, postBlockMessage, openDM } from '@/lib/connectors/slack-connector'
 
 export const dynamic = 'force-dynamic'
 export const maxDuration = 120
@@ -24,6 +26,8 @@ export async function GET(request: NextRequest) {
       grain_notes_used: 0,
       grain_coaching_ingested: 0,
       ingested_data_records: 0,
+      l10_recaps_sent: 0,
+      l10_items_created: 0,
       errors: [] as string[],
     }
     const processedOrgs = new Set<string>()
@@ -110,6 +114,18 @@ export async function GET(request: NextRequest) {
         }
       } catch (err: unknown) {
         results.errors.push(`Transcript(${partner.organization_id}): ${(err as Error).message || 'Connector crashed'}`)
+      }
+    }
+
+    // Phase 3: Check for newly-ingested L10 transcripts and generate recaps
+    if (results.grain_transcripts_ingested > 0) {
+      try {
+        const recapResults = await processL10Recaps(processedOrgs)
+        results.l10_recaps_sent += recapResults.recapsSent
+        results.l10_items_created += recapResults.itemsCreated
+        results.errors.push(...recapResults.errors)
+      } catch (err: unknown) {
+        results.errors.push(`L10Recap: ${(err as Error).message || 'Recap processing failed'}`)
       }
     }
 
@@ -215,6 +231,105 @@ async function ingestFromGrainMcp(
   }
 
   return { discovered: meetings.length, ingested, notesUsed, coachingIngested, newRefreshToken, errors }
+}
+
+/**
+ * Phase 3: Detect newly-ingested L10 transcripts, generate recaps,
+ * create EOS items, and deliver via Slack.
+ */
+async function processL10Recaps(
+  processedOrgs: Set<string>,
+): Promise<{ recapsSent: number; itemsCreated: number; errors: string[] }> {
+  const errors: string[] = []
+  let recapsSent = 0
+  let itemsCreated = 0
+
+  for (const organizationId of processedOrgs) {
+    // Find L10 transcripts that were just ingested (unprocessed, source='grain', title matches L10)
+    const { data: l10Transcripts } = await supabaseAdmin
+      .from('transcripts')
+      .select('id, title, meeting_date')
+      .eq('organization_id', organizationId)
+      .eq('source', 'grain')
+      .eq('processed', false)
+      .or('title.ilike.%l10%,title.ilike.%level 10%,title.ilike.%level ten%')
+      .order('meeting_date', { ascending: false })
+      .limit(3)
+
+    if (!l10Transcripts || l10Transcripts.length === 0) continue
+
+    for (const transcript of l10Transcripts) {
+      // Dedup: skip if recap already generated for this transcript
+      const alreadyDone = await hasL10RecapBeenGenerated(organizationId, transcript.id)
+      if (alreadyDone) continue
+
+      try {
+        console.log(`L10 Recap: generating for "${transcript.title}"`)
+        const result = await generateL10Recap(organizationId, transcript.id)
+
+        // Deliver recap to #caldera-eos channel
+        const channelId = await getDefaultChannelId(organizationId)
+        if (channelId) {
+          const client = await getSlackClient(organizationId)
+          if (client) {
+            const blocks = formatL10RecapBlocks(result.recap, {
+              issuesCreated: result.issuesCreated,
+              todosCreated: result.todosCreated,
+            })
+            await postBlockMessage(client, channelId, `L10 Recap — ${transcript.title}`, blocks)
+            recapsSent++
+
+            // DM each partner their personal action items
+            for (const [ownerId, items] of result.itemsByOwner) {
+              if (ownerId === 'unassigned' || items.length === 0) continue
+
+              const { data: profile } = await supabaseAdmin
+                .from('profiles')
+                .select('slack_user_id, full_name')
+                .eq('id', ownerId)
+                .single()
+
+              if (profile?.slack_user_id) {
+                const dmChannel = await openDM(client, profile.slack_user_id)
+                if (dmChannel) {
+                  const personalBlocks = formatPersonalL10Blocks(profile.full_name || 'Partner', items)
+                  await postBlockMessage(client, dmChannel, 'Your L10 Action Items', personalBlocks)
+                }
+              }
+            }
+          }
+        }
+
+        itemsCreated += result.issuesCreated + result.todosCreated
+        console.log(`L10 Recap: sent for "${transcript.title}" — ${result.issuesCreated} issues, ${result.todosCreated} todos`)
+      } catch (err: unknown) {
+        errors.push(`L10Recap(${transcript.title}): ${(err as Error).message}`)
+      }
+    }
+  }
+
+  return { recapsSent, itemsCreated, errors }
+}
+
+/**
+ * Get the default Slack channel ID for an organization (from any partner's slack_settings).
+ */
+async function getDefaultChannelId(organizationId: string): Promise<string | null> {
+  const { data } = await supabaseAdmin
+    .from('partner_preferences')
+    .select('config')
+    .eq('organization_id', organizationId)
+    .not('config', 'is', null)
+    .limit(3)
+
+  for (const row of data || []) {
+    const config = row.config as Record<string, unknown> | null
+    const slackSettings = config?.slack_settings as Record<string, unknown> | null
+    if (slackSettings?.default_channel_id) {
+      return slackSettings.default_channel_id as string
+    }
+  }
+  return null
 }
 
 /**
