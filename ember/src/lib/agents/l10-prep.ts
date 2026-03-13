@@ -259,12 +259,12 @@ async function getOwnerMap(organizationId: string): Promise<Map<string, string>>
 
   const { data: profiles } = await supabaseAdmin
     .from('profiles')
-    .select('id, full_name')
+    .select('id, name')
     .in('id', members.map(m => m.user_id))
 
   const map = new Map<string, string>()
   for (const p of profiles || []) {
-    map.set(p.id, p.full_name || 'Unknown')
+    map.set(p.id, p.name || 'Unknown')
   }
   return map
 }

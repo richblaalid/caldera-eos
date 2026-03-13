@@ -429,7 +429,7 @@ async function saveNudgeOutput(organizationId: string, nudge: Nudge): Promise<vo
 async function getPartnerMap(organizationId: string): Promise<Map<string, string>> {
   const { data } = await supabaseAdmin
     .from('profiles')
-    .select('id, full_name')
+    .select('id, name')
     .in('id', (
       await supabaseAdmin
         .from('organization_members')
@@ -439,7 +439,7 @@ async function getPartnerMap(organizationId: string): Promise<Map<string, string
 
   const map = new Map<string, string>()
   for (const profile of data || []) {
-    map.set(profile.id, profile.full_name || 'Unknown')
+    map.set(profile.id, profile.name || 'Unknown')
   }
   return map
 }

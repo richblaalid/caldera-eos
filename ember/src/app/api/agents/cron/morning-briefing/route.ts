@@ -461,7 +461,7 @@ async function deliverL10Prep(
   for (const partner of orgPartners) {
     const { data: profile } = await supabaseAdmin
       .from('profiles')
-      .select('slack_user_id, full_name')
+      .select('slack_user_id, name')
       .eq('id', partner.partner_id)
       .single()
 
@@ -471,7 +471,7 @@ async function deliverL10Prep(
     if (!dmChannel) continue
 
     // Find this partner's rocks and todos
-    const partnerName = profile.full_name || 'Unknown'
+    const partnerName = profile.name || 'Unknown'
     const myRocks = prep.rock_review.rocks.filter(r => r.owner === partnerName)
     const myOverdue = prep.todo_review.carryforward_items
 

@@ -64,7 +64,7 @@ export async function GET(request: NextRequest) {
       for (const member of members || []) {
         const { data: profile } = await supabaseAdmin
           .from('profiles')
-          .select('slack_user_id, full_name')
+          .select('slack_user_id, name')
           .eq('id', member.user_id)
           .single()
 
@@ -73,7 +73,7 @@ export async function GET(request: NextRequest) {
         const dmChannel = await openDM(client, profile.slack_user_id)
         if (!dmChannel) continue
 
-        const partnerName = profile.full_name || 'Unknown'
+        const partnerName = profile.name || 'Unknown'
         const myRocks = prep.rock_review.rocks.filter(r => r.owner === partnerName)
         const myOverdue = prep.todo_review.carryforward_items
 

@@ -285,14 +285,14 @@ async function processL10Recaps(
 
               const { data: profile } = await supabaseAdmin
                 .from('profiles')
-                .select('slack_user_id, full_name')
+                .select('slack_user_id, name')
                 .eq('id', ownerId)
                 .single()
 
               if (profile?.slack_user_id) {
                 const dmChannel = await openDM(client, profile.slack_user_id)
                 if (dmChannel) {
-                  const personalBlocks = formatPersonalL10Blocks(profile.full_name || 'Partner', items)
+                  const personalBlocks = formatPersonalL10Blocks(profile.name || 'Partner', items)
                   await postBlockMessage(client, dmChannel, 'Your L10 Action Items', personalBlocks)
                 }
               }
