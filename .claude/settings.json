@@ -1,0 +1,14 @@
+{
+  "extraKnownMarketplaces": {
+    "caldera": {
+      "source": {
+        "source": "github",
+        "repo": "withcaldera/delivery-plugin"
+      },
+      "autoUpdate": true
+    }
+  },
+  "enabledPlugins": {
+    "delivery@caldera": true
+  }
+}
