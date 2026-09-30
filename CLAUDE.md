@@ -303,3 +303,7 @@ See checkup feature for full implementation.
 | Implementation Plans | `docs/plans/` |
 | Archived v1.0 Docs | `docs/archive/v1.0/` |
 | EOS Reference | `.claude/skills/eos-domain-skill/` |
+
+---
+
+Project docs follow the `delivery` plugin conventions; see `docs/CLAUDE.md` and `delivery.config.json`.
