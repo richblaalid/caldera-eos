@@ -1,0 +1,53 @@
+{
+  "version": 1,
+  "preset": "flat",
+  "project": {
+    "name": "Ember",
+    "client": "Caldera",
+    "sow": null
+  },
+  "paths": {
+    "docsRoot": "docs",
+    "orientation": "docs/CLAUDE.md",
+    "grounding": {
+      "raw": "docs/grounding/raw",
+      "extracts": "docs/grounding/extracts",
+      "openQuestions": "docs/grounding/open-questions.md"
+    },
+    "decisions": {
+      "dir": "docs/adrs",
+      "impactReports": "docs/adrs/impact-reports"
+    },
+    "features": null,
+    "topLevel": {
+      "prd": "docs/prds/PRD-Ember-v2.md",
+      "tech": "docs/System-Design-Document.md",
+      "screens": null,
+      "designSystem": null,
+      "testing": null,
+      "plan": "docs/project_plan/Project-Plan.md",
+      "tasks": "docs/delivery-tasks.md",
+      "glossary": null,
+      "schema": null
+    },
+    "backlog": "docs/backlog.md",
+    "reports": "docs/progress"
+  },
+  "tasks": {
+    "tracker": "local",
+    "statusValues": ["Not Started", "In Progress", "Done", "Deferred"]
+  },
+  "commands": {
+    "lint": "cd ember && npm run lint",
+    "build": "cd ember && npm run build",
+    "test": "cd ember && npm run test"
+  },
+  "reporting": {
+    "buildStart": "2026-10-01",
+    "buildEnd": "2026-12-31",
+    "stages": []
+  },
+  "git": {
+    "autoCommit": false
+  }
+}
